@@ -8,6 +8,23 @@ This repo holds the small "runner" scripts and notes. The heavy lifting (Isaac
 Sim + Isaac Lab) runs inside an NVIDIA Docker container on a remote AWS GPU
 server. Nothing big is installed on your laptop.
 
+## Demos: human seed vs MimicGen synthetic
+
+Left = an original **human** demo; right = a **synthetic** demo MimicGen
+generated from it. More samples + full-quality MP4s in [`demos/`](demos/).
+
+**Franka — cube stacking** (10 human → 1000 synthetic, ~37% generation success)
+
+| Human seed demo | MimicGen synthetic |
+|:---:|:---:|
+| ![franka human](demos/franka_human_0.gif) | ![franka synthetic](demos/franka_synthetic_0.gif) |
+
+**GR1T2 — bimanual pick & place** (human → 1000 synthetic, ~87% generation success)
+
+| Human seed demo | MimicGen synthetic |
+|:---:|:---:|
+| ![gr1t2 human](demos/gr1t2_human_0.gif) | ![gr1t2 synthetic](demos/gr1t2_synthetic_0.gif) |
+
 ## How the pieces fit together
 
 ```
