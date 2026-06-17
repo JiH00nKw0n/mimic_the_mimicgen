@@ -34,6 +34,7 @@ from _common import (
     DATASETS_DIR,
     ISAACLAB_PATH,
     OUTPUTS_DIR,
+    TASK_BASE,
     cp_from_container,
     cp_to_container,
     ensure_container_dirs,
@@ -53,6 +54,10 @@ def main() -> int:
         help="Host path to the HDF5 dataset to replay (default: the full generated set).",
     )
     parser.add_argument("--num-episodes", type=int, default=5, help="How many episodes to record.")
+    parser.add_argument(
+        "--task", default=TASK_BASE,
+        help="Playable env to replay in (the generated file may not store one).",
+    )
     args = parser.parse_args()
 
     require_container()
@@ -77,7 +82,8 @@ def main() -> int:
     print(f"[3/4] Rendering {args.num_episodes} episode(s) to MP4 (headless, cameras on) ...")
     in_container(
         f"./isaaclab.sh -p {INPROC_CONTAINER} "
-        f"--dataset_file {dataset_container} --num_episodes {args.num_episodes} "
+        f"--dataset_file {dataset_container} --task {args.task} "
+        f"--num_episodes {args.num_episodes} "
         f"--video_dir {CONTAINER_OUT}/videos"
     )
 
