@@ -118,8 +118,8 @@ TASKS: dict[str, TaskProfile] = {
         pre_annotated=True,
         enable_pinocchio=True,
         num_envs=20,
-        cam_eye="0.0,-1.1,1.45",
-        cam_lookat="0.0,-0.25,0.95",
+        cam_eye="1.05,-0.85,1.4",
+        cam_lookat="0.0,-0.05,0.9",
     ),
 }
 
