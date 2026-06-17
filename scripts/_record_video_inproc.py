@@ -45,6 +45,14 @@ parser.add_argument("--num_episodes", type=int, default=5, help="How many episod
 parser.add_argument("--video_dir", default="/workspace/isaaclab/outputs/videos", help="Where to write MP4s.")
 parser.add_argument("--fps", type=int, default=30, help="Output video frames per second.")
 parser.add_argument(
+    "--cam_eye", default=None,
+    help="Camera position 'x,y,z' (world). Closer to --cam_lookat = more zoomed in.",
+)
+parser.add_argument(
+    "--cam_lookat", default=None,
+    help="Camera target 'x,y,z' (world), e.g. the table where the action happens.",
+)
+parser.add_argument(
     "--enable_pinocchio", action="store_true", default=False,
     help="Needed for GR1T2: load Pinocchio + register the pick-place task modules.",
 )
@@ -103,6 +111,14 @@ def main() -> None:
     env_cfg = parse_env_cfg(env_name, device=args_cli.device, num_envs=1)
     env_cfg.recorders = {}
     env_cfg.terminations = {}
+
+    # Camera: env.render() uses the "viewer" camera. The default sits far back to
+    # show the whole scene; pass --cam_eye/--cam_lookat to zoom in on the table.
+    if args_cli.cam_eye and args_cli.cam_lookat:
+        env_cfg.viewer.eye = tuple(float(v) for v in args_cli.cam_eye.split(","))
+        env_cfg.viewer.lookat = tuple(float(v) for v in args_cli.cam_lookat.split(","))
+        env_cfg.viewer.origin_type = "world"  # eye/lookat are absolute world coords
+    env_cfg.viewer.resolution = (1280, 720)
 
     # render_mode="rgb_array" makes env.render() return an HxWx3 image array.
     env = gym.make(env_name, cfg=env_cfg, render_mode="rgb_array").unwrapped

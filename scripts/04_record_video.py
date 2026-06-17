@@ -60,8 +60,12 @@ def main() -> int:
         "--task", default=None,
         help="Playable env to replay in (default: the profile's base task).",
     )
+    parser.add_argument("--cam-eye", default=None, help="Override camera position 'x,y,z'.")
+    parser.add_argument("--cam-lookat", default=None, help="Override camera target 'x,y,z'.")
     args = parser.parse_args()
     profile = get_profile(args.profile)
+    cam_eye = args.cam_eye or profile.cam_eye
+    cam_lookat = args.cam_lookat or profile.cam_lookat
 
     require_container()
     dataset_host = Path(args.dataset) if args.dataset else (DATASETS_DIR / profile.generated_file)
@@ -89,6 +93,7 @@ def main() -> int:
         f"./isaaclab.sh -p {INPROC_CONTAINER} {pinocchio}"
         f"--dataset_file {dataset_container} --task {task} "
         f"--num_episodes {args.num_episodes} "
+        f"--cam_eye {cam_eye} --cam_lookat {cam_lookat} "
         f"--video_dir {CONTAINER_OUT}/videos"
     )
 

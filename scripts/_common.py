@@ -86,6 +86,8 @@ class TaskProfile:
     pre_annotated: bool       # True -> the download is already annotated (skip step 2)
     enable_pinocchio: bool    # True -> load Pinocchio + register the GR1T2 task modules
     num_envs: int             # default number of parallel envs for generation
+    cam_eye: str              # default video camera position 'x,y,z' (close-up framing)
+    cam_lookat: str           # default video camera target 'x,y,z'
 
 
 TASKS: dict[str, TaskProfile] = {
@@ -101,6 +103,8 @@ TASKS: dict[str, TaskProfile] = {
         pre_annotated=False,
         enable_pinocchio=False,
         num_envs=10,
+        cam_eye="1.0,0.55,0.5",
+        cam_lookat="0.45,0.0,0.06",
     ),
     "gr1t2": TaskProfile(
         name="gr1t2",
@@ -114,6 +118,8 @@ TASKS: dict[str, TaskProfile] = {
         pre_annotated=True,
         enable_pinocchio=True,
         num_envs=20,
+        cam_eye="0.0,-1.1,1.45",
+        cam_lookat="0.0,-0.25,0.95",
     ),
 }
 
