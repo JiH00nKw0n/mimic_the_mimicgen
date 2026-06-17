@@ -1,0 +1,20 @@
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Third-party Isaac Lab clone ---
+# Isaac Lab is cloned on the remote GPU server (it is large and version-pinned).
+# We never commit it; it is not part of this project's source.
+IsaacLab/
+
+# --- Generated artifacts ---
+# Datasets (HDF5) and outputs (videos, plots, logs) are produced on the remote
+# server and mirrored to your laptop with rsync (setup/sync_from_remote.sh),
+# NOT through git. Keeping them out of git avoids bloating the repo history.
+datasets/
+outputs/
+
+# --- OS noise ---
+.DS_Store
