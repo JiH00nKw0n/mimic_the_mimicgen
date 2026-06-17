@@ -27,3 +27,17 @@ picks, right arm places.
 | ![](gr1t2_human_1.gif) | ![](gr1t2_synthetic_1.gif) |
 
 MP4 — human: [0](gr1t2_human_0.mp4) · [1](gr1t2_human_1.mp4) — synthetic: [0](gr1t2_synthetic_0.mp4) · [1](gr1t2_synthetic_1.mp4)
+
+## Hand-teleoperated over WebRTC → synthetic
+
+Unlike the sets above (NVIDIA's demos), these I recorded myself: teleoperating
+the Franka from a laptop over WebRTC — the GPU server streams the viewport, the
+laptop sends keyboard input — then MimicGen generated synthetic demos from them.
+2 clean seed demos → 15 synthetic.
+
+| My teleop demo (seed) | Synthetic generated from it |
+|:---:|:---:|
+| ![](my_teleop_0.gif) | ![](my_teleop_synthetic_0.gif) |
+| ![](my_teleop_1.gif) | ![](my_teleop_synthetic_1.gif) |
+
+MP4 — teleop: [0](my_teleop_0.mp4) · [1](my_teleop_1.mp4) — synthetic: [0](my_teleop_synthetic_0.mp4) · [1](my_teleop_synthetic_1.mp4)
