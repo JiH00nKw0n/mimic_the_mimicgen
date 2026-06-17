@@ -26,7 +26,7 @@ server. Nothing big is installed on your laptop.
 - The remote server is documented in `robot_data/how_to_use_aws.md`
   (how to connect) and `robot_data/how_to_use_isaac_in_aws.md` (how to run this).
 
-## The pipeline (run these on the remote, inside tmux `mimicgen_jihoon`)
+## The pipeline
 
 | Step | Script | What it does | Where it runs |
 |------|--------|--------------|---------------|
@@ -47,10 +47,7 @@ Then on your **laptop**:
 ## Quick start (remote)
 
 ```bash
-# on the server, inside tmux so long runs survive an SSH drop:
-tmux attach -t mimicgen_jihoon   # or: tmux new -s mimicgen_jihoon
 cd ~/mimicgen_jihoonkwon/mimic_the_mimicgen
-
 python3 scripts/00_setup_container.py
 python3 scripts/01_download_dataset.py
 python3 scripts/02_annotate.py

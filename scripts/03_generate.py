@@ -20,10 +20,6 @@ We keep num_envs at 10 (the tutorial's default for modest hardware). Higher
 values help on big multi-core machines, but this server has only 4 vCPUs so the
 benefit is limited.
 
-Tip: run the full mode inside tmux so it keeps going if your SSH drops:
-    tmux attach -t mimicgen_jihoon   # (or create a new window)
-    python3 scripts/03_generate.py --mode full
-
 Data flow: annotated_dataset.hdf5 (host) -> container -> generate ->
            generated_dataset[_small].hdf5 copied back to host.
 """
