@@ -10,11 +10,12 @@ subtask segment to the new object positions, stitches the segments together,
 and REPLAYS the result in simulation. Only attempts that actually succeed at the
 task are kept. From 10 human demos it produces ~1000 synthetic ones.
 
-Two modes:
-  --mode small : 10 trials, no --headless. A quick sanity check that the whole
-                 pipeline runs and produces at least one success.
-  --mode full  : 1000 trials, --headless (no GUI) for throughput. This is the
-                 real run; expect ~30 min on this server (CPU-bound, 4 vCPUs).
+Two modes (both run headless, since this is a display-less server; you watch
+the robot later via recorded video or WebRTC, not live here):
+  --mode small : 10 trials. A quick sanity check that the whole pipeline runs
+                 and produces at least one success.
+  --mode full  : 1000 trials. The real run; expect ~30 min on this server
+                 (CPU-bound, 4 vCPUs).
 
 We keep num_envs at 10 (the tutorial's default for modest hardware). Higher
 values help on big multi-core machines, but this server has only 4 vCPUs so the
@@ -56,14 +57,13 @@ def main() -> int:
     if not ANNOTATED_HOST.exists():
         sys.exit(f"[ERROR] {ANNOTATED_HOST} not found. Run scripts/02_annotate.py first.")
 
-    # Mode-specific settings.
+    # Mode-specific settings. Both run headless on this display-less server.
+    headless_flag = "--headless"
     if args.mode == "small":
         num_trials = 10
-        headless_flag = ""               # keep rendering on for the quick check
         out_name = "generated_dataset_small.hdf5"
     else:
         num_trials = 1000
-        headless_flag = "--headless"     # no GUI -> faster for the big run
         out_name = "generated_dataset.hdf5"
 
     out_container = f"{CONTAINER_DATA}/{out_name}"

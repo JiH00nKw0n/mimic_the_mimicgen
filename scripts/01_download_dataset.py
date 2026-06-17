@@ -34,8 +34,12 @@ OUT_PATH = DATASETS_DIR / "source_dataset.hdf5"
 
 
 def _progress(block_num: int, block_size: int, total_size: int) -> None:
-    """Print a simple percent-complete line while downloading."""
-    if total_size <= 0:
+    """Print a simple percent-complete line while downloading.
+
+    Only animates on an interactive terminal; when the output is piped (e.g. over
+    SSH) the carriage-return bar would spam the log, so we stay quiet there.
+    """
+    if total_size <= 0 or not sys.stdout.isatty():
         return
     downloaded = block_num * block_size
     pct = min(100.0, downloaded * 100.0 / total_size)
