@@ -17,7 +17,8 @@ By default it records from the full generated dataset; pass --dataset to point
 at a different HDF5 (e.g. the small sanity dataset).
 
 Run it like:
-    python3 scripts/04_record_video.py                 # 5 episodes from the full set
+    python3 scripts/04_record_video.py                       # franka, full set
+    python3 scripts/04_record_video.py --profile gr1t2       # bimanual GR1T2
     python3 scripts/04_record_video.py --num-episodes 3
     python3 scripts/04_record_video.py --dataset datasets/generated_dataset_small.hdf5
 """
@@ -34,10 +35,10 @@ from _common import (
     DATASETS_DIR,
     ISAACLAB_PATH,
     OUTPUTS_DIR,
-    TASK_BASE,
     cp_from_container,
     cp_to_container,
     ensure_container_dirs,
+    get_profile,
     in_container,
     require_container,
 )
@@ -49,19 +50,22 @@ INPROC_CONTAINER = f"{ISAACLAB_PATH}/_record_video_inproc.py"
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Record MP4 videos of replayed demos.")
+    parser.add_argument("--profile", default="franka", help="franka (default) or gr1t2.")
     parser.add_argument(
-        "--dataset", default=str(DATASETS_DIR / "generated_dataset.hdf5"),
-        help="Host path to the HDF5 dataset to replay (default: the full generated set).",
+        "--dataset", default=None,
+        help="Host path to the HDF5 to replay (default: the profile's full generated set).",
     )
     parser.add_argument("--num-episodes", type=int, default=5, help="How many episodes to record.")
     parser.add_argument(
-        "--task", default=TASK_BASE,
-        help="Playable env to replay in (the generated file may not store one).",
+        "--task", default=None,
+        help="Playable env to replay in (default: the profile's base task).",
     )
     args = parser.parse_args()
+    profile = get_profile(args.profile)
 
     require_container()
-    dataset_host = Path(args.dataset)
+    dataset_host = Path(args.dataset) if args.dataset else (DATASETS_DIR / profile.generated_file)
+    task = args.task or profile.base_task
     if not dataset_host.exists():
         sys.exit(f"[ERROR] {dataset_host} not found. Generate it first (scripts/03_generate.py).")
 
@@ -80,9 +84,10 @@ def main() -> int:
 
     # 3) Run the headless replay+record inside the container.
     print(f"[3/4] Rendering {args.num_episodes} episode(s) to MP4 (headless, cameras on) ...")
+    pinocchio = "--enable_pinocchio " if profile.enable_pinocchio else ""
     in_container(
-        f"./isaaclab.sh -p {INPROC_CONTAINER} "
-        f"--dataset_file {dataset_container} --task {args.task} "
+        f"./isaaclab.sh -p {INPROC_CONTAINER} {pinocchio}"
+        f"--dataset_file {dataset_container} --task {task} "
         f"--num_episodes {args.num_episodes} "
         f"--video_dir {CONTAINER_OUT}/videos"
     )

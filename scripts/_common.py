@@ -31,6 +31,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 # ----------------------------------------------------------------------------
@@ -57,14 +58,71 @@ CONTAINER_DATA = f"{ISAACLAB_PATH}/datasets"
 CONTAINER_OUT = f"{ISAACLAB_PATH}/outputs"
 
 # ----------------------------------------------------------------------------
-# Task (environment) names used by the tutorial. Isaac Lab registers many
-# "gym" environments; these are the Franka cube-stacking ones.
-#   - TASK_BASE: the plain environment you record / replay / play in.
-#   - TASK_MIMIC: the same task wrapped with extra Mimic metadata (subtask
-#     boundaries) that the MimicGen data generator needs.
+# Task profiles.
+# We run two examples from the tutorial. A "profile" bundles everything that
+# differs between them so the step scripts can stay generic and you just pass
+# `--profile franka` or `--profile gr1t2`.
+#
+#   franka : single-arm Franka stacking cubes. The provided dataset is RAW
+#            human demos, so we annotate it ourselves (step 2).
+#   gr1t2  : bimanual GR-1 humanoid pick-and-place (left arm picks, right arm
+#            places). NVIDIA provides an ALREADY-annotated dataset, so step 2
+#            is skipped. This env also needs the Pinocchio kinematics library
+#            (`enable_pinocchio`), which the Isaac Lab scripts load specially.
 # ----------------------------------------------------------------------------
-TASK_BASE = "Isaac-Stack-Cube-Franka-IK-Rel-v0"
-TASK_MIMIC = "Isaac-Stack-Cube-Franka-IK-Rel-Mimic-v0"
+_S3 = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/Mimic"
+
+
+@dataclass(frozen=True)
+class TaskProfile:
+    name: str
+    base_task: str            # playable env (record / replay / video)
+    mimic_task: str           # env carrying Mimic subtask metadata (annotate / generate)
+    source_url: str           # dataset downloaded in step 1
+    source_file: str          # local filename for that download
+    annotated_file: str       # dataset step 3 consumes (== source_file when pre-annotated)
+    generated_file: str       # full-run output
+    generated_small_file: str  # sanity-run output
+    pre_annotated: bool       # True -> the download is already annotated (skip step 2)
+    enable_pinocchio: bool    # True -> load Pinocchio + register the GR1T2 task modules
+    num_envs: int             # default number of parallel envs for generation
+
+
+TASKS: dict[str, TaskProfile] = {
+    "franka": TaskProfile(
+        name="franka",
+        base_task="Isaac-Stack-Cube-Franka-IK-Rel-v0",
+        mimic_task="Isaac-Stack-Cube-Franka-IK-Rel-Mimic-v0",
+        source_url=f"{_S3}/franka_stack_datasets/dataset.hdf5",
+        source_file="source_dataset.hdf5",
+        annotated_file="annotated_dataset.hdf5",
+        generated_file="generated_dataset.hdf5",
+        generated_small_file="generated_dataset_small.hdf5",
+        pre_annotated=False,
+        enable_pinocchio=False,
+        num_envs=10,
+    ),
+    "gr1t2": TaskProfile(
+        name="gr1t2",
+        base_task="Isaac-PickPlace-GR1T2-Abs-v0",
+        mimic_task="Isaac-PickPlace-GR1T2-Abs-Mimic-v0",
+        source_url=f"{_S3}/pick_place_datasets/dataset_annotated_gr1.hdf5",
+        source_file="gr1t2_annotated_dataset.hdf5",
+        annotated_file="gr1t2_annotated_dataset.hdf5",  # already annotated
+        generated_file="gr1t2_generated_dataset.hdf5",
+        generated_small_file="gr1t2_generated_dataset_small.hdf5",
+        pre_annotated=True,
+        enable_pinocchio=True,
+        num_envs=20,
+    ),
+}
+
+
+def get_profile(name: str) -> TaskProfile:
+    """Look up a task profile by name, with a friendly error if it's unknown."""
+    if name not in TASKS:
+        sys.exit(f"[ERROR] unknown profile '{name}'. Choose from: {', '.join(TASKS)}")
+    return TASKS[name]
 
 
 # ----------------------------------------------------------------------------

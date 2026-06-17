@@ -36,52 +36,60 @@ from _common import (
     cp_from_container,
     cp_to_container,
     ensure_container_dirs,
+    get_profile,
     in_container,
     require_container,
 )
 
-ANNOTATED_HOST = DATASETS_DIR / "annotated_dataset.hdf5"
-ANNOTATED_CONTAINER = f"{CONTAINER_DATA}/annotated_dataset.hdf5"
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate a synthetic MimicGen dataset.")
+    parser.add_argument("--profile", default="franka", help="franka (default) or gr1t2.")
     parser.add_argument(
         "--mode", choices=["small", "full"], default="small",
-        help="small = 10 trials (sanity check); full = 1000 trials (real run, headless).",
+        help="small = 10 trials (sanity check); full = 1000 trials (real run).",
     )
-    parser.add_argument("--num-envs", type=int, default=10, help="Parallel environments (default 10).")
+    parser.add_argument(
+        "--num-envs", type=int, default=None,
+        help="Parallel environments (default: per-profile - franka 10, gr1t2 20).",
+    )
     args = parser.parse_args()
+    profile = get_profile(args.profile)
+    num_envs = args.num_envs if args.num_envs is not None else profile.num_envs
 
     require_container()
-    if not ANNOTATED_HOST.exists():
-        sys.exit(f"[ERROR] {ANNOTATED_HOST} not found. Run scripts/02_annotate.py first.")
+    annotated_host = DATASETS_DIR / profile.annotated_file
+    annotated_container = f"{CONTAINER_DATA}/{profile.annotated_file}"
+    if not annotated_host.exists():
+        prev = "01_download_dataset.py" if profile.pre_annotated else "02_annotate.py"
+        sys.exit(f"[ERROR] {annotated_host} not found. Run scripts/{prev} --profile {profile.name} first.")
 
     # Mode-specific settings. Both run headless on this display-less server.
     headless_flag = "--headless"
     if args.mode == "small":
         num_trials = 10
-        out_name = "generated_dataset_small.hdf5"
+        out_name = profile.generated_small_file
     else:
         num_trials = 1000
-        out_name = "generated_dataset.hdf5"
+        out_name = profile.generated_file
 
     out_container = f"{CONTAINER_DATA}/{out_name}"
     out_host = DATASETS_DIR / out_name
+    pinocchio = "--enable_pinocchio " if profile.enable_pinocchio else ""
 
     ensure_container_dirs()
 
     # 1) Make sure the annotated dataset is present inside the container.
     print("[1/3] Copying annotated dataset into the container ...")
-    cp_to_container(ANNOTATED_HOST, ANNOTATED_CONTAINER)
+    cp_to_container(annotated_host, annotated_container)
 
     # 2) Run MimicGen generation inside the container.
-    print(f"[2/3] Generating {num_trials} demos (mode={args.mode}, num_envs={args.num_envs}) ...")
+    print(f"[2/3] Generating {num_trials} demos (profile={profile.name}, mode={args.mode}, num_envs={num_envs}) ...")
     in_container(
         "./isaaclab.sh -p scripts/imitation_learning/isaaclab_mimic/generate_dataset.py "
-        f"--device cpu {headless_flag} --num_envs {args.num_envs} "
+        f"--device cpu {headless_flag} {pinocchio}--num_envs {num_envs} "
         f"--generation_num_trials {num_trials} "
-        f"--input_file {ANNOTATED_CONTAINER} --output_file {out_container}"
+        f"--input_file {annotated_container} --output_file {out_container}"
     )
 
     # 3) Copy the generated dataset back to the host.
@@ -90,9 +98,9 @@ def main() -> int:
 
     print(f"\nOK: {out_host}")
     if args.mode == "small":
-        print("Sanity run done. For the real run: python3 scripts/03_generate.py --mode full")
+        print(f"Sanity run done. Real run: python3 scripts/03_generate.py --profile {profile.name} --mode full")
     else:
-        print("Next: record a video -> python3 scripts/04_record_video.py")
+        print(f"Next: record a video -> python3 scripts/04_record_video.py --profile {profile.name}")
     return 0
 
 

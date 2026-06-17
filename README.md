@@ -44,6 +44,14 @@ Then on your **laptop**:
 | sync | `bash setup/sync_from_remote.sh` | Pull datasets + videos down |
 | 4b | `python3 scripts/04b_inspect_dataset.py` | Summary + plots (no simulator) |
 
+### Two task profiles
+
+Every step takes `--profile`:
+- `--profile franka` (default): single-arm Franka stacking cubes.
+- `--profile gr1t2`: bimanual GR-1 humanoid pick-and-place (left arm picks,
+  right arm places) - closer to a real bimanual task. Its dataset ships
+  pre-annotated, so step 2 is a no-op; run 1 → 3 → 4 with `--profile gr1t2`.
+
 ## Quick start (remote)
 
 ```bash

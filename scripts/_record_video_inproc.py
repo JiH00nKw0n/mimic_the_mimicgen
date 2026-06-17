@@ -44,9 +44,19 @@ parser.add_argument("--task", default=None, help="Task name (default: read from 
 parser.add_argument("--num_episodes", type=int, default=5, help="How many episodes to record.")
 parser.add_argument("--video_dir", default="/workspace/isaaclab/outputs/videos", help="Where to write MP4s.")
 parser.add_argument("--fps", type=int, default=30, help="Output video frames per second.")
+parser.add_argument(
+    "--enable_pinocchio", action="store_true", default=False,
+    help="Needed for GR1T2: load Pinocchio + register the pick-place task modules.",
+)
 # This adds Isaac Lab's standard flags (--headless, --enable_cameras, --device, ...).
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+
+# GR1T2 needs Pinocchio. Isaac Lab's own scripts import it BEFORE the simulator
+# starts, to force the version Isaac Lab installed (not Isaac Sim's). We mirror
+# that ordering exactly.
+if args_cli.enable_pinocchio:
+    import pinocchio  # noqa: F401
 
 # Force the two flags we need for offscreen video on a headless box.
 args_cli.headless = True
@@ -66,6 +76,13 @@ import torch
 
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
+
+# GR1T2's gym environments are not registered by default; importing these task
+# packages (after the app has started) registers them so gym.make() can find
+# the pick-place task. Harmless to skip for franka.
+if args_cli.enable_pinocchio:
+    import isaaclab_tasks.manager_based.locomanipulation.pick_place  # noqa: F401
+    import isaaclab_tasks.manager_based.manipulation.pick_place  # noqa: F401
 
 
 def main() -> None:
