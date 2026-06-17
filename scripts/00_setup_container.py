@@ -26,14 +26,16 @@ Run it like:
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 from _common import CONTAINER_NAME, container_running, ensure_container_dirs, in_container, run
 
-# Where the Isaac Lab repo is cloned on the remote host. `container.py` and the
-# docker-compose files live under its `docker/` folder.
-ISAACLAB_REPO = Path.home() / "mimicgen_jihoonkwon" / "IsaacLab"
+# Where the Isaac Lab repo is cloned on the server. `container.py` and the
+# docker-compose files live under its `docker/` folder. Override with the
+# ISAACLAB_REPO env var if you cloned it somewhere else.
+ISAACLAB_REPO = Path(os.environ.get("ISAACLAB_REPO", Path.home() / "mimicgen_jihoonkwon" / "IsaacLab"))
 
 
 def check_gpu_docker() -> None:

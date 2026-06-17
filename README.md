@@ -1,92 +1,158 @@
 # mimic_the_mimicgen
 
-NVIDIA **Isaac Lab Mimic** (MimicGen) hands-on: take 10 human teleoperation
-demos of a Franka arm stacking cubes and automatically multiply them into ~1000
-synthetic demos, then view the result.
+Reproduce NVIDIA **Isaac Lab Mimic** end to end: take a handful of human
+teleoperation demos and automatically multiply them into ~1000 synthetic demos
+you can train on. Two tasks are included:
 
-This repo holds the small "runner" scripts and notes. The heavy lifting (Isaac
-Sim + Isaac Lab) runs inside an NVIDIA Docker container on a remote AWS GPU
-server. Nothing big is installed on your laptop.
+- **Franka — cube stacking** (single arm) — the **MimicGen** method.
+- **GR1T2 — pick & place** (bimanual humanoid) — the **DexMimicGen** method
+  (MimicGen extended to two arms: left arm picks, right arm places).
 
-## Demos: human seed vs MimicGen synthetic
+Everything heavy (Isaac Sim + Isaac Lab) runs inside NVIDIA's official Docker
+container, so you only need a Linux box with an RTX GPU — no manual Python/CUDA
+setup. The step scripts here just drive that container.
 
-Left = an original **human** demo; right = a **synthetic** demo MimicGen
-generated from it. More samples + full-quality MP4s in [`demos/`](demos/).
+## Demos: human seed vs synthetic
 
-**Franka — cube stacking** (10 human → 1000 synthetic, ~37% generation success)
+MimicGen/DexMimicGen start from a few human demos and adapt them to new object
+placements, replaying each in simulation and keeping the successful ones. Below:
+the original **human** demo (left) next to a **synthetic** demo generated from
+it (right). Full-quality MP4s are in [`demos/`](demos/).
+
+### Franka — cube stacking (MimicGen, single arm)
+
+10 human demos → 1000 synthetic demos (~37% generation success rate).
 
 | Human seed demo | MimicGen synthetic |
 |:---:|:---:|
-| ![franka human](demos/franka_human_0.gif) | ![franka synthetic](demos/franka_synthetic_0.gif) |
+| ![](demos/franka_human_0.gif) | ![](demos/franka_synthetic_0.gif) |
+| ![](demos/franka_human_1.gif) | ![](demos/franka_synthetic_1.gif) |
 
-**GR1T2 — bimanual pick & place** (human → 1000 synthetic, ~87% generation success)
+### GR1T2 — pick & place (DexMimicGen, bimanual)
 
-| Human seed demo | MimicGen synthetic |
+Pre-annotated human demos → 1000 synthetic demos (~87% generation success rate).
+
+| Human seed demo | DexMimicGen synthetic |
 |:---:|:---:|
-| ![gr1t2 human](demos/gr1t2_human_0.gif) | ![gr1t2 synthetic](demos/gr1t2_synthetic_0.gif) |
+| ![](demos/gr1t2_human_0.gif) | ![](demos/gr1t2_synthetic_0.gif) |
+| ![](demos/gr1t2_human_1.gif) | ![](demos/gr1t2_synthetic_1.gif) |
 
-## How the pieces fit together
+## How it works
 
-```
-  YOUR LAPTOP                         REMOTE GPU SERVER (ssh arpa-a6000)
-  -----------                         ---------------------------------
-  robot_data/mimic_the_mimicgen  ──git push──►  ~/mimicgen_jihoonkwon/mimic_the_mimicgen
-        ▲                                              │ runs scripts 00..04
-        │ rsync (datasets, outputs)                    ▼
-        └───────────────────────────────  docker container "isaac-lab-base"
-                                           (Isaac Sim 5.1 + Isaac Lab live here)
-```
+MimicGen splits each human demo into object-centric subtasks (grasp cube, place
+cube, ...), transforms each subtask to wherever the objects are in a new
+randomized scene, stitches the pieces together, and replays the result in
+simulation — keeping only attempts that actually succeed. From ~10 human demos
+it produces ~1000 synthetic ones.
 
-- **Code** moves through git.
-- **Data** (HDF5 datasets, MP4 videos, plots) is large, so it is mirrored back
-  to your laptop with `rsync` (`setup/sync_from_remote.sh`), not git.
-- The remote server is documented in `robot_data/how_to_use_aws.md`
-  (how to connect) and `robot_data/how_to_use_isaac_in_aws.md` (how to run this).
+DexMimicGen generalizes this to two arms: subtasks are defined per end-effector
+(`left` / `right`), so a bimanual task like "left hand picks, right hand places"
+can be generated the same way. In Isaac Lab both live in the same data generator
+— single-arm tasks behave like MimicGen, multi-arm tasks like DexMimicGen.
 
-## The pipeline
+## Requirements
 
-| Step | Script | What it does | Where it runs |
-|------|--------|--------------|---------------|
-| 0 | `scripts/00_setup_container.py` | Build + start the Isaac Lab container | remote host |
-| 1 | `scripts/01_download_dataset.py` | Download the 10 human demos (HDF5) | remote host |
-| 2 | `scripts/02_annotate.py` | Auto-annotate subtask boundaries | container |
-| 3 | `scripts/03_generate.py --mode small` | Sanity check: generate 10 demos | container |
-| 3 | `scripts/03_generate.py --mode full` | Real run: generate ~1000 demos | container |
-| 4 | `scripts/04_record_video.py` | Render replayed demos to MP4 (headless) | container |
+- A Linux box with an **RTX GPU** (needs RT cores; e.g. L40S, RTX 6000, RTX 40xx).
+- **Docker** + the **NVIDIA Container Toolkit** (so the container sees the GPU):
+  ```bash
+  docker run --rm --gpus all nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi -L
+  ```
+  This should print your GPU. If not, install the container toolkit first.
 
-Then on your **laptop**:
+## 1. Set up Isaac Lab (one time, on the GPU box)
 
-| Step | Command | What it does |
-|------|---------|--------------|
-| sync | `bash setup/sync_from_remote.sh` | Pull datasets + videos down |
-| 4b | `python3 scripts/04b_inspect_dataset.py` | Summary + plots (no simulator) |
-
-### Two task profiles
-
-Every step takes `--profile`:
-- `--profile franka` (default): single-arm Franka stacking cubes.
-- `--profile gr1t2`: bimanual GR-1 humanoid pick-and-place (left arm picks,
-  right arm places) - closer to a real bimanual task. Its dataset ships
-  pre-annotated, so step 2 is a no-op; run 1 → 3 → 4 with `--profile gr1t2`.
-
-## Quick start (remote)
+Isaac Lab ships a Docker workflow that pulls NVIDIA's `isaac-sim` image and
+builds on top of it. The first run downloads ~23 GB and takes a while; after
+that it is cached.
 
 ```bash
-cd ~/mimicgen_jihoonkwon/mimic_the_mimicgen
-python3 scripts/00_setup_container.py
-python3 scripts/01_download_dataset.py
-python3 scripts/02_annotate.py
-python3 scripts/03_generate.py --mode small     # quick check
-python3 scripts/03_generate.py --mode full      # ~30 min, ~1000 demos
-python3 scripts/04_record_video.py              # MP4s under outputs/videos/
+git clone https://github.com/isaac-sim/IsaacLab.git
+cd IsaacLab
+# Build + start the container. It asks once about X11 forwarding; answer "n"
+# on a headless server (we pipe it in here).
+printf 'n\n' | python3 docker/container.py start
 ```
 
-## Notes
-- `scripts/_common.py` holds shared constants (container name, task names, paths)
-  and the `docker exec` / `docker cp` helpers used by the step scripts.
-- `scripts/_record_video_inproc.py` runs *inside* the container (launched by
-  step 4); you do not call it directly.
-- `notes/teleop_pipeline.md` is a cheat-sheet of the underlying Isaac Lab
-  commands and task names.
-- **Cost:** the GPU server bills per hour and is shared. Stop the instance when
-  you are done (see `how_to_use_aws.md`).
+This creates a running container named **`isaac-lab-base`** with Isaac Sim 5.1 +
+Isaac Lab inside, at `/workspace/isaaclab`. Handy commands:
+
+```bash
+python3 docker/container.py enter base   # shell inside the container
+python3 docker/container.py stop         # stop + remove it
+```
+
+## 2. Run the demo pipeline (on the GPU box)
+
+Clone this repo next to Isaac Lab and run the steps in order. Long runs are best
+inside `tmux` so they survive an SSH drop. If your Isaac Lab clone is not at
+`~/mimicgen_jihoonkwon/IsaacLab`, point `00` at it with `ISAACLAB_REPO=/path/to/IsaacLab`.
+
+```bash
+git clone https://github.com/JiH00nKw0n/mimic_the_mimicgen.git
+cd mimic_the_mimicgen
+
+# --- Franka (single arm, MimicGen) ---
+python3 scripts/00_setup_container.py        # verify container + GPU
+python3 scripts/01_download_dataset.py       # 10 human demos (HDF5)
+python3 scripts/02_annotate.py               # auto-label subtask boundaries
+python3 scripts/03_generate.py --mode small  # sanity check: 10 synthetic demos
+python3 scripts/03_generate.py --mode full   # real run: ~1000 demos
+python3 scripts/04_record_video.py           # render close-up MP4s
+
+# --- GR1T2 (bimanual, DexMimicGen) ---
+# Its dataset is already annotated, so step 2 is skipped.
+python3 scripts/01_download_dataset.py --profile gr1t2
+python3 scripts/03_generate.py --profile gr1t2 --mode small
+python3 scripts/03_generate.py --profile gr1t2 --mode full
+python3 scripts/04_record_video.py --profile gr1t2
+```
+
+What each step writes (under this repo):
+- `datasets/source_dataset.hdf5` — the human seed demos
+- `datasets/annotated_dataset.hdf5` — demos + subtask boundaries
+- `datasets/generated_dataset.hdf5` — the ~1000 synthetic demos
+- `outputs/videos/*.mp4` — rendered videos
+
+Isaac Lab runs inside the container, so the scripts move datasets in/out with
+`docker cp` automatically — you don't manage that.
+
+## 3. Get the results onto your laptop
+
+Code travels through git; the large datasets/videos are mirrored with rsync. On
+your **laptop** (set `REMOTE` to your server's SSH host):
+
+```bash
+REMOTE=my-gpu-box bash setup/sync_from_remote.sh   # pulls datasets/ + outputs/
+open outputs/videos/                               # watch the MP4s
+```
+
+Quick numeric summary + plots without a simulator:
+
+```bash
+pip install h5py matplotlib numpy
+python3 scripts/04b_inspect_dataset.py
+```
+
+## Scripts
+
+| Script | Stage | Runs on |
+|--------|-------|---------|
+| `scripts/00_setup_container.py` | Build + start the Isaac Lab container | GPU box |
+| `scripts/01_download_dataset.py` | Download the human seed demos | GPU box |
+| `scripts/02_annotate.py` | Auto-annotate subtask boundaries | container |
+| `scripts/03_generate.py` | Generate ~1000 synthetic demos | container |
+| `scripts/04_record_video.py` | Render close-up demo videos | container |
+| `scripts/04b_inspect_dataset.py` | Summary + plots (no simulator) | laptop |
+| `setup/sync_from_remote.sh` | Mirror datasets/videos to laptop | laptop |
+
+Every step takes `--profile {franka,gr1t2}` (default `franka`).
+`scripts/_common.py` holds the shared constants (container name, task names,
+per-profile dataset URLs and camera angles); `scripts/_record_video_inproc.py`
+runs inside the container during step 4. `notes/teleop_pipeline.md` lists the
+raw Isaac Lab commands the scripts wrap.
+
+## Credits
+
+Built on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab). Methods:
+MimicGen ([Mandlekar et al., 2023](https://arxiv.org/abs/2310.17596)) and
+DexMimicGen ([Jiang et al., 2025](https://arxiv.org/abs/2410.24185)).

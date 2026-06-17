@@ -17,9 +17,10 @@
 #
 set -euo pipefail
 
-# SSH host alias from ~/.ssh/config (see how_to_use_aws.md).
-REMOTE="arpa-a6000"
-REMOTE_REPO="mimicgen_jihoonkwon/mimic_the_mimicgen"
+# Your server's SSH host (from ~/.ssh/config) and the repo path on it.
+# Override per machine, e.g.:  REMOTE=my-gpu-box bash setup/sync_from_remote.sh
+REMOTE="${REMOTE:-arpa-a6000}"
+REMOTE_REPO="${REMOTE_REPO:-mimicgen_jihoonkwon/mimic_the_mimicgen}"
 
 # Resolve this repo's root (the parent of this setup/ folder) regardless of
 # where the script is called from.
