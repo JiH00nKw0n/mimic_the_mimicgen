@@ -37,6 +37,18 @@ Pre-annotated human demos → 1000 synthetic demos (~87% generation success rate
 | ![](demos/gr1t2_human_0.gif) | ![](demos/gr1t2_synthetic_0.gif) |
 | ![](demos/gr1t2_human_1.gif) | ![](demos/gr1t2_synthetic_1.gif) |
 
+### Bonus: my own demos, teleoperated over WebRTC
+
+The sets above use NVIDIA's demos. These I recorded myself — teleoperating the
+Franka from a laptop over WebRTC (the GPU server streams the viewport, the
+laptop sends keyboard input; see `scripts/05_teleop_record.py`) — then generated
+synthetic demos from them.
+
+| My teleop demo (seed) | Synthetic generated from it |
+|:---:|:---:|
+| ![](demos/my_teleop_0.gif) | ![](demos/my_teleop_synthetic_0.gif) |
+| ![](demos/my_teleop_1.gif) | ![](demos/my_teleop_synthetic_1.gif) |
+
 ## How it works
 
 MimicGen splits each human demo into object-centric subtasks (grasp cube, place
