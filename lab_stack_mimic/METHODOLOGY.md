@@ -271,7 +271,86 @@ CPU; since our annotate/generate pipeline runs on CPU, the CPU count is the rele
 
 ---
 
-## 10. How to run
+## 10. Task difficulty distributions (D0/D1/D2) — and what our setup corresponds to
+
+MimicGen evaluates each task at increasingly broad **reset distributions** — the region
+and orientation over which objects are initialized. This is the single biggest lever on
+the data-generation rate, and it explains our DGR directly.
+
+**The variants** (paper Sec. 5). Only **D0 and D1** exist for the Stack family — there is
+no Stack / Stack-Three D2 (the paper tables and the code registry both stop at D1):
+
+- **D0** — the *default* distribution. **All source demos are collected on D0.** Note D0
+  is already a *region*, not a single fixed pose.
+- **D1** — a broader region (objects initialized over a much larger area).
+- **D2** — broader still; only some other tasks (e.g. Threading, Coffee) have one.
+
+**Exact bounds** (`NVlabs/mimicgen` → `mimicgen/envs/robosuite/stack.py`,
+`_get_initial_placement_bounds`; the ± values are half-ranges, so ±0.10 = a 0.20 m span;
+cross-checked against the paper's Appendix L prose):
+
+| Variant | cube x,y (half-range) | full region | cube z-rotation |
+|---|---|---|---|
+| Stack D0 | ±0.08 m | 0.16 × 0.16 m | **0–360°** |
+| Stack D1 | ±0.20 m | 0.40 × 0.40 m | 0–360° |
+| Stack Three D0 | ±0.10 m | 0.20 × 0.20 m | **0–360°** |
+| Stack Three D1 | ±0.20 m | 0.40 × 0.40 m | 0–360° |
+
+Every variant randomizes a **full 360° top-down cube rotation**, and the 10 source demos
+are recorded *across* this distribution — so the source already spans D0, rotation included.
+
+**Results** (paper; max over 3 seeds):
+
+| Task | DGR D0 | DGR D1 | policy: source-only → D0 → D1 |
+|---|---|---|---|
+| Stack | 94.3% | 90.0% | 26.0% → 100.0% → 99.3% |
+| Stack Three | **71.3%** | 68.9% | 0.7% → 92.7% → 86.7% |
+
+(DGR = Appendix P / Table P.1; policy = image BC-RNN trained on 1000 generated demos,
+Sec. 6.1. Source-only = a policy trained on just the 10 human demos.)
+
+Two things to take from this:
+
+1. **DGR barely drops D0 → D1** (71.3 → 68.9) even though the region *quadruples* (0.20² →
+   0.40² m). MimicGen's object-frame transform extrapolates well across region **size** —
+   *when the source spans the rotation distribution.*
+2. **Source-only policies are near-useless** (Stack Three: 0.7%); the generated data is what
+   makes them work (92.7%). DGR and policy quality are decoupled (§7) — a low DGR costs
+   wall-clock, not data quality.
+
+### What OUR setup corresponds to
+
+This is the real reason our fwd DGR is ~13% (scale 1.0) / ~20% (scale 0.5) rather than ~70%:
+
+| | source distribution | generation distribution |
+|---|---|---|
+| paper Stack Three | **spans D0**: 0.20×0.20 m region **+ 0–360° rotation**, the 10 demos cover it | D0 (same) or D1 (2× region) |
+| ours | **a single fixed pose**: cubes at x=0.25, y=0.038/0.138/0.238, **yaw=0** (all 29 demos identical) | x∈[0.22,0.40] (0.18 m), y∈[0.00,0.28] (0.28 m), **yaw ±0.5 rad ≈ ±29°** |
+
+Our *generation region* (≈0.18×0.28 m, ±29°) is actually **between D0 and D1 in size and far
+less rotation than the paper's 360°** — by the paper's own knobs it is *easier* than even D1.
+Our DGR is nonetheless much lower because of the **source side**: the paper's source spans its
+generation distribution (especially rotation), whereas **our 29 seeds are a single fixed
+layout with zero rotation** (jake recorded teleop with cube randomization off; see §9). So
+every randomized, rotated scene we generate is pure *extrapolation* from one configuration,
+and the cube-rotation extrapolation in particular collides with the FR3 wrist near-singularity
+(see `GENERATION_DEBUG.md`) — which is exactly where the dominant failure sits (subtask 1,
+stacking the middle cube, ~48% pass; the remaining failures split grasp-green/stack-green and
+grasp-red).
+
+### Implication
+
+To raise DGR toward the paper's regime, the highest-leverage fix is to make the **source span
+the generation distribution** — re-collect a handful of teleop seeds with cube randomization
+**on, including rotation**, mirroring how the paper collects its D0 source. Failing that,
+**narrow the generation range** toward the seeds' single pose and shrink the yaw range
+(approach D0), trading diversity for DGR. Keeping the broad range is also legitimate — it is
+MimicGen's intended *single-config → many* amplification, just at a lower DGR (more attempts),
+and DGR does not bound the trained policy's quality.
+
+---
+
+## 11. How to run
 
 Runtime is the **UWLab native env** (`env_uwlab`), not the docker container — the lab
 assets and `isaaclab_mimic` live there. `run_*.sh` set the environment (mirrors
@@ -290,7 +369,7 @@ python canonicalize.py --src <success.hdf5> --dst <canonical.hdf5>
 
 ---
 
-## 11. Key file references (official, on `arpa-l40s`)
+## 12. Key file references (official, on `arpa-l40s`)
 
 Root: `/home/ubuntu/jake/UWLab/_isaaclab/IsaacLab/`
 

@@ -31,10 +31,19 @@ source /home/ubuntu/jake/env_uwlab/bin/activate
 
 PATCHED=/tmp/generate_lab.py
 cp "$R/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py" "$PATCHED"
-sed -i 's|^import isaaclab_mimic.envs.*|&\nimport lab_register|' "$PATCHED"
+# inject our task registration + source-usage provenance capture (shared source untouched)
+sed -i 's|^import isaaclab_mimic.envs.*|&\nimport lab_register\nimport provenance_hooks|' "$PATCHED"
 grep -q "^import lab_register" "$PATCHED" || { echo "ERROR: failed to inject lab_register import"; exit 1; }
+grep -q "^import provenance_hooks" "$PATCHED" || { echo "ERROR: failed to inject provenance_hooks import"; exit 1; }
 
-echo "[run_generate] group=$GROUP task=$TASK device=$DEVICE trials=$NUM_TRIALS num_envs=$NUM_ENVS"
+# generation IK-rel scale: 0.5 (official; gentler than the teleop-faithful 1.0 → higher DGR)
+export LAB_ARM_SCALE="${LAB_ARM_SCALE:-0.5}"
+# provenance output: which source seed fed each subtask of each kept demo
+export LAB_PROVENANCE_INPUT="$INPUT"
+export LAB_PROVENANCE_OUT="${LAB_PROVENANCE_OUT:-${OUTPUT%.hdf5}.provenance.json}"
+
+echo "[run_generate] group=$GROUP task=$TASK device=$DEVICE trials=$NUM_TRIALS num_envs=$NUM_ENVS scale=$LAB_ARM_SCALE"
+echo "[run_generate] provenance -> $LAB_PROVENANCE_OUT"
 PYTHONPATH="$HERE:${PYTHONPATH:-}" python "$PATCHED" \
   --task "$TASK" --headless --device "$DEVICE" --num_envs "$NUM_ENVS" \
   --generation_num_trials "$NUM_TRIALS" \

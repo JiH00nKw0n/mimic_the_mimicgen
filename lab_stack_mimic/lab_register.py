@@ -1,13 +1,15 @@
 """Register the lab FR3 3-cube-stack Mimic gym tasks (forward + reverse order).
 
 Imported (after Isaac Sim launches) by the annotate/generate runners so that
-`gym.make("Isaac-Stack-Cube-LabFR3-{Fwd,Rev}-IK-Rel-Mimic-v0")` resolves to the
-official FrankaCubeStackIKRelMimicEnv class with our lab env config.
+`gym.make("Isaac-Stack-Cube-LabFR3-{Fwd,Rev}-IK-Rel-Mimic-v0")` resolves to our
+LabFR3CubeStackIKRelMimicEnv (a FrankaCubeStackIKRelMimicEnv subclass that fixes
+the IK-rel action frame for the yaw-180 FR3 base — see lab_mimic_env.py) with our
+lab env config.
 """
 
 import gymnasium as gym
 
-ENTRY = "isaaclab_mimic.envs.franka_stack_ik_rel_mimic_env:FrankaCubeStackIKRelMimicEnv"
+ENTRY = "lab_mimic_env:LabFR3CubeStackIKRelMimicEnv"
 
 _TASKS = {
     "Isaac-Stack-Cube-LabFR3-Fwd-IK-Rel-Mimic-v0": "lab_mimic_cfg:LabFR3CubeStackFwdMimicEnvCfg",
