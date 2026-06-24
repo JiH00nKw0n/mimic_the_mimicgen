@@ -24,17 +24,50 @@ from __future__ import annotations
 
 import os
 
+import torch
+
 import isaaclab.sim as sim_utils
 import isaaclab.envs.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_mimic.envs.franka_stack_ik_rel_mimic_env_cfg import FrankaCubeStackIKRelMimicEnvCfg
+
+# FR3 home joint pose the teleop demos start from (states[0]); joint order is
+# fr3_joint1..7 then the two fingers. joint6 is 2.25 (the FR3 soft-limit-clamped
+# value of jake's 3.037 init).
+FR3_HOME_JOINT_POSE = [0.0, -0.569, 0.0, -2.810, 0.0, 2.25, 0.741, 0.04, 0.04]
+# Small per-reset arm-joint jitter (rad std), applied on top of the home pose so generation
+# keeps the official Franka reset's start-state diversity (stock std 0.02). Fingers are not
+# jittered. Seeded by generate_dataset.py's torch.manual_seed, so it stays reproducible.
+ARM_JITTER_STD = float(os.environ.get("LAB_ARM_JITTER", "0.02"))
+
+
+def reset_arm_to_home(env, env_ids, pose=FR3_HOME_JOINT_POSE, arm_jitter_std=ARM_JITTER_STD):
+    """Reset event: TELEPORT the FR3 to the demo home pose via write_joint_state_to_sim.
+
+    The stock franka reset uses set_default_joint_pose (buffer only) + a gaussian event
+    that calls set_joint_position_target (a PD *target*, not an instantaneous write). That
+    leaves the arm at the USD ~zero pose for the first post-reset step, which is what broke
+    generation (arm starts pointing up, EE ~0.7 m too high, can't reach the first waypoint).
+    Writing the joint STATE directly puts the arm exactly at the home pose immediately, which
+    is where the source trajectories begin. A small gaussian jitter on the 7 arm joints
+    recovers the start-state diversity the stock gaussian reset provided.
+    """
+    robot = env.scene["robot"]
+    n = len(env_ids)
+    p = torch.tensor(pose, device=env.device, dtype=torch.float32).repeat(n, 1)
+    if arm_jitter_std > 0.0:
+        noise = arm_jitter_std * torch.randn((n, p.shape[1]), device=env.device)
+        noise[:, -2:] = 0.0  # leave the two fingers at the open value
+        p = p + noise
+    robot.write_joint_state_to_sim(p, torch.zeros_like(p), env_ids=env_ids)
 
 # Lab geometry (mirrors lab_teleop.py). Table USD overridable via env var.
 LAB_TABLE_USD = os.environ.get("LAB_TABLE_USD", "/home/ubuntu/jake/aidas/3cube_stack/table_scene.usdc")
@@ -49,6 +82,14 @@ BASE_XY = (0.32, 0.138)
 #   success gripper-open tolerance isclose 1e-4 -> 1e-2 (FR3 binary gripper settles near, not exactly, 0.04)
 GRASP_DIFF_THRESHOLD = 0.08
 SUCCESS_GRIPPER_ATOL = 1e-2
+
+# IK-rel action scale. Teleop/annotation use 1.0 (matches the recorded demos: jake's
+# lab_teleop.py uses scale=1.0). GENERATION re-derives actions via target_eef_pose_to_action,
+# whose raw deltas can be large; at scale=1.0 a saturated command applies a full ~1 rad/step
+# rotation, the wrist overshoots and the arm whips into a boundary singularity -> 0% DGR.
+# The official MimicGen Franka uses scale=0.5 for exactly this reason. So generation overrides
+# this to 0.5 via LAB_ARM_SCALE; annotation leaves it at the teleop-faithful 1.0.
+ARM_SCALE = float(os.environ.get("LAB_ARM_SCALE", "1.0"))
 
 FR3_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
@@ -112,7 +153,7 @@ def _apply_lab_overrides(self):
     self.scene.cube_3 = _cube_cfg("Cube_3", (1.0, 1.0, 0.0), (BASE_XY[0], BASE_XY[1] + 0.10))
 
     self.actions.arm_action = DifferentialInverseKinematicsActionCfg(
-        asset_name="robot", joint_names=["fr3_joint.*"], body_name="fr3_hand", scale=1.0,
+        asset_name="robot", joint_names=["fr3_joint.*"], body_name="fr3_hand", scale=ARM_SCALE,
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=(0.0, 0.0, 0.1034)),
     )
@@ -133,10 +174,15 @@ def _apply_lab_overrides(self):
                 .replace("panda_leftfinger", "fr3_leftfinger")
             )
 
-    # drop Franka-specific ROBOT reset events (panda pose; FR3 uses its own init_state)
-    for ev in ("init_franka_arm_pose", "randomize_franka_joint_state"):
-        if hasattr(self.events, ev):
-            setattr(self.events, ev, None)
+    # Reset the FR3 arm to the demos' START pose on every reset. CRITICAL for generation:
+    # the stock reset never writes the arm joint STATE to sim immediately (set_default_joint_pose
+    # is buffer-only; the gaussian event only sets a PD target), so the arm stays at the USD
+    # ~zero pose (pointing up, EE ~0.7 m too high) and the regenerated IK-rel trajectory can't
+    # reach the first waypoint -> 0% DGR. We replace those two events with one that TELEPORTS
+    # the arm to the demo home pose. Annotation is unaffected (reset_to overrides the state).
+    self.events.init_franka_arm_pose = EventTerm(func=reset_arm_to_home, mode="reset", params={})
+    if hasattr(self.events, "randomize_franka_joint_state"):
+        self.events.randomize_franka_joint_state = None
 
     # cube randomization: keep ON but retarget to the LAB desk. Generation NEEDS this to
     # create new randomized scenes; the stock range is Franka tutorial coords
