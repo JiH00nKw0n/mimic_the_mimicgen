@@ -16,5 +16,13 @@ IsaacLab/
 datasets/
 outputs/
 
+# --- Research notes (private; not part of the shipped pipeline) ---
+research/
+
 # --- OS noise ---
 .DS_Store
+
+# Rendered videos/gifs/frames are outputs (regenerate from datasets)
+lab_stack_mimic/videos/
+*.mp4
+*.gif

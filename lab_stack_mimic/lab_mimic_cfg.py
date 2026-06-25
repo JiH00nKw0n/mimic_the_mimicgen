@@ -184,14 +184,25 @@ def _apply_lab_overrides(self):
     if hasattr(self.events, "randomize_franka_joint_state"):
         self.events.randomize_franka_joint_state = None
 
-    # cube randomization: keep ON but retarget to the LAB desk. Generation NEEDS this to
-    # create new randomized scenes; the stock range is Franka tutorial coords
-    # (z=0.0203 table height, x 0.4-0.6) which is off the lab desk. Annotation overrides
-    # cube poses via reset_to(recorded_state), so this is harmless there.
+    # cube randomization for GENERATION. Matched to the random-spawn source dataset
+    # (teleop_random_success.hdf5: measured cube spawn x[0.150,0.380], y[0.008,0.273],
+    # yaw=0) so that generation samples the SAME distribution the source demos span
+    # (paper-style D0: source covers the generation region -> higher DGR). yaw is kept
+    # at 0 because the source has zero rotation; widen LAB_GEN_YAW for rotation
+    # diversity (lower DGR, pure extrapolation). Annotation overrides cube poses via
+    # reset_to(recorded_state), so this only affects generation.
+    _gen_yaw = float(os.environ.get("LAB_GEN_YAW", "0.0"))
     if hasattr(self.events, "randomize_cube_positions"):
         self.events.randomize_cube_positions.params["pose_range"] = {
-            "x": (0.22, 0.40), "y": (0.00, 0.28), "z": (0.745, 0.745), "yaw": (-0.5, 0.5),
+            "x": (0.150, 0.380), "y": (0.008, 0.273), "z": (0.745, 0.745),
+            "yaw": (-_gen_yaw, _gen_yaw),
         }
+
+    # Whether generation also writes the (much larger) failed-attempt file. Keep ON for
+    # debugging; turn OFF (LAB_KEEP_FAILED=0) for big production runs so we don't dump
+    # thousands of failed demos next to the kept dataset. Provenance still counts all
+    # attempts regardless (it hooks generate(), not the file writer).
+    self.datagen_config.generation_keep_failed = os.environ.get("LAB_KEEP_FAILED", "1") == "1"
 
 
 def _apply_threshold_fixes(self):
