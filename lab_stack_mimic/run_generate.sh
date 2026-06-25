@@ -31,9 +31,12 @@ source /home/ubuntu/jake/env_uwlab/bin/activate
 
 PATCHED=/tmp/generate_lab.py
 cp "$R/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py" "$PATCHED"
-# inject our task registration + source-usage provenance capture (shared source untouched)
-sed -i 's|^import isaaclab_mimic.envs.*|&\nimport lab_register\nimport provenance_hooks|' "$PATCHED"
+# inject our task registration + clean-success gating + source-usage provenance capture
+# (clean_success_hook BEFORE provenance_hooks so provenance counts the gated successes;
+# shared source untouched)
+sed -i 's|^import isaaclab_mimic.envs.*|&\nimport lab_register\nimport clean_success_hook\nimport provenance_hooks|' "$PATCHED"
 grep -q "^import lab_register" "$PATCHED" || { echo "ERROR: failed to inject lab_register import"; exit 1; }
+grep -q "^import clean_success_hook" "$PATCHED" || { echo "ERROR: failed to inject clean_success_hook import"; exit 1; }
 grep -q "^import provenance_hooks" "$PATCHED" || { echo "ERROR: failed to inject provenance_hooks import"; exit 1; }
 
 # generation IK-rel scale: 0.5 (official; gentler than the teleop-faithful 1.0 → higher DGR)
