@@ -1,52 +1,30 @@
-# 데모 영상 — task별 demo 성공 / 합성 성공 (GIF, 인라인 재생)
+# CP-Gen · SART 데모 영상 — seed(데모) vs 생성 데이터
 
-GitHub 마크다운에서 **GIF는 바로 재생**된다(`<video>` mp4는 인라인 재생 안 됨). 그래서 GIF를 기본으로 둔다.
-원칙: **영상 하나 = 태스크 하나**(단일 태스크·단일 클립). 원본 mp4/전체 세트는 하단 참고.
+두 방법을 넣은 이유: **데모 몇 개를 peg-in-hole / gear assembly 같은 정밀 조립용 대량 데이터로 증강**하기 위해서다.
+그래서 여기서는 "무엇이 seed 데모이고, 무엇이 거기서 생성된 데이터인지"만 본다.
 
 ---
 
 ## SART — Insert (peg-in-hole)
-demo 성공 ↔ 합성 성공이 깔끔하게 대응되는 케이스. UR5e, 노란 peg를 소켓에 삽입.
 
-| demo 성공 (사람 teleop) | 합성 성공 (경계 안 self-augment) |
+| seed 데모 (사람이 조종한 시연 1개) | 생성 데이터 (self-augmentation) |
 |---|---|
-| ![SART insert demo](gif/sart_insert_demo.gif) | ![SART insert synthetic](gif/sart_insert_synthetic.gif) |
-| `Teleop (success)` — 원본 시연 1개 | `Collect` — 증강 궤적(다양한 접근→삽입) |
+| ![SART seed](gif/sart_insert_demo.gif) | ![SART generated](gif/sart_insert_synthetic.gif) |
 
-→ 우리 파이프라인 대응: `synthgen/sart_augmentor.py` (삽입 스킬 국소 증강)
+UR5e가 노란 peg를 소켓에 삽입한다. **데모 1개**를 seed로, 삽입 지점 주변에서 다양한 접근 궤적을
+안전하게 만들어 붙인다. 정밀 삽입 구간을 채우는 데 쓴다.
 
 ---
 
-## CP-Gen — Generated Trajectories (생성 궤적, 태스크별 1클립)
-프로젝트 페이지의 **"CP-Gen Generated Trajectories"** 섹션. **로봇이 생성된 데모를 실제로 실행해**
-집기 → 정렬 → 삽입/조립/threading 을 성공시키는 sim 궤적. 우리 목표 contact-rich 태스크.
+## CP-Gen — 조립 태스크 (생성 데이터)
+
+seed는 **태스크당 데모 1개**. 아래는 거기서 생성된 궤적으로, 로봇이 집기 → 정렬 → 삽입/조립을 직접 수행한다.
 
 | Square (peg-in-hole) | ThreePieceAssembly | Threading |
 |---|---|---|
 | ![square](gif/cpgen_gen_square.gif) | ![threepiece](gif/cpgen_gen_threepiece.gif) | ![threading](gif/cpgen_gen_threading.gif) |
 
-> 원본 섹션엔 Coffee / Kitchen / MugCleanup / HammerCleanup / StackThree 등 8개 태스크가 더 있다
-> (https://cp-gen.github.io → "CP-Gen Generated Trajectories"). 여기선 peg/gear 관련 3개만 담음.
+특징: 물체의 **위치뿐 아니라 형상(크기)까지 바꿔** 생성한다. 그래서 크기가 다른 gear/peg 인스턴스까지
+한 데모에서 커버된다.
 
-→ 우리 파이프라인 대응: `synthgen/pipeline.py` (생성) + `synthgen/cpgen_transform.py` (변환)
-
----
-
-## CP-Gen — 실물 zero-shot 성공 (보충영상, 태스크별 1클립)
-"데모 1개 → 1000개 합성 생성 → **학습된 정책이 실물에서 zero-shot 성공**". 아래는 그 실물 성공 롤아웃.
-
-| Mug Cleanup | Hammer Cleanup |
-|---|---|
-| ![mug cleanup](gif/cpgen_real_mug_cleanup.gif) | ![hammer cleanup](gif/cpgen_real_hammer_cleanup.gif) |
-
-| Mug Hanging (걸기=삽입 계열) | Wine Glass Spiral Hanging (끼우기 계열) |
-|---|---|
-| ![mug hanging](gif/cpgen_real_mug_hanging.gif) | ![wineglass spiral hanging](gif/cpgen_real_wineglass_spiral_hanging.gif) |
-
----
-
-## 원본 파일 / 출처
-- GIF 원본 mp4: `sart/`, `cpgen/synthetic/` (Generated Trajectories). CP-Gen 실물 롤아웃은
-  보충영상에서 추출(원본 81MB 미커밋 — https://cp-gen.github.io/media/videos/cpgen-suppl-video.mp4 )
-- 전체 영상 세트: `robot_data workspace — augmentation_methods/*/videos/`
-- 출처: CP-Gen https://cp-gen.github.io · SART https://sites.google.com/view/sart-il
+출처: CP-Gen https://cp-gen.github.io · SART https://sites.google.com/view/sart-il
