@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synthgen"
+version = "0.0.1"
+description = "Integrate SART & CP-Gen into our Isaac Lab + cuRobo synthetic-data pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+hdf5 = ["h5py>=3.0"]
+yaml = ["pyyaml>=6.0"]
+dev = ["pytest>=7.0", "h5py>=3.0", "pyyaml>=6.0"]
+# NOTE: isaaclab and curobo are NOT pip deps here — install them per their own
+# instructions (GPU stack). The pure-python core + mocks run without them.
+
+[tool.setuptools.packages.find]
+include = ["synthgen", "synthgen.*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
