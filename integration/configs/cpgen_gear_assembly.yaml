@@ -1,0 +1,21 @@
+# CP-Gen keypoint-transform generation — gear assembly (CpGenConfig + PipelineConfig).
+cpgen:
+  insert_pos_tol_m: 0.003        # 기어 삽입은 더 빡빡
+  insert_rot_tol_deg: 2.0
+  transport_pos_bound_m: 0.05    # 접근 구간은 넓게
+  transport_rot_bound_deg: 30.0
+  scale_range: [0.9, 1.1]        # geometry(크기) 일반화 범위. 삽입 구간은 강제 1.0
+  apply_geometry: true
+  seed: 0
+pipeline:
+  transform_mode: keypoint       # 'keypoint'(CP-Gen) | 'rigid'(SkillGen baseline)
+  num_success: 1000              # family 표준 목표(≈1000/variant)
+  max_attempts: 5000
+  sart_boost: true               # 삽입 스킬에 SART 국소 증강 덧붙이기
+  seed: 0
+# SART boost 세부는 sart_peg_in_hole.yaml 규약과 동일(SartConfig)
+sart:
+  num_sphere_sample: 12
+  radius: 0.003
+  fix_position: true             # 기어 축 정합: 위치 고정 + 회전만
+  sample_inside: true

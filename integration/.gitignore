@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Generated synthetic data / artifacts
+*.hdf5
+*.rmb
+*.pcd
+outputs/
+generated/
+checkpoints/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

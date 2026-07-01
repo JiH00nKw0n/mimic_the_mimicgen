@@ -1,0 +1,12 @@
+# SART local precision augmentation — peg-in-hole (SartConfig).
+# 사용 예: examples/run_sart_augment.py 에서 SartConfig(**yaml) 로 로드.
+num_sphere_sample: 16      # 삽입 정밀 구간은 촘촘하게
+num_total_sample: null     # 지정 시 region 수로 나눠 자동 계산
+radius: 0.004              # 삽입 tolerance [m] (구 반지름). null 이면 주석/기본값
+default_radius: 0.02
+sample_inside: true        # 구 내부까지 채움 → 다양성 ↑
+fix_position: false        # peg 은 위치 다양성도 필요 → 회전만 고정하지 않음
+rotation_random_angle_deg: 3.0   # 삽입 회전 허용각. null 이면 scale*radius
+rotation_random_scale: 2.0
+interp_steps: 20
+seed: 0
