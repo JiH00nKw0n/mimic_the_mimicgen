@@ -47,6 +47,11 @@ python examples/run_cpgen_generate.py # CP-Gen transform + SART boost (mock)
 실제 실행 = 위 오른쪽 4개 클래스의 `NotImplementedError` 를 채우는 것. 알고리즘 파일
 (`sart_augmentor.py`, `cpgen_transform.py`, `pipeline.py`)은 건드리지 않는다.
 
+## 데모 영상 (source ↔ synthetic)
+두 방법론의 원본 데모와 합성 데이터를 나란히 본다: **[media/README.md](media/README.md)**
+- CP-Gen: `media/cpgen/{source,synthetic}/` — peg-in-hole / assembly / threading
+- SART:   `media/sart/{source,synthetic}/` — teleop insert / self-augmented insert
+
 ## 파일 맵
 ```
 synthgen/
