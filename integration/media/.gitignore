@@ -1,0 +1,4 @@
+# These demo clips are external reference material (CP-Gen / SART papers), NOT
+# regenerable lab outputs — so intentionally track them despite the repo-wide
+# "*.mp4" ignore in the top-level .gitignore.
+!*.mp4
