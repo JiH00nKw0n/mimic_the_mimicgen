@@ -1,0 +1,12 @@
+{
+  "num_attempts": 60,
+  "num_success": 33,
+  "dgr_pct": 55.0,
+  "n_merged": 33,
+  "offset_pos_std_m": 0.0493,
+  "sources": 15,
+  "n_per": 4,
+  "radius": 0.06,
+  "rot_deg": 10.0,
+  "position_fix": false
+}

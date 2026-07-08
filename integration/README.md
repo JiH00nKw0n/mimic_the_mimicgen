@@ -3,6 +3,10 @@
 `robot_data workspace — augmentation_methods/INTEGRATION_PLAN.md` 의 설계를 **실행 가능한 스켈레톤**으로 구현한 것.
 SART 와 CP-Gen 을 **하나의 SkillGen-family 생성기의 교체 가능한 부품**으로 둔다.
 
+> 📌 **실제로 돌려서 검증한 결과물은 [`mimicgen_substrate/`](mimicgen_substrate/README.md) 참고.**
+> robosuite MimicGen 위에서 SART(DGR 55%, 접근 다양성)와 CP-Gen(DGR 35%, 크기 일반화)을 실제로 붙여
+> 합성 데이터를 뽑고 falsifiable 지표로 검증했다. 아래 `synthgen/` 은 Isaac Lab/cuRobo 를 겨냥한 설계 스켈레톤.
+
 - 순수 파이썬 코어(알고리즘)는 **지금 바로 실행/테스트**된다(mock 백엔드).
 - Isaac Lab / cuRobo 연동부는 **가드된 스텁 + TODO** 로 두었고, 실제 실행 시 이 스텁만 채우면 된다.
   알고리즘 코드(SART/CP-Gen)는 백엔드가 뭐든 **그대로**다.
