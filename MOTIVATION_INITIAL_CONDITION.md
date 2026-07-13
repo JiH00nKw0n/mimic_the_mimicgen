@@ -138,19 +138,36 @@ MimicGen 공식 태스크 중 **공개 demo + datagen annotation + D0/D1/D2 세 
 
 ---
 
-## 5. 핵심 결론
+## 5. 다른 task 교차검증 — Threading / Coffee
 
-1. **retention이 만드는 편향은 "어떤 초기조건이 남나"(IC 분포)가 아니라 "어떤 source의 후손이 남나"(ancestry)이다** — 적어도 Square에서. IC 위치 marginal은 거의 안 쏠리고, source 조상 분포는 뚜렷이 쏠린다.
+Square에서 본 패턴("IC 위치 편향은 약함, **실제 편향은 ancestry이고 transform이 커질수록 강해진다**")이 다른 task에서도 성립하는지 확인. **DGR 하락 · source 성공률 스프레드 확대 · ancestry skew가 세 task 모두에서 재현된다.**
+
+![Cross-task: transform이 커질수록 DGR 하락 & ancestry skew 증가](figures/motivation_ic/crosstask_bias.png)
+
+| task | DGR (D0/D1/D2) | transform (D0/D1/D2, m) | ancestry skew (ret−att top-3) | source 성공률 범위 |
+|---|---|---|---|---|
+| **square** | 75 / 46 / 33% | 0.04 / 0.44 / 0.57 | +1 / +12 / +10 pp | 38–97 / 10–79 / 8–61% |
+| **threading** | 51 / 37 / 22% | 0.07 / 0.16 / 0.72 | +9 / +6 / +15 pp | 8–85 / 0–61 / 6–40% |
+| **coffee** | 79 / 66 / 28% | 0.03 / 0.20 / 0.70 | +2 / +4 / +7 pp | 51–98 / 44–86 / 14–49% |
+
+- **DGR은 세 task 모두 D0→D2로 하락**, transform은 상승 — 일관.
+- **ancestry skew는 세 task 모두 존재하며 대체로 D2에서 최대** (threading +15, square +10–12, coffee +7).
+- **task별 강도 차이**: **coffee가 가장 약함**(가장 쉬운 task — source가 D0에서도 51–98%로 다 쓸 만함). **threading은 D0부터 skew(+9)** — source 편차가 D0에서도 8–85%로 커서(어려운 task) 필터링이 일찍 조상을 가른다.
+- → "transform이 커질수록 source 품질 차이가 드러나 ancestry가 쏠린다"는 메커니즘이 **task 전반에서 재현**. (ThreePieceAssembly 생성 완료 시 추가.)
+
+## 6. 핵심 결론
+
+1. **retention이 만드는 편향은 "어떤 초기조건이 남나"(IC 분포)가 아니라 "어떤 source의 후손이 남나"(ancestry)이다** — Square·Threading·Coffee에서 일관. IC 위치 marginal은 거의 안 쏠리고, source 조상 분포는 뚜렷이 쏠린다.
 2. **D0→D1→D2 난이도 상승과 ancestry 편향은 같은 뿌리** — 변형이 커질수록(peg 이동 + transform↑) source별 "전이 품질" 차이가 드러나, 잘 전이되는 source만 살아남는다. D0(near-replay)에선 어중간한 source도 성공해 편향이 없다.
 3. **DGR은 이 편향을 못 본다** — 같은 500 시도에서 DGR만 보면 "어떤 원본이 데이터를 지배하는지"를 놓친다. 이것이 이 실험이 보이려는 gap.
 
-## 6. 데이터 · 재현
+## 7. 데이터 · 재현
 - **위치 (aidas `3.151.29.145`)**: `~/mimicgen_jihoonkwon/experiments/motivation_ic/square_{D0,D1,D2}/.../{demo.hdf5, demo_failed.hdf5}`, 분석 산출 `analysis/{stats.json, square_*_ic.png, square_*_difficulty.png}`
 - **환경**: `robosuite_mimicgen/venv` (robosuite 1.4.1, robomimic 0.3.1, mimicgen `72bd767`, mujoco 2.3.2, numpy 1.23.5), CPU.
 - **스크립트**: `run_square_motiv2.sh`(생성) · `analyze_motivation_ic.py`(IC 분포·ancestry) · `analyze_difficulty_axes.py`(난이도 축).
 
-## 7. 다음 단계
-- **ancestry 편향의 다운스트림 영향**: 조상 편향이 정책 성능을 실제로 해치는지(coverage 손실) — 이게 논문의 다음 연결고리.
-- **다른 task 확장**: Threading / Coffee / ThreePieceAssembly (다물체 → 편향 더 강할 것 예상), 이후 Gear(memory의 850/1000 사례).
-- **IC 편향이 강한 레짐 탐색**: Square는 IC-robust했음. 더 tight-clearance / 다물체 task에서 IC 위치 편향도 나타나는지.
+## 8. 다음 단계
+- **ThreePieceAssembly 추가** (생성 중, 다물체 base+piece1+piece2 → 편향 더 강할지), 이후 **Gear** ([[mimicgen-failure-audit]]의 850/1000 사례).
+- **ancestry 편향의 다운스트림 영향**: 조상 편향이 정책 성능을 실제로 해치는지(coverage 손실) — 논문의 다음 연결고리.
+- **IC 편향이 강한 레짐 탐색**: 세 task 모두 IC-robust했음. 더 tight-clearance task에서 IC 위치 편향도 나타나는지.
 </content>
