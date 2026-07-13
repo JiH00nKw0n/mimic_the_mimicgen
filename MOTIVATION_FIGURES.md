@@ -2,7 +2,7 @@
 
 ## Recall
 
-### MimicGen Pipeline
+### MimicGen Pipeline ([Mandlekar et al. 2023](https://arxiv.org/abs/2310.17596))
 
 <img src="figures/report/system_v5.png" width="100%">
 
