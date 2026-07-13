@@ -151,6 +151,12 @@
 
 ## Source-Demo Ancestry Bias
 
+- 위의 실험을 통해 transform이 커지면 데이터 생성 비율(DGR)이 낮아진다는 것을 확인했다. 이는 학습에 쓰이는 합성 데이터가 source demo와 유사한 초기 조건 쪽으로 편향될 수 있음을 시사한다.
+- 또 하나의 흥미로운 발견은, transform이 커질수록 성공해서 남는 합성 데이터가 특정 source demo로부터 주로 생성된다는 점이다(Ancestry Bias).
+- MimicGen류 방법론은 source의 움직임을 rule-based로 변환해 사용한다; 따라서 이 Ancestry Bias는 초기 조건(initial condition)의 편향이 행동 궤적(action trajectory)의 편향으로 이어질 수 있음을 의미한다.
+
+이를 확인하기 위해, 합성 데이터 분포(D0/D1/D2)별로 각 source demo가 합성 시도에 활용된 횟수와 그중 성공한 횟수·비율을 집계했다.
+
 ### Square
 
 **D1**
@@ -168,6 +174,8 @@
 | s3 | 41 | 10 | 24% | 4% |
 | s8 | 71 | 7 | 10% | 3% |
 
+- top-3 source가 retained의 **53%**를 차지 (attempted 41%)
+
 **D2**
 
 | src | attempted | retained | succ% | ret share% |
@@ -182,6 +190,8 @@
 | s7 | 36 | 7 | 19% | 4% |
 | s4 | 62 | 10 | 16% | 6% |
 | s8 | 52 | 4 | 8% | 2% |
+
+- top-3 source가 retained의 **46%**를 차지 (attempted 36%)
 
 <img src="figures/report/anc_square.png" width="90%">
 
@@ -202,6 +212,8 @@
 | s5 | 44 | 10 | 23% | 6% |
 | s1 | 46 | 7 | 15% | 4% |
 
+- top-3 source가 retained의 **39%**를 차지 (attempted 35%)
+
 **D2**
 
 | src | attempted | retained | succ% | ret share% |
@@ -216,5 +228,7 @@
 | s9 | 49 | 9 | 18% | 6% |
 | s6 | 47 | 6 | 13% | 4% |
 | s1 | 46 | 5 | 11% | 4% |
+
+- top-3 source가 retained의 **44%**를 차지 (attempted 35%)
 
 <img src="figures/report/anc_three_piece_assembly.png" width="90%">
