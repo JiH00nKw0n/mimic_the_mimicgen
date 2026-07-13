@@ -174,7 +174,7 @@
 | s3 | 41 | 10 | 24% | 4% |
 | s8 | 71 | 7 | 10% | 3% |
 
-- top-3 source가 retained의 **53%**를 차지 (attempted 41%)
+- retained의 top-3 source 비중: **53%** (attempted 41%)
 
 **D2**
 
@@ -191,7 +191,7 @@
 | s4 | 62 | 10 | 16% | 6% |
 | s8 | 52 | 4 | 8% | 2% |
 
-- top-3 source가 retained의 **46%**를 차지 (attempted 36%)
+- retained의 top-3 source 비중: **46%** (attempted 36%)
 
 <img src="figures/report/anc_square.png" width="90%">
 
@@ -212,7 +212,7 @@
 | s5 | 44 | 10 | 23% | 6% |
 | s1 | 46 | 7 | 15% | 4% |
 
-- top-3 source가 retained의 **39%**를 차지 (attempted 35%)
+- retained의 top-3 source 비중: **39%** (attempted 35%)
 
 **D2**
 
@@ -229,6 +229,6 @@
 | s6 | 47 | 6 | 13% | 4% |
 | s1 | 46 | 5 | 11% | 4% |
 
-- top-3 source가 retained의 **44%**를 차지 (attempted 35%)
+- retained의 top-3 source 비중: **44%** (attempted 35%)
 
 <img src="figures/report/anc_three_piece_assembly.png" width="90%">
