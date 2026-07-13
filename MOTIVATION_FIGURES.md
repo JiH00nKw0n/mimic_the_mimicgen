@@ -102,3 +102,73 @@
 <img src="figures/report/conc_threading_needle.png" width="45%"> <img src="figures/report/conc_threading_tripod.png" width="45%">
 
 <img src="figures/report/conc_coffee_coffee_machine.png" width="45%"> <img src="figures/report/conc_coffee_coffee_pod.png" width="45%">
+
+## Source-Demo Ancestry Bias
+
+### Square
+
+**D1**
+
+| src | attempted | retained | succ% | ret share% |
+|---|---|---|---|---|
+| s5 | 67 | 53 | 79% | 23% |
+| s2 | 50 | 33 | 66% | 14% |
+| s0 | 56 | 35 | 62% | 15% |
+| s6 | 46 | 24 | 52% | 10% |
+| s4 | 67 | 33 | 49% | 14% |
+| s1 | 20 | 8 | 40% | 3% |
+| s9 | 47 | 17 | 36% | 7% |
+| s7 | 35 | 10 | 29% | 4% |
+| s3 | 41 | 10 | 24% | 4% |
+| s8 | 71 | 7 | 10% | 3% |
+
+**D2**
+
+| src | attempted | retained | succ% | ret share% |
+|---|---|---|---|---|
+| s6 | 46 | 28 | 61% | 17% |
+| s1 | 42 | 21 | 50% | 13% |
+| s2 | 55 | 25 | 45% | 15% |
+| s5 | 50 | 22 | 44% | 13% |
+| s0 | 55 | 19 | 35% | 12% |
+| s9 | 38 | 13 | 34% | 8% |
+| s3 | 64 | 14 | 22% | 9% |
+| s7 | 36 | 7 | 19% | 4% |
+| s4 | 62 | 10 | 16% | 6% |
+| s8 | 52 | 4 | 8% | 2% |
+
+<img src="figures/report/anc_square.png" width="90%">
+
+### Three Piece Assembly
+
+**D1**
+
+| src | attempted | retained | succ% | ret share% |
+|---|---|---|---|---|
+| s7 | 57 | 23 | 40% | 15% |
+| s4 | 43 | 16 | 37% | 10% |
+| s8 | 55 | 20 | 36% | 13% |
+| s3 | 43 | 15 | 35% | 9% |
+| s9 | 49 | 17 | 35% | 11% |
+| s0 | 54 | 18 | 33% | 11% |
+| s2 | 62 | 19 | 31% | 12% |
+| s6 | 47 | 13 | 28% | 8% |
+| s5 | 44 | 10 | 23% | 6% |
+| s1 | 46 | 7 | 15% | 4% |
+
+**D2**
+
+| src | attempted | retained | succ% | ret share% |
+|---|---|---|---|---|
+| s3 | 43 | 17 | 40% | 12% |
+| s7 | 57 | 22 | 39% | 16% |
+| s8 | 55 | 21 | 38% | 15% |
+| s0 | 54 | 19 | 35% | 13% |
+| s4 | 43 | 15 | 35% | 11% |
+| s5 | 44 | 14 | 32% | 10% |
+| s2 | 62 | 13 | 21% | 9% |
+| s9 | 49 | 9 | 18% | 6% |
+| s6 | 47 | 6 | 13% | 4% |
+| s1 | 46 | 5 | 11% | 4% |
+
+<img src="figures/report/anc_three_piece_assembly.png" width="90%">
