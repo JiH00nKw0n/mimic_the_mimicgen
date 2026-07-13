@@ -2,11 +2,23 @@
 
 ## Task Overview
 
+### Square
+Grasp the square nut and place it onto the fixed square peg.
+
 <img src="figures/report/task_Square.png" width="70%">
+
+### Three Piece Assembly
+Stack two pieces onto the base, in order, to build the assembly.
 
 <img src="figures/report/task_ThreePieceAssembly.png" width="70%">
 
+### Threading
+Grasp the needle and thread it through the hole of the tripod.
+
 <img src="figures/report/task_Threading.png" width="70%">
+
+### Coffee Prep
+Grasp the coffee pod and insert it into the coffee machine, then close the lid.
 
 <img src="figures/report/task_CoffeePrep.png" width="70%">
 
