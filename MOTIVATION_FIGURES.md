@@ -1,5 +1,19 @@
 # Motivation Figures
 
+## Recall
+
+### MimicGen Pipeline
+
+<img src="figures/report/system_v5.png" width="100%">
+
+**Figure 2: MimicGen System Pipeline.** (left) MimicGen first parses the demos from the source dataset into segments, where each segment corresponds to an object-centric subtask. (right) Then, to generate new demonstrations for a new scene, MimicGen generates and follows a sequence of end-effector target poses for each subtask by (1) choosing a segment from a source demonstration (chosen segments shown with blue border in figure above), (2) transforming it for the new scene, and (3) executing it.
+
+이 파이프라인은 세 가지 핵심 단계로 구성되어 있다.
+
+- **Transform**: source segment를 새로운 object configuration에 맞춘다.
+- **Stitch**: transformed subtask segments를 interpolation과 execution으로 연결한다.
+- **Retain**: task success 이후에만 trajectory를 dataset에 추가한다.
+
 ## Task Overview
 
 ### Square
