@@ -2,6 +2,15 @@
 
 ## Recall
 
+### Backgrounds
+
+- 모방학습은 물체 자세·배치·주변 클러터에 따라 필요한 동작이 달라지므로, 소수 데모로는 배포 시 마주치는 다양성을 덮지 못하고 조건별 변화를 담은 크고 다양한 데모 데이터셋이 필요하다.
+- 실제 로봇으로 이런 데이터를 모으는 비용이 커서 소수 human 데모를 transform·stitch·retain 파이프라인으로 재활용해 합성 데모를 생성하는데, 학습에는 성공해 retain된 데모만 쓰이므로 retained 데이터셋이 조건별 다양성을 충분히 보존해야 한다.
+- 그러나 기존 방법이 이 다양성을 보존하는지는 불분명하며, 널리 쓰이는 data generation rate(생성 rollout 중 retain된 비율)는 "얼마나 자주" 남는지만 잴 뿐 "무엇이" 남는지는 보지 못한다.
+- 그 결과 data generation rate가 비슷해도 retained 분포와 downstream 정책 성능이 크게 달라질 수 있어, retention이 retained 분포를 어떻게 형성하는지 이해하는 것이 정책 성능 설명에 필수적이다.
+- 이에 우리는 "효과적인 downstream 모방학습에 필요한 retained 분포의 성질은 무엇이며, task 성공 기준으로 생성 rollout을 필터링하는 것이 그 성질을 보존하는가?"를 묻는다.
+- 그리고 성공한 rollout만 남기는 retention이, 생성기가 다양한 물체 조건과 source 선택으로 rollout을 시도하더라도 task 성공 가능성이 높은 조건의 데모를 과대표집하여 원래 탐색한 다양성을 보존하지 못하고, 이 분포 변화가 downstream 정책 성능 차이로 이어진다고 가정한다.
+
 ### MimicGen Pipeline ([Mandlekar et al. 2023](https://arxiv.org/abs/2310.17596))
 
 <img src="figures/report/system_v5.png" width="100%">
