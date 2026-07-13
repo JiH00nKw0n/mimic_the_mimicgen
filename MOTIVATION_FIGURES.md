@@ -1,4 +1,4 @@
-# Motivation Figures
+# Bias in Synthetic Data Generation - Motivation 실험
 
 ## Recall
 
@@ -31,6 +31,20 @@
 - **Transform**: source segment를 새로운 object configuration에 맞춘다.
 - **Stitch**: transformed subtask segments를 interpolation과 execution으로 연결한다.
 - **Retain**: task success 이후에만 trajectory를 dataset에 추가한다.
+
+## 금주 진행 상황
+
+이번 주에는 가설의 첫 부분, 즉 "성공해서 남는 합성 데모가 정말 '쉬운' 초기조건 쪽으로 쏠리는가?"를 살펴봤다.
+
+여기서 '쉬운' 초기조건이란 합성 장면에서의 물체 배치(initial condition)가 원본 source 데모의 물체 배치와 비슷한 경우를 말한다. 원본과 비슷할수록 원본 궤적을 조금만 변형(transform)하면 되니 생성이 성공하기 쉬울 것이라는 생각이다.
+
+이를 확인하려고 MimicGen이 데모와 주석을 잘 제공하는 task 4개(Square, Three Piece Assembly, Threading, Coffee Prep)를 골라, 각 task의 D0/D1/D2 초기조건 분포에서 물체 배치를 샘플링해 합성 데모를 생성하고 그 과정을 전부 기록했다.
+
+구체적으로 던진 질문은 이것이다.
+
+> source의 물체 위치와 합성 데이터의 물체 위치 차이(transform)가 작을수록 데이터 생성 성공률(DGR)이 높고, 차이가 클수록 DGR이 낮은가?
+
+실험 결과, 대체로 그런 경향이 나타났다. transform이 작은(원본에 가까운) 분포일수록 DGR이 높고, transform이 커질수록 DGR이 낮아졌다. 아래에서는 이 실험의 대상 task와 초기조건 분포 설정, 그리고 transform에 따른 DGR 변화와 성공·실패 분포를 순서대로 보여준다.
 
 ## Task Overview
 
