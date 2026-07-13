@@ -161,7 +161,7 @@
 
 **D1**
 
-| src | attempted | retained | succ% | ret share% |
+| Src | Attempted | Retained | Succ% | Ret share% |
 |---|---|---|---|---|
 | s5 | 67 | 53 | 79% | 23% |
 | s2 | 50 | 33 | 66% | 14% |
@@ -178,7 +178,7 @@
 
 **D2**
 
-| src | attempted | retained | succ% | ret share% |
+| Src | Attempted | Retained | Succ% | Ret share% |
 |---|---|---|---|---|
 | s6 | 46 | 28 | 61% | 17% |
 | s1 | 42 | 21 | 50% | 13% |
@@ -199,7 +199,7 @@
 
 **D1**
 
-| src | attempted | retained | succ% | ret share% |
+| Src | Attempted | Retained | Succ% | Ret share% |
 |---|---|---|---|---|
 | s7 | 57 | 23 | 40% | 15% |
 | s4 | 43 | 16 | 37% | 10% |
@@ -216,7 +216,7 @@
 
 **D2**
 
-| src | attempted | retained | succ% | ret share% |
+| Src | Attempted | Retained | Succ% | Ret share% |
 |---|---|---|---|---|
 | s3 | 43 | 17 | 40% | 12% |
 | s7 | 57 | 22 | 39% | 16% |
