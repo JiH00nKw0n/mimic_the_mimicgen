@@ -2,7 +2,11 @@
 
 MimicGen 계열 합성 데이터 생성은 다양한 초기조건에서 rollout을 **시도**한 뒤 **task 성공한 것만 남긴다(retention)**. 이 실험은 그 필터링이 남겨진 학습 데이터를 어떻게 편향시키는지를, 정책 학습 없이 공개 D0/D1/D2 라벨만으로 정량화한다(Phase-0 retrospective).
 
-**한 줄 결과 (Square)**: 흔히 예상하는 "남은 데이터의 *초기조건 분포*가 쉬운 쪽으로 쏠린다"는 **거의 관측되지 않았다**. 대신 필터링이 만드는 실제 편향은 **"어떤 *원본 데모(source)*의 후손이 살아남나"(ancestry skew)** 였다.
+**한 줄 결과 (Square)**: 흔히 예상하는 "남은 데이터의 *초기조건 분포*가 쉬운 쪽으로 쏠린다"는 **거의 관측되지 않았다**. 대신 필터링이 만드는 실제 편향은 **"어떤 *원본 데모(source)*의 후손이 살아남나"(ancestry skew)** 였고, 이 편향은 **변형(transform) 크기가 커질수록 함께 커진다**.
+
+![transform이 커질수록 DGR 하락 & ancestry 편향 증가](figures/motivation_ic/square_bias_vs_transform.png)
+
+> 변형(transform)이 커질수록(D0→D1→D2) 생성 성공률(DGR)은 74.6%→46.0%→32.6%로 떨어지고, retained가 특정 source에 쏠리는 ancestry 편향(retained−attempted top-3 share)은 ~1pp→~12pp로 커진다.
 
 ---
 
@@ -66,7 +70,11 @@ MimicGen 공식 태스크 중 **공개 demo + datagen annotation + D0/D1/D2 세 
 | D2 | 32.6% (163/500) | 0.268→0.250 | 0.303→0.274 | **약함** | **46% vs 36%** |
 
 ### 4.1 초기조건 위치 편향은 약하다 (H1/H2 반증)
-성공/실패가 nut (x,y) 박스 전체에 **섞여** 있고, nut_x·nut_y marginal은 attempted를 **균일 축소**한 수준이며, 성공률=f(nut offset) dose-response는 **평평**. 즉 "특정 초기조건이 쉬워서 살아남는다"는 신호가 거의 없다. (플롯: `analysis/square_{D0,D1,D2}_ic.png`)
+성공/실패가 nut (x,y) 박스 전체에 **섞여** 있고, nut_x·nut_y marginal은 attempted를 **균일 축소**한 수준이며, 성공률=f(nut offset) dose-response는 **평평**. 즉 "특정 초기조건이 쉬워서 살아남는다"는 신호가 거의 없다.
+
+![D1 초기조건: nut(x,y) 산점도 · nut_x · nut_y 분포 · dose-response](figures/motivation_ic/square_D1_ic.png)
+
+> D1: (좌) nut(x,y) 성공(초록)/실패(빨강)/source(별)가 박스 전체에 섞임 · (중) nut_x·nut_y marginal에서 retained(초록)는 attempted(보라)의 균일 축소 · (우) 성공률 vs nut offset은 평평. (D0/D2도 동일 경향: `square_D0_ic.png`, `square_D2_ic.png`.)
 
 ### 4.2 그럼 왜 D0→D1→D2로 어려워지나 (DGR 75→46→33%)
 특정 위치가 함정인 게 아니라, **변형 크기(transform)와 움직이는 peg** 때문이다. 성공을 예측하는 축을 point-biserial 상관으로 비교(음수=클수록 실패):
@@ -80,7 +88,12 @@ MimicGen 공식 태스크 중 **공개 demo + datagen annotation + D0/D1/D2 세 
 
 - **nut 위치/offset은 성공 무예측** (평평 확인). **peg offset·nut–peg 상대거리·총 transform은 예측**(음의 상관, D1→D2로 강해짐).
 - 즉 D0는 **peg 고정 + near-replay**(nut offset 0.038)라 쉽고, D1/D2는 **peg를 옮기고 변형을 키워** 영역 전체가 **균일하게** 더 어려워진다(특정 지점 아님). 변형 안에서 nut offset이 평평한 이유도 이미 전체가 large-transform 레짐이라 미세 위치가 무의미하기 때문.
-- **단 이 상관들은 모두 약함(|r|≤0.2)** → IC 기하는 성공을 약하게만 결정. (플롯: `analysis/square_{D1,D2}_difficulty.png`)
+- **단 이 상관들은 모두 약함(|r|≤0.2)** → IC 기하는 성공을 약하게만 결정.
+
+![D1 성공률 vs 난이도 축](figures/motivation_ic/square_D1_difficulty.png)
+![D2 성공률 vs 난이도 축](figures/motivation_ic/square_D2_difficulty.png)
+
+> 성공률 vs 4개 축(nut_off·peg_off·reldist·transform). **nut_off는 평평**, **peg_off·nut–peg 상대거리·transform은 음의 기울기**(클수록 실패), D1→D2로 뚜렷해짐.
 
 ### 4.3 진짜 편향 = source-demo ancestry
 (a) source **사용 자체가 uniform 아님**(selection strategy; uniform이면 50/source), (b) **source별 성공률 편차 큼**, (c) 필터링이 "잘 전이되는" source를 **과대표집**. D0(성공률 편차 작음)엔 미미, **D1/D2에서 뚜렷**. [[mimicgen-failure-audit]]의 "Gear D1 850/1000 from 3"와 같은 축.
@@ -118,6 +131,10 @@ MimicGen 공식 태스크 중 **공개 demo + datagen annotation + D0/D1/D2 세 
 → retained top-3 = **46%** (attempted 36%), 성공률 **8–61%**. (D0: 44% vs 43%, 성공률 38–97% — 미미.)
 
 주목: source 8은 D1·D2 모두 **가장 많이 시도(71/52회)되나 가장 안 살아남음**(10%/8%). source 5는 상위 일관.
+
+![source별 사용/생존 (attempted vs retained), 성공률 내림차순](figures/motivation_ic/square_ancestry_bars.png)
+
+> source별 attempted(회색) vs retained(빨강), 성공률 내림차순 정렬. D0(좌)는 두 막대가 나란함(편향 없음), **D1·D2(중·우)는 성공률 낮은 source(오른쪽)에서 retained가 급감** = 필터링이 잘 전이되는 source로 조상을 몰아줌.
 
 ---
 
