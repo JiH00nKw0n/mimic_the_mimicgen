@@ -232,3 +232,10 @@
 - retained의 top-3 source 비중: **44%** (attempted 35%)
 
 <img src="figures/report/anc_three_piece_assembly.png" width="90%">
+
+## Takeaway & Next Step
+
+- 초기 조건에 따라 필요한 transform의 정도가 달라지고, 그에 따라 데이터 생성 성공 비율(DGR)이 달라진다 — transform을 더 많이 해야 할수록 성공 비율이 낮아진다.
+- 또한 transform을 더 많이 해야 할수록 특정한 source demo에 더 많이 의존하여 합성 데이터를 생성하는 경향이 있다. 이러한 경향은 action trajectory의 편향을 야기할 위험이 있다.
+
+그렇다면, 특정 초기 조건에 몰릴수록 / 특정 source demo에 더 많이 의존할수록 policy 성능은 낮아질까?
