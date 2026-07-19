@@ -1,0 +1,14 @@
+# HammerCleanup — 공개 D0/D1 확장 사다리 (2점 축). robosuite_task_zoo 필요.
+# 주의: hammer 회전 파라미터화가 D0(z축 ±0.1rad)→D1(y축 2π)로 바뀌어 d_rot은
+# 이 태스크에서 비교 불가 — 위치 축(d_pos/d_raw)만 사용 (bounds.py 주석 참조).
+task: hammer_cleanup
+objects:
+  hammer: {symmetry_order: 1}
+  drawer: {symmetry_order: 1}
+source_dataset: datasets/source/hammer_cleanup.hdf5
+env_interface: MG_HammerCleanup
+generation_template: mimicgen/exps/templates/robosuite/hammer_cleanup.json
+rollout_horizon: 500
+ladder: [D0, D1]
+widest_variant: D1
+contrast_variants: []

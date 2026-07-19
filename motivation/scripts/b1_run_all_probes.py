@@ -26,6 +26,7 @@ PAIRS = (
     ("coffee", "D2E"),
     ("stack", "D2E"),
     ("stack_three", "D2E"),
+    ("mug_cleanup", "D2E"),
 )
 
 
