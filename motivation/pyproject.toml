@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genaudit"
+version = "0.1.0"
+description = "Generation-audit framework for success-filtering bias experiments (E1/E2)"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23", "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+data = ["h5py>=3.7", "pandas>=1.5"]
+plot = ["matplotlib>=3.6"]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["genaudit*"]

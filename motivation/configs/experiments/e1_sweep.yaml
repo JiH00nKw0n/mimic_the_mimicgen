@@ -1,0 +1,22 @@
+# E1 — 확장 사다리 DGR 스윕. 변형당 500 attempts 고정 프로토콜 (PLAN.md §1.2).
+# 실행: 태스크×변형마다 gen-config → run_mimicgen → (e2형 per-pool config로)
+# extract → analyze.
+experiment: e1
+protocol:
+  num_attempts: 500   # per (task, variant) pool
+  seed: 1
+tasks:
+  threading: [D0, D1, D2, D2E]        # D2는 재배치 대조군
+  coffee: [D0, D1, D1E, D2, D2E]      # D1·D2 대조군 포함
+  stack: [D0, D1, D2E]
+  stack_three: [D0, D1, D2E]
+  square: [D2]                        # random-selection 재실행분 (논문 no_nn 대조)
+binning:
+  k: 5
+paths:
+  out_root: experiments/e1
+notes: |
+  - 신규 변형(D2E 계열)은 reachability 프로브(PLAN.md §1.5) 통과 후 생성.
+  - 모든 pool은 keep_failed=True, max_num_failures=null, random selection,
+    select_src_per_subtask=False (build_generation_config가 강제).
+  - three_piece_assembly는 Phase-0 pool 재추출로 충분 (재생성 불필요).
