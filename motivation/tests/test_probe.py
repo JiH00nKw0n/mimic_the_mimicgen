@@ -63,6 +63,27 @@ def test_fixed_objects_are_not_probed():
     assert probed_objects == {"coffee_pod"}
 
 
+def test_variant_class_names_cover_every_sweep_task():
+    from genaudit.envs.robosuite_variants import variant_class_name
+
+    # regression: a task missing here dies with a hidden KeyError in the
+    # sweep driver (2026-07-20 hammer/coffee_prep stall)
+    expected = {
+        "threading": "Threading_D2E",
+        "coffee": "Coffee_D1E",
+        "stack": "Stack_D0",
+        "stack_three": "StackThree_D1",
+        "square": "Square_D2",
+        "three_piece_assembly": "ThreePieceAssembly_D2",
+        "mug_cleanup": "MugCleanup_D2E",
+        "hammer_cleanup": "HammerCleanup_D0",
+        "coffee_preparation": "CoffeePreparation_D1",
+    }
+    for task, name in expected.items():
+        variant = name.split("_")[-1]
+        assert variant_class_name(task, variant) == name
+
+
 def test_probe_class_names():
     assert probe_class_name("threading", "D2E", None, INTERIOR) == "Threading_D2E"
     assert (
