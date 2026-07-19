@@ -1,0 +1,426 @@
+{
+  "coffee_D2E": {
+    "interior_reach_rate": 0.98,
+    "positions": {
+      "coffee_machine_corner_00": {
+        "object": "coffee_machine",
+        "position": "corner_00",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 44.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_machine_corner_01": {
+        "object": "coffee_machine",
+        "position": "corner_01",
+        "reach_rate": 0.88,
+        "episodes": 50,
+        "task_success_rate": 24.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_machine_corner_10": {
+        "object": "coffee_machine",
+        "position": "corner_10",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 20.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_machine_corner_11": {
+        "object": "coffee_machine",
+        "position": "corner_11",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 38.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_corner_00": {
+        "object": "coffee_pod",
+        "position": "corner_00",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 58.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_corner_01": {
+        "object": "coffee_pod",
+        "position": "corner_01",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 30.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_corner_10": {
+        "object": "coffee_pod",
+        "position": "corner_10",
+        "reach_rate": 0.84,
+        "episodes": 50,
+        "task_success_rate": 36.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_corner_11": {
+        "object": "coffee_pod",
+        "position": "corner_11",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 58.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_edge_x0": {
+        "object": "coffee_pod",
+        "position": "edge_x0",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 54.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_edge_x1": {
+        "object": "coffee_pod",
+        "position": "edge_x1",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 56.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_edge_y0": {
+        "object": "coffee_pod",
+        "position": "edge_y0",
+        "reach_rate": 0.96,
+        "episodes": 50,
+        "task_success_rate": 54.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "coffee_pod_edge_y1": {
+        "object": "coffee_pod",
+        "position": "edge_y1",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 42.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "interior": {
+        "object": null,
+        "position": "interior",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 52.0,
+        "num_problematic": 0,
+        "passed": true
+      }
+    },
+    "failed_positions": [],
+    "bounds_frozen_ok": true
+  },
+  "stack_D2E": {
+    "interior_reach_rate": 0.94,
+    "positions": {
+      "cubes_corner_00": {
+        "object": "cubes",
+        "position": "corner_00",
+        "reach_rate": 0.8,
+        "episodes": 50,
+        "task_success_rate": 62.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_01": {
+        "object": "cubes",
+        "position": "corner_01",
+        "reach_rate": 0.84,
+        "episodes": 50,
+        "task_success_rate": 50.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_10": {
+        "object": "cubes",
+        "position": "corner_10",
+        "reach_rate": 0.78,
+        "episodes": 50,
+        "task_success_rate": 62.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_11": {
+        "object": "cubes",
+        "position": "corner_11",
+        "reach_rate": 0.76,
+        "episodes": 50,
+        "task_success_rate": 60.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_x0": {
+        "object": "cubes",
+        "position": "edge_x0",
+        "reach_rate": 0.94,
+        "episodes": 50,
+        "task_success_rate": 66.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_x1": {
+        "object": "cubes",
+        "position": "edge_x1",
+        "reach_rate": 0.88,
+        "episodes": 50,
+        "task_success_rate": 74.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_y0": {
+        "object": "cubes",
+        "position": "edge_y0",
+        "reach_rate": 0.92,
+        "episodes": 50,
+        "task_success_rate": 70.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_y1": {
+        "object": "cubes",
+        "position": "edge_y1",
+        "reach_rate": 0.78,
+        "episodes": 50,
+        "task_success_rate": 48.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "interior": {
+        "object": null,
+        "position": "interior",
+        "reach_rate": 0.94,
+        "episodes": 50,
+        "task_success_rate": 60.0,
+        "num_problematic": 0,
+        "passed": true
+      }
+    },
+    "failed_positions": [],
+    "bounds_frozen_ok": true
+  },
+  "stack_three_D2E": {
+    "interior_reach_rate": 0.86,
+    "positions": {
+      "cubes_corner_00": {
+        "object": "cubes",
+        "position": "corner_00",
+        "reach_rate": 0.9,
+        "episodes": 50,
+        "task_success_rate": 30.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_01": {
+        "object": "cubes",
+        "position": "corner_01",
+        "reach_rate": 0.82,
+        "episodes": 50,
+        "task_success_rate": 22.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_10": {
+        "object": "cubes",
+        "position": "corner_10",
+        "reach_rate": 0.84,
+        "episodes": 50,
+        "task_success_rate": 8.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_corner_11": {
+        "object": "cubes",
+        "position": "corner_11",
+        "reach_rate": 0.7,
+        "episodes": 50,
+        "task_success_rate": 8.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_x0": {
+        "object": "cubes",
+        "position": "edge_x0",
+        "reach_rate": 0.96,
+        "episodes": 50,
+        "task_success_rate": 28.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_x1": {
+        "object": "cubes",
+        "position": "edge_x1",
+        "reach_rate": 0.86,
+        "episodes": 50,
+        "task_success_rate": 32.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_y0": {
+        "object": "cubes",
+        "position": "edge_y0",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 28.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "cubes_edge_y1": {
+        "object": "cubes",
+        "position": "edge_y1",
+        "reach_rate": 0.88,
+        "episodes": 50,
+        "task_success_rate": 30.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "interior": {
+        "object": null,
+        "position": "interior",
+        "reach_rate": 0.86,
+        "episodes": 50,
+        "task_success_rate": 20.0,
+        "num_problematic": 0,
+        "passed": true
+      }
+    },
+    "failed_positions": [],
+    "bounds_frozen_ok": true
+  },
+  "threading_D2E": {
+    "interior_reach_rate": 0.98,
+    "positions": {
+      "interior": {
+        "object": null,
+        "position": "interior",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 36.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_corner_00": {
+        "object": "needle",
+        "position": "corner_00",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 24.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_corner_01": {
+        "object": "needle",
+        "position": "corner_01",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 30.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_corner_10": {
+        "object": "needle",
+        "position": "corner_10",
+        "reach_rate": 0.94,
+        "episodes": 50,
+        "task_success_rate": 36.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_corner_11": {
+        "object": "needle",
+        "position": "corner_11",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 28.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_edge_x0": {
+        "object": "needle",
+        "position": "edge_x0",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 26.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_edge_x1": {
+        "object": "needle",
+        "position": "edge_x1",
+        "reach_rate": 0.92,
+        "episodes": 50,
+        "task_success_rate": 22.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_edge_y0": {
+        "object": "needle",
+        "position": "edge_y0",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 30.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "needle_edge_y1": {
+        "object": "needle",
+        "position": "edge_y1",
+        "reach_rate": 1.0,
+        "episodes": 50,
+        "task_success_rate": 28.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "tripod_corner_00": {
+        "object": "tripod",
+        "position": "corner_00",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 36.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "tripod_corner_01": {
+        "object": "tripod",
+        "position": "corner_01",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 42.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "tripod_corner_10": {
+        "object": "tripod",
+        "position": "corner_10",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 14.0,
+        "num_problematic": 0,
+        "passed": true
+      },
+      "tripod_corner_11": {
+        "object": "tripod",
+        "position": "corner_11",
+        "reach_rate": 0.98,
+        "episodes": 50,
+        "task_success_rate": 14.0,
+        "num_problematic": 0,
+        "passed": true
+      }
+    },
+    "failed_positions": [],
+    "bounds_frozen_ok": true
+  }
+}
