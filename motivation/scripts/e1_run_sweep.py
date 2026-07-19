@@ -66,10 +66,14 @@ def main() -> None:
     for task, variants in sweep.tasks.items():
         for variant in variants:
             if variant.endswith("E") and not args.allow_unfrozen:
-                key = f"{task}_{variant}"
-                if not frozen_ok.get(key):
+                # a variant is gate-cleared if it was probed itself OR if the
+                # task's widest E-variant (its superset) is frozen — probing
+                # the superset covers every subset region (e.g. coffee D1E
+                # under the frozen D2E)
+                cleared = frozen_ok.get(f"{task}_{variant}") or frozen_ok.get(f"{task}_D2E")
+                if not cleared:
                     raise SystemExit(
-                        f"{key}: reachability gate not passed (probe report "
+                        f"{task}_{variant}: reachability gate not passed (probe report "
                         f"{'missing entry' if args.probe_report else 'not given'}); "
                         "pass --probe-report with bounds_frozen_ok=true or --allow-unfrozen"
                     )
