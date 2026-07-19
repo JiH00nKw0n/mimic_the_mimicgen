@@ -47,8 +47,10 @@ def test_linked_cube_tasks_pin_the_whole_group():
 
     pinned = probe_bounds("stack_three", "D2E", LINKED_GROUP_LABEL, "corner_00")
     assert pinned["cubeA"] == pinned["cubeB"] == pinned["cubeC"]
-    # widened box: half_width 0.02 + 0.02*2 = 0.06 -> 0.12 m side (clipped at corner)
-    assert pinned["cubeA"].width_x == pytest.approx(0.06)
+    # corner box side = half_width (clipping) = 0.05 * 3 cubes = 15 cm
+    assert pinned["cubeA"].width_x == pytest.approx(0.15)
+    pinned_two = probe_bounds("stack", "D2E", LINKED_GROUP_LABEL, "corner_00")
+    assert pinned_two["cubeA"].width_x == pytest.approx(0.10)
 
     with pytest.raises(ValueError, match="linked bounds"):
         probe_bounds("stack", "D2E", "cubeA", "corner_00")

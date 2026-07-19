@@ -77,8 +77,11 @@ def probe_bounds(
         linked = LINKED_BOUNDS.get(task)
         if not linked:
             raise KeyError(f"task {task!r} has no linked-bounds group")
-        # widen the pinned box so n objects can be placed collision-free
-        half_width = 0.02 + 0.02 * (len(linked) - 1)
+        # The pinned box must hold every cube collision-free: robosuite cubes
+        # are 4-5 cm, and clipping halves the box at corners, so size by count
+        # (2 cubes -> 10 cm corner box, 3 -> 15 cm). Round 2 with 4-6 cm boxes
+        # died in RandomizationError("Cannot place all objects").
+        half_width = 0.05 * len(linked)
         box = probe_box(full[linked[0]], position, half_width=half_width)
         for name in linked:
             pinned[name] = box
