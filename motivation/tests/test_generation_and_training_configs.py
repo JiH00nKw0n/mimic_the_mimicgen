@@ -23,6 +23,9 @@ def _mimicgen_template() -> dict:
             },
             "task": {"name": "Threading_D0", "robot": None, "gripper": None},
             "max_num_failures": 25,
+            "render_video": True,
+            "num_demo_to_render": 10,
+            "num_fail_demo_to_render": 25,
             "seed": 1,
         },
         "obs": {"collect_obs": True, "camera_names": ["agentview"], "camera_height": 84, "camera_width": 84},
@@ -68,6 +71,10 @@ def test_generation_config_enforces_audit_protocol():
     assert config["name"] == "threading"
     assert config["obs"]["collect_obs"] is True
     assert config["obs"]["camera_names"] == []
+    # video rendering competes with sim workers for CPU — must be off
+    assert config["experiment"]["render_video"] is False
+    assert config["experiment"]["num_demo_to_render"] == 0
+    assert config["experiment"]["num_fail_demo_to_render"] == 0
     for subtask in config["task"]["task_spec"].values():
         assert subtask["selection_strategy"] == "random"
         assert subtask["selection_strategy_kwargs"] is None
