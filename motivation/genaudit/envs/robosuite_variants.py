@@ -37,6 +37,8 @@ _CLASS_NAME_BY_TASK = {
     "mug_cleanup": "MugCleanup",
     "square": "Square",
     "three_piece_assembly": "ThreePieceAssembly",
+    "hammer_cleanup": "HammerCleanup",
+    "coffee_preparation": "CoffeePreparation",
 }
 
 

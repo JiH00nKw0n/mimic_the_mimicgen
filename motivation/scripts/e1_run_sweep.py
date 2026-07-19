@@ -80,6 +80,16 @@ def main() -> None:
             specs.append((task, variant))
 
     def run_one(spec) -> tuple[str, str]:
+        # never let a spec-level exception poison the map: it would hide in
+        # the future, idle the worker, and stall the whole sweep silently
+        try:
+            return _run_one_inner(spec)
+        except Exception as error:  # noqa: BLE001 - driver must keep going
+            tag = f"{spec[0]}_{spec[1]}"
+            print(f"FAIL {tag} (spec error: {type(error).__name__}: {error})", flush=True)
+            return tag, f"spec error: {error}"
+
+    def _run_one_inner(spec) -> tuple[str, str]:
         task, variant = spec
         tag = f"{task}_{variant}"
         pool_dir = out_root / tag
