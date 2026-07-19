@@ -180,9 +180,12 @@ BOUNDS: dict[str, dict[str, dict[str, PlacementBounds]]] = {
             "cubeA": PlacementBounds((-0.20, 0.20), (-0.20, 0.20), (0.0, TWO_PI)),
             "cubeB": PlacementBounds((-0.20, 0.20), (-0.20, 0.20), (0.0, TWO_PI)),
         },
+        # B1 probe: the far corner (0.25, 0.25) sits ~0.85 m from the robot
+        # base (reach limit) and failed the gate (0.66 vs interior 0.92) —
+        # upper x/y shrunk by the pre-registered 0.02 m step.
         "D2E": {
-            "cubeA": PlacementBounds((-0.25, 0.25), (-0.25, 0.25), (0.0, TWO_PI)),
-            "cubeB": PlacementBounds((-0.25, 0.25), (-0.25, 0.25), (0.0, TWO_PI)),
+            "cubeA": PlacementBounds((-0.25, 0.23), (-0.25, 0.23), (0.0, TWO_PI)),
+            "cubeB": PlacementBounds((-0.25, 0.23), (-0.25, 0.23), (0.0, TWO_PI)),
         },
     },
     "stack_three": {
