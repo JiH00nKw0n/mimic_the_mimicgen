@@ -33,9 +33,25 @@ def test_probe_bounds_pins_only_the_target_object():
 def test_plan_counts_primary_gets_edges_secondary_corners():
     runs = plan_probe_runs("threading", "D2E")
     assert len(runs) == 1 + 8 + 4  # interior + needle(8) + tripod(4)
-    runs3 = plan_probe_runs("stack_three", "D2E")
-    assert len(runs3) == 1 + 8 + 4 + 4  # cubeA primary, cubeB/cubeC corners
     assert runs[0]["position"] == INTERIOR
+
+
+def test_linked_cube_tasks_pin_the_whole_group():
+    from genaudit.envs.probe import LINKED_GROUP_LABEL
+
+    # mimicgen asserts identical cube bounds -> one 8-position group, no
+    # per-cube runs
+    runs = plan_probe_runs("stack_three", "D2E")
+    assert len(runs) == 1 + 8
+    assert all(r["object"] in (None, LINKED_GROUP_LABEL) for r in runs)
+
+    pinned = probe_bounds("stack_three", "D2E", LINKED_GROUP_LABEL, "corner_00")
+    assert pinned["cubeA"] == pinned["cubeB"] == pinned["cubeC"]
+    # widened box: half_width 0.02 + 0.02*2 = 0.06 -> 0.12 m side (clipped at corner)
+    assert pinned["cubeA"].width_x == pytest.approx(0.06)
+
+    with pytest.raises(ValueError, match="linked bounds"):
+        probe_bounds("stack", "D2E", "cubeA", "corner_00")
 
 
 def test_fixed_objects_are_not_probed():

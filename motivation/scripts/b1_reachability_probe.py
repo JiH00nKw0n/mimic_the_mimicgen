@@ -89,6 +89,13 @@ def cmd_run(args) -> None:
     config_path = save_config(config, out / "mg_config.json")
     sys.argv = ["generate_dataset.py", "--config", str(config_path)]
     runpy.run_module("mimicgen.scripts.generate_dataset", run_name="__main__")
+    # mimicgen catches generation errors and exits 0 ("run failed with error");
+    # a run without its stats file did NOT complete — fail loudly.
+    if not list(out.rglob("important_stats.json")):
+        raise SystemExit(
+            f"{task_name}: generation did not complete (no important_stats.json "
+            f"under {out}) — see the mimicgen log in that folder"
+        )
 
 
 def _reach_rate(position_dir: Path, signal: str) -> tuple[float, int]:
@@ -129,7 +136,16 @@ def cmd_analyze(args) -> None:
             manifest = json.loads(manifest_path.read_text())
             stats_files = sorted(position_dir.rglob("important_stats.json"))
             stats = json.loads(stats_files[0].read_text()) if stats_files else {}
-            reach, episodes = _reach_rate(position_dir, manifest["first_subtask_signal"])
+            try:
+                reach, episodes = _reach_rate(position_dir, manifest["first_subtask_signal"])
+            except (FileNotFoundError, KeyError) as error:
+                positions[position_dir.name] = {
+                    "object": manifest["object"],
+                    "position": manifest["position"],
+                    "error": str(error),
+                    "passed": False,
+                }
+                continue
             positions[position_dir.name] = {
                 "object": manifest["object"],
                 "position": manifest["position"],
@@ -138,13 +154,20 @@ def cmd_analyze(args) -> None:
                 "task_success_rate": stats.get("success_rate"),
                 "num_problematic": stats.get("num_problematic"),
             }
-        if INTERIOR not in positions:
-            report[task_dir.name] = {"error": "interior reference run missing"}
+        if INTERIOR not in positions or "error" in positions[INTERIOR]:
+            report[task_dir.name] = {
+                "error": "interior reference run missing or incomplete",
+                "positions": positions,
+                "bounds_frozen_ok": False,
+            }
+            print(f"== {task_dir.name}: INTERIOR MISSING/INCOMPLETE — rerun the probe")
             continue
         interior_reach = positions[INTERIOR]["reach_rate"]
         for tag, entry in positions.items():
             if tag == INTERIOR:
                 entry["passed"] = True
+                continue
+            if "passed" in entry:  # incomplete run, already marked failed
                 continue
             entry["passed"] = (
                 entry["reach_rate"] >= interior_reach - args.reach_drop
@@ -160,7 +183,11 @@ def cmd_analyze(args) -> None:
         print(f"== {task_dir.name}: interior reach {interior_reach:.2f}, "
               f"{'ALL PASS' if not failed else 'FAILED: ' + ', '.join(failed)}")
         for tag, entry in sorted(positions.items()):
-            if tag != INTERIOR:
+            if tag == INTERIOR:
+                continue
+            if "error" in entry:
+                print(f"   {tag:<28} INCOMPLETE: {entry['error'][:70]}")
+            else:
                 print(f"   {tag:<28} reach {entry['reach_rate']:.2f} "
                       f"({entry['episodes']} eps) success {entry['task_success_rate']}")
     out = Path(args.out).expanduser()
