@@ -99,6 +99,8 @@ REFERENCE_OFFSETS: dict[str, tuple[float, float, float]] = {
     "stack_three": (0.0, 0.0, 0.8),
     "three_piece_assembly": (0.0, 0.0, 0.8),
     "mug_cleanup": (0.0, 0.0, 0.8),
+    "hammer_cleanup": (-0.2, 0.0, 0.90),
+    "coffee_preparation": (0.0, 0.0, 0.8),  # coffee_pod is drawer-local frame
 }
 
 _FIXED = (0.0, 0.0)
@@ -246,6 +248,39 @@ BOUNDS: dict[str, dict[str, dict[str, PlacementBounds]]] = {
     },
 }
 
+BOUNDS["hammer_cleanup"] = {
+    # D0 distribution is hardcoded in mimicgen's _load_model (no bounds
+    # method); numbers verified from mimicgen hammer_cleanup.py L179-191.
+    # CAUTION: hammer rotation is about z in D0 but about y in D1 (init_quat
+    # change) — rotation containment/d_rot is NOT comparable across the ladder;
+    # only the positional axes enter the distance (documented in TASKS.md).
+    "D0": {
+        "hammer": PlacementBounds((0.10, 0.18), (-0.20, -0.13), (-0.1, 0.1)),
+        "drawer": _fixed(0.2, 0.30),
+    },
+    "D1": {
+        "hammer": PlacementBounds((-0.2, 0.2), (-0.25, -0.13), (0.0, TWO_PI)),
+        "drawer": PlacementBounds((0.0, 0.2), (0.2, 0.3), (-PI / 6, PI / 6)),
+    },
+}
+
+BOUNDS["coffee_preparation"] = {
+    # coffee_pod samples in the drawer-local frame (reference (0,0,0)) — its
+    # diagonal is frame-free so the distance machinery is unaffected.
+    "D0": {
+        "drawer": _fixed(0.15, -0.35, PI),
+        "coffee_machine": _fixed(-0.15, -0.25, -PI / 6),
+        "mug": PlacementBounds((0.05, 0.20), (0.05, 0.25), _FIXED),
+        "coffee_pod": PlacementBounds((-0.03, 0.03), (-0.05, 0.03), _FIXED),
+    },
+    "D1": {
+        "drawer": _fixed(0.15, -0.35, PI),
+        "coffee_machine": PlacementBounds((-0.25, -0.15), (-0.30, -0.25), (-PI / 6, PI / 3)),
+        "mug": PlacementBounds((-0.15, 0.20), (0.05, 0.25), (0.0, TWO_PI)),
+        "coffee_pod": PlacementBounds((-0.03, 0.03), (-0.05, 0.03), _FIXED),
+    },
+}
+
 # The expansion ladders we claim in PLAN.md/TASKS.md: each pair (outer, inner)
 # must satisfy variant_is_superset. Tested in tests/test_bounds.py.
 EXPECTED_SUPERSET_PAIRS: tuple[tuple[str, str, str], ...] = (
@@ -265,6 +300,10 @@ EXPECTED_SUPERSET_PAIRS: tuple[tuple[str, str, str], ...] = (
     ("mug_cleanup", "D1E", "D0"),
     ("mug_cleanup", "D1E", "D1"),
     ("mug_cleanup", "D2E", "D1E"),
+    ("coffee_preparation", "D1", "D0"),
+    # hammer_cleanup D1 is positionally a superset of D0 but the hammer's
+    # rotation axis changes (z -> y), so it is deliberately absent from the
+    # strict-superset claims.
 )
 
 # Documented violations in the public ladders — the confounds E1 removes.

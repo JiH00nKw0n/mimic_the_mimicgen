@@ -14,6 +14,13 @@ tasks:
   stack: [D0, D1, D2E]                # 공식 config가 NN+per-subtask라 재실행 필요
   stack_three: [D0, D1, D2E]          # 상동
   square: [D2]                        # 공식 NN 선택 → random 재실행 (논문 no_nn 대조)
+  # --- 확장 라운드 (2026-07-20): 태스크 6→9개 ---
+  mug_cleanup: [D0, D1, D1E, D2E]     # D1은 mug-shift 대조군, D1E/D2E가 확장 사다리
+  hammer_cleanup: [D0, D1]            # 공개 2점 사다리 (task_zoo 필요)
+  coffee_preparation: [D0, D1]        # 공개 2점 사다리, horizon 800
+  # 제외 유지: kitchen(7 subtask·horizon 800에 D1 bread가 재배치형 — 비용 대비
+  # 사다리 가치 낮음), nut_assembly(변형 축 없음 — peg 랜덤화 이식 필요),
+  # pick_place(BinsArena — bounds 체계 자체가 다름)
 binning:
   k: 5
 paths:

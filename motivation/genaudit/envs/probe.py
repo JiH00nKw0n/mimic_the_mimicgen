@@ -22,6 +22,9 @@ PRIMARY_OBJECT = {
     "coffee": "coffee_pod",
     "stack": "cubeA",
     "stack_three": "cubeA",
+    "mug_cleanup": "object",  # the mug (mimicgen's name for it)
+    "hammer_cleanup": "hammer",
+    "coffee_preparation": "mug",
 }
 
 # mimicgen's Stack/StackThree envs assert IDENTICAL bounds for every cube

@@ -1,0 +1,14 @@
+# CoffeePreparation — 공개 D0/D1 확장 사다리 (2점 축). 하위작업 5개, long-horizon.
+task: coffee_preparation
+objects:
+  drawer: {symmetry_order: 1}
+  coffee_machine: {symmetry_order: 1}
+  mug: {symmetry_order: 1}
+  coffee_pod: {symmetry_order: 1}
+source_dataset: datasets/source/coffee_preparation.hdf5
+env_interface: MG_CoffeePreparation
+generation_template: mimicgen/exps/templates/robosuite/coffee_preparation.json
+rollout_horizon: 800
+ladder: [D0, D1]
+widest_variant: D1
+contrast_variants: []

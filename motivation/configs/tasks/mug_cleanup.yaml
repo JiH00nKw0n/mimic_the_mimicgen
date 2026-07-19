@@ -1,0 +1,13 @@
+# MugCleanup — 공개 D1이 mug 영역을 옆으로 미는 혼합형이라 교정판(D1E/D2E)
+# 사용. 공개 D1은 대조군으로 함께 생성.
+task: mug_cleanup
+objects:
+  object: {symmetry_order: 1}   # mug (mimicgen 명명)
+  drawer: {symmetry_order: 1}
+source_dataset: datasets/source/mug_cleanup.hdf5
+env_interface: MG_MugCleanup
+generation_template: mimicgen/exps/templates/robosuite/mug_cleanup.json
+rollout_horizon: 500
+ladder: [D0, D1E, D2E]
+widest_variant: D2E
+contrast_variants: [D1]
