@@ -128,6 +128,8 @@ def cmd_analyze(args) -> None:
     runs_root = Path(args.runs_root).expanduser()
     report: dict = {}
     for task_dir in sorted(p for p in runs_root.iterdir() if p.is_dir()):
+        if not list(task_dir.glob("*/probe_manifest.json")):
+            continue  # not a task dir (e.g. logs/)
         positions = {}
         for position_dir in sorted(p for p in task_dir.iterdir() if p.is_dir()):
             manifest_path = position_dir / "probe_manifest.json"
