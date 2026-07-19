@@ -1,0 +1,11 @@
+task: coffee
+objects:
+  coffee_machine: {symmetry_order: 1}
+  coffee_pod: {symmetry_order: 1}
+source_dataset: datasets/source/coffee.hdf5
+env_interface: MG_Coffee
+generation_template: mimicgen/exps/templates/robosuite/coffee.json
+rollout_horizon: 400
+ladder: [D0, D1E, D2E]
+widest_variant: D2E
+contrast_variants: [D1, D2]   # D1은 machine shift, D2는 미러 — 둘 다 대조군

@@ -1,0 +1,14 @@
+# ThreePieceAssembly — 공개 사다리가 확장형 (Phase-0 재사용). D1→D2는 회전만
+# 확장되므로 d_pos 축은 평평 — d_rot 병행 축이 커버 (PLAN.md §1.3).
+task: three_piece_assembly
+objects:
+  base: {symmetry_order: 1}
+  piece_1: {symmetry_order: 1}
+  piece_2: {symmetry_order: 1}
+source_dataset: datasets/source/three_piece_assembly.hdf5
+env_interface: MG_ThreePieceAssembly
+generation_template: mimicgen/exps/templates/robosuite/three_piece_assembly.json
+rollout_horizon: 500
+ladder: [D0, D1, D2]
+widest_variant: D2
+contrast_variants: []

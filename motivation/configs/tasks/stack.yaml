@@ -1,0 +1,12 @@
+# Stack — 고DGR positive control. cube는 4-fold 회전 대칭.
+task: stack
+objects:
+  cubeA: {symmetry_order: 4}
+  cubeB: {symmetry_order: 4}
+source_dataset: datasets/source/stack.hdf5
+env_interface: MG_Stack
+generation_template: mimicgen/exps/templates/robosuite/stack.json
+rollout_horizon: 400
+ladder: [D0, D1, D2E]
+widest_variant: D2E
+contrast_variants: []

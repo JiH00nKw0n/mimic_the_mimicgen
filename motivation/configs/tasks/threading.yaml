@@ -1,0 +1,13 @@
+# Threading — 대칭이동 confound 보유 태스크 (D2E로 교정). bounds 진실은
+# genaudit/envs/bounds.py 레지스트리; 여기는 조립 정보만.
+task: threading
+objects:
+  needle: {symmetry_order: 1}
+  tripod: {symmetry_order: 1}
+source_dataset: datasets/source/threading.hdf5   # prepare_src_dataset.py 처리본
+env_interface: MG_Threading
+generation_template: mimicgen/exps/templates/robosuite/threading.json
+rollout_horizon: 400
+ladder: [D0, D1, D2E]
+widest_variant: D2E
+contrast_variants: [D2]   # 공개 미러 D2 — E1 부차 검증(재배치 vs 확장)용
