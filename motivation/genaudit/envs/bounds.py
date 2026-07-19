@@ -162,9 +162,13 @@ BOUNDS: dict[str, dict[str, dict[str, PlacementBounds]]] = {
             "coffee_machine": PlacementBounds((0.0, 0.15), (-0.20, -0.10), (-PI / 6, PI / 3)),
             "coffee_pod": PlacementBounds((-0.20, 0.05), (0.17, 0.30), _FIXED),
         },
+        # B1 probe round 1 (2026-07-19): the two inner-facing corners failed the
+        # reach gate (machine at robot-side x + centerline y blocks the arm's
+        # path to the pod region; pod at right x + centerline y) — both axes of
+        # each failing corner shrunk by the pre-registered 0.02 m step.
         "D2E": {
-            "coffee_machine": PlacementBounds((-0.10, 0.20), (-0.25, -0.05), (-PI / 3, PI / 2)),
-            "coffee_pod": PlacementBounds((-0.25, 0.10), (0.12, 0.33), _FIXED),
+            "coffee_machine": PlacementBounds((-0.08, 0.20), (-0.25, -0.07), (-PI / 3, PI / 2)),
+            "coffee_pod": PlacementBounds((-0.25, 0.08), (0.14, 0.33), _FIXED),
         },
     },
     "stack": {
