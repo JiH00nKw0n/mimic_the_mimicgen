@@ -270,6 +270,34 @@ EXPECTED_NON_SUPERSET_PAIRS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+def union_bounding_box(
+    *variants: dict[str, PlacementBounds],
+) -> dict[str, PlacementBounds]:
+    """Per-object bounding box of several variants' regions.
+
+    The contrast axis of PLAN.md §1.4: when overlaying a relocation pool
+    (public mirror D2) with an expansion pool (D2E) the normalizer must cover
+    both regions, otherwise the mirror pool's distances exceed 1.
+    """
+    if not variants:
+        raise ValueError("need at least one variant")
+    names = set(variants[0])
+    for other in variants[1:]:
+        if set(other) != names:
+            raise ValueError(
+                f"variant object sets differ: {sorted(names)} vs {sorted(other)}"
+            )
+    union: dict[str, PlacementBounds] = {}
+    for name in names:
+        boxes = [variant[name] for variant in variants]
+        union[name] = PlacementBounds(
+            x=(min(b.x[0] for b in boxes), max(b.x[1] for b in boxes)),
+            y=(min(b.y[0] for b in boxes), max(b.y[1] for b in boxes)),
+            z_rot=(min(b.z_rot[0] for b in boxes), max(b.z_rot[1] for b in boxes)),
+        )
+    return union
+
+
 def get_variant(task: str, variant: str) -> dict[str, PlacementBounds]:
     try:
         return BOUNDS[task][variant]
