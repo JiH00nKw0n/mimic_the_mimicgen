@@ -82,7 +82,7 @@ def main() -> None:
         if list(pool_dir.rglob("important_stats.json")):
             print(f"SKIP (done) {tag}", flush=True)
             return tag, "skipped"
-        task_spec = load_task_spec(Path(args.task_config_dir) / f"{task}.yaml")
+        load_task_spec(Path(args.task_config_dir) / f"{task}.yaml")  # loud validation
         template = load_template(f"{args.templates}/{task}.json")
         config = build_generation_config(
             template,

@@ -56,6 +56,20 @@ def test_unknown_variant_fails_loudly():
         get_variant("threading", "D9")
 
 
+def test_union_bounding_box_covers_mirror_and_expansion():
+    from genaudit.envs.bounds import union_bounding_box, variant_is_superset
+
+    d2e = get_variant("threading", "D2E")
+    mirror = get_variant("threading", "D2")
+    union = union_bounding_box(d2e, mirror)
+    # the union contains both pools -> contrast-axis distances stay bounded
+    assert variant_is_superset(union, d2e)
+    assert variant_is_superset(union, mirror)
+    # needle: D2E y (0.10, 0.30) + mirror y (-0.25, -0.15) -> (-0.25, 0.30)
+    assert union["needle"].y == pytest.approx((-0.25, 0.30))
+    assert union["needle"].diagonal > d2e["needle"].diagonal
+
+
 def test_custom_variants_stay_within_probe_envelope():
     """E-series xy bounds must stay within the +/-0.25 draft reach envelope
     of TASKS.md §3 until the IK scan (PLAN.md §1.5) widens it. The mug_cleanup
