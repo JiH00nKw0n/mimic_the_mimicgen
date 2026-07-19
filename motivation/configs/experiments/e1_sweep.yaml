@@ -6,11 +6,14 @@ protocol:
   num_attempts: 500   # per (task, variant) pool
   seed: 1
 tasks:
-  threading: [D0, D1, D2, D2E]        # D2는 재배치 대조군
-  coffee: [D0, D1, D1E, D2, D2E]      # D1·D2 대조군 포함
-  stack: [D0, D1, D2E]
-  stack_three: [D0, D1, D2E]
-  square: [D2]                        # random-selection 재실행분 (논문 no_nn 대조)
+  # threading·coffee의 공개 D0/D1/D2는 재생성하지 않는다 — Phase-0 pool이
+  # 이미 동일 프로토콜(공식 config가 random 선택 + select_src_per_subtask=False,
+  # 실패 cap 500 = 500 attempts에서 무손실)이라 그대로 재사용.
+  threading: [D2E]
+  coffee: [D1E, D2E]
+  stack: [D0, D1, D2E]                # 공식 config가 NN+per-subtask라 재실행 필요
+  stack_three: [D0, D1, D2E]          # 상동
+  square: [D2]                        # 공식 NN 선택 → random 재실행 (논문 no_nn 대조)
 binning:
   k: 5
 paths:
