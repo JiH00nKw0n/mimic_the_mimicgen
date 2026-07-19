@@ -40,6 +40,11 @@ def build_generation_config(
     # never touch it; only experiment.name is run bookkeeping.
     experiment = config["experiment"]
     experiment["name"] = experiment_name or f"{task_name}_n{num_attempts}_seed{seed}"
+    # Demo-video rendering is pure overhead for audit pools (an ffmpeg per
+    # demo competes with the sim workers for CPU) — always off.
+    experiment["render_video"] = False
+    experiment["num_demo_to_render"] = 0
+    experiment["num_fail_demo_to_render"] = 0
     experiment["seed"] = seed
     experiment["max_num_failures"] = None  # uncapped: keep every failed attempt
     experiment["source"]["dataset_path"] = source_dataset
