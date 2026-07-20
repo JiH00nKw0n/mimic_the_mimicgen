@@ -1,0 +1,2252 @@
+[
+  {
+    "task": "coffee",
+    "variant": "D1E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/coffee_D1E",
+    "n_attempts": 500,
+    "dgr": 0.644,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": 0.0948284359631965,
+        "spearman_rho": 0.09277844050986238,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": 0.097336007133452,
+        "spearman_rho": 0.09497780466418226,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        60,
+        60,
+        61,
+        72,
+        69
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.6,
+        0.6,
+        0.61,
+        0.72,
+        0.69
+      ],
+      "scarcest_bin": 0,
+      "scarcest_dgr_wilson_lb": 0.5020007846184025,
+      "planned_total_attempts": 997
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        60,
+        59,
+        63,
+        70,
+        70
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.6,
+        0.59,
+        0.63,
+        0.7,
+        0.7
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.4920125056109662,
+      "planned_total_attempts": 1017
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        45,
+        47,
+        58,
+        55,
+        50,
+        57,
+        50,
+        47,
+        43,
+        48
+      ],
+      "retained_counts": [
+        35,
+        25,
+        45,
+        32,
+        34,
+        34,
+        37,
+        26,
+        17,
+        37
+      ],
+      "per_source_success_rate": [
+        0.7777777777777778,
+        0.5319148936170213,
+        0.7758620689655172,
+        0.5818181818181818,
+        0.68,
+        0.5964912280701754,
+        0.74,
+        0.5531914893617021,
+        0.3953488372093023,
+        0.7708333333333334
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.3695652173913043,
+      "skew_pp": 2.95652173913043,
+      "n_eff_retained": 9.500091625435223
+    },
+    "arm_c_worst_source": {
+      "source": 8,
+      "success_rate_wilson_lb": 0.263651061984564,
+      "required_pool_for_50_per_source": 1896
+    }
+  },
+  {
+    "task": "coffee",
+    "variant": "D2E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/coffee_D2E",
+    "n_attempts": 500,
+    "dgr": 0.484,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": 0.027603513358911962,
+        "spearman_rho": 0.029584781814148104,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": 0.026543974977296967,
+        "spearman_rho": 0.02872524269864802,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        42,
+        54,
+        44,
+        58,
+        44
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.42,
+        0.54,
+        0.44,
+        0.58,
+        0.44
+      ],
+      "scarcest_bin": 0,
+      "scarcest_dgr_wilson_lb": 0.32798224918511304,
+      "planned_total_attempts": 1525
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        43,
+        54,
+        42,
+        56,
+        47
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.43,
+        0.54,
+        0.42,
+        0.56,
+        0.47
+      ],
+      "scarcest_bin": 2,
+      "scarcest_dgr_wilson_lb": 0.32798224918511304,
+      "planned_total_attempts": 1525
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        45,
+        47,
+        58,
+        55,
+        50,
+        57,
+        50,
+        47,
+        43,
+        48
+      ],
+      "retained_counts": [
+        28,
+        15,
+        32,
+        25,
+        25,
+        28,
+        22,
+        23,
+        17,
+        27
+      ],
+      "per_source_success_rate": [
+        0.6222222222222222,
+        0.3191489361702128,
+        0.5517241379310345,
+        0.45454545454545453,
+        0.5,
+        0.49122807017543857,
+        0.44,
+        0.48936170212765956,
+        0.3953488372093023,
+        0.5625
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.36363636363636365,
+      "skew_pp": 2.3636363636363624,
+      "n_eff_retained": 9.603804526074123
+    },
+    "arm_c_worst_source": {
+      "source": 1,
+      "success_rate_wilson_lb": 0.2039520381739899,
+      "required_pool_for_50_per_source": 2451
+    }
+  },
+  {
+    "task": "coffee_preparation",
+    "variant": "D0",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/coffee_preparation_D0",
+    "n_attempts": 500,
+    "dgr": 0.52,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.35879288882248733,
+        "spearman_rho": -0.3598347369614997,
+        "per_bin_dgr_monotone_decreasing": true
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.47491505547656665,
+        "spearman_rho": -0.4762388059477349,
+        "per_bin_dgr_monotone_decreasing": true
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        81,
+        72,
+        55,
+        39,
+        13
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.81,
+        0.72,
+        0.55,
+        0.39,
+        0.13
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.07757093858414264,
+      "planned_total_attempts": 6446
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        74,
+        63,
+        59,
+        42,
+        22
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.74,
+        0.63,
+        0.59,
+        0.42,
+        0.22
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.15001174503655804,
+      "planned_total_attempts": 3334
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        55,
+        49,
+        41,
+        54,
+        59,
+        55,
+        48,
+        49,
+        48,
+        42
+      ],
+      "retained_counts": [
+        11,
+        33,
+        4,
+        21,
+        43,
+        42,
+        32,
+        36,
+        14,
+        24
+      ],
+      "per_source_success_rate": [
+        0.2,
+        0.673469387755102,
+        0.0975609756097561,
+        0.3888888888888889,
+        0.7288135593220338,
+        0.7636363636363637,
+        0.6666666666666666,
+        0.7346938775510204,
+        0.2916666666666667,
+        0.5714285714285714
+      ],
+      "top3_share_attempted": 0.338,
+      "top3_share_retained": 0.4653846153846154,
+      "skew_pp": 12.738461538461538,
+      "n_eff_retained": 8.074534161490682
+    },
+    "arm_c_worst_source": {
+      "source": 2,
+      "success_rate_wilson_lb": 0.03859645975296141,
+      "required_pool_for_50_per_source": 12954
+    }
+  },
+  {
+    "task": "coffee_preparation",
+    "variant": "D1",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/coffee_preparation_D1",
+    "n_attempts": 500,
+    "dgr": 0.332,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.04067759348297744,
+        "spearman_rho": -0.033837015491351256,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.12801032772714588,
+        "spearman_rho": -0.12375520622315078,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        35,
+        44,
+        31,
+        31,
+        25
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.35,
+        0.44,
+        0.31,
+        0.31,
+        0.25
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.17545094003724265,
+      "planned_total_attempts": 2850
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        37,
+        30,
+        36,
+        33,
+        30
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.37,
+        0.3,
+        0.36,
+        0.33,
+        0.3
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.21894753866228117,
+      "planned_total_attempts": 2284
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        55,
+        49,
+        41,
+        54,
+        59,
+        55,
+        48,
+        49,
+        48,
+        42
+      ],
+      "retained_counts": [
+        4,
+        21,
+        1,
+        7,
+        36,
+        32,
+        15,
+        31,
+        4,
+        15
+      ],
+      "per_source_success_rate": [
+        0.07272727272727272,
+        0.42857142857142855,
+        0.024390243902439025,
+        0.12962962962962962,
+        0.6101694915254238,
+        0.5818181818181818,
+        0.3125,
+        0.6326530612244898,
+        0.08333333333333333,
+        0.35714285714285715
+      ],
+      "top3_share_attempted": 0.338,
+      "top3_share_retained": 0.5963855421686747,
+      "skew_pp": 25.838554216867465,
+      "n_eff_retained": 6.477668077103903
+    },
+    "arm_c_worst_source": {
+      "source": 2,
+      "success_rate_wilson_lb": 0.004318420270716478,
+      "required_pool_for_50_per_source": 115783
+    }
+  },
+  {
+    "task": "hammer_cleanup",
+    "variant": "D0",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/hammer_cleanup_D0",
+    "n_attempts": 500,
+    "dgr": 0.478,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.005754264372883331,
+        "spearman_rho": 0.0024827061408963544,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.005754264372883326,
+        "spearman_rho": 0.0024827061408963544,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        47,
+        46,
+        46,
+        53,
+        47
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.47,
+        0.46,
+        0.46,
+        0.53,
+        0.47
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.36560643853331865,
+      "planned_total_attempts": 1368
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        47,
+        46,
+        46,
+        53,
+        47
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.47,
+        0.46,
+        0.46,
+        0.53,
+        0.47
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.36560643853331865,
+      "planned_total_attempts": 1368
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        45,
+        52,
+        52,
+        47,
+        38,
+        60,
+        55,
+        48,
+        52,
+        51
+      ],
+      "retained_counts": [
+        26,
+        22,
+        25,
+        23,
+        20,
+        25,
+        22,
+        21,
+        28,
+        27
+      ],
+      "per_source_success_rate": [
+        0.5777777777777777,
+        0.4230769230769231,
+        0.4807692307692308,
+        0.48936170212765956,
+        0.5263157894736842,
+        0.4166666666666667,
+        0.4,
+        0.4375,
+        0.5384615384615384,
+        0.5294117647058824
+      ],
+      "top3_share_attempted": 0.334,
+      "top3_share_retained": 0.3389121338912134,
+      "skew_pp": 0.4912133891213366,
+      "n_eff_retained": 9.88765795395534
+    },
+    "arm_c_worst_source": {
+      "source": 6,
+      "success_rate_wilson_lb": 0.2811830378643358,
+      "required_pool_for_50_per_source": 1778
+    }
+  },
+  {
+    "task": "hammer_cleanup",
+    "variant": "D1",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/hammer_cleanup_D1",
+    "n_attempts": 500,
+    "dgr": 0.184,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.09091700310906131,
+        "spearman_rho": -0.08947151627871568,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.0938887810488327,
+        "spearman_rho": -0.0973387159515044,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        21,
+        27,
+        17,
+        12,
+        15
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.21,
+        0.27,
+        0.17,
+        0.12,
+        0.15
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.06999337365267776,
+      "planned_total_attempts": 7144
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        18,
+        30,
+        15,
+        13,
+        16
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.18,
+        0.3,
+        0.15,
+        0.13,
+        0.16
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.07757093858414264,
+      "planned_total_attempts": 6446
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        47,
+        47,
+        49,
+        54,
+        51,
+        61,
+        48,
+        43,
+        59,
+        41
+      ],
+      "retained_counts": [
+        18,
+        7,
+        5,
+        10,
+        5,
+        18,
+        9,
+        8,
+        5,
+        7
+      ],
+      "per_source_success_rate": [
+        0.3829787234042553,
+        0.14893617021276595,
+        0.10204081632653061,
+        0.18518518518518517,
+        0.09803921568627451,
+        0.29508196721311475,
+        0.1875,
+        0.18604651162790697,
+        0.0847457627118644,
+        0.17073170731707318
+      ],
+      "top3_share_attempted": 0.348,
+      "top3_share_retained": 0.5,
+      "skew_pp": 15.200000000000003,
+      "n_eff_retained": 7.939962476547842
+    },
+    "arm_c_worst_source": {
+      "source": 8,
+      "success_rate_wilson_lb": 0.036741491306199775,
+      "required_pool_for_50_per_source": 13608
+    }
+  },
+  {
+    "task": "mug_cleanup",
+    "variant": "D0",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/mug_cleanup_D0",
+    "n_attempts": 500,
+    "dgr": 0.312,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.04376591222893054,
+        "spearman_rho": -0.05221847761467443,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.043765912228930524,
+        "spearman_rho": -0.05221847761467443,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        39,
+        30,
+        22,
+        33,
+        32
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.39,
+        0.3,
+        0.22,
+        0.33,
+        0.32
+      ],
+      "scarcest_bin": 2,
+      "scarcest_dgr_wilson_lb": 0.15001174503655804,
+      "planned_total_attempts": 3334
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        39,
+        30,
+        22,
+        33,
+        32
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.39,
+        0.3,
+        0.22,
+        0.33,
+        0.32
+      ],
+      "scarcest_bin": 2,
+      "scarcest_dgr_wilson_lb": 0.15001174503655804,
+      "planned_total_attempts": 3334
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        53,
+        47,
+        44,
+        45,
+        60,
+        53,
+        54,
+        56,
+        42,
+        46
+      ],
+      "retained_counts": [
+        14,
+        10,
+        26,
+        20,
+        16,
+        18,
+        22,
+        1,
+        17,
+        12
+      ],
+      "per_source_success_rate": [
+        0.2641509433962264,
+        0.2127659574468085,
+        0.5909090909090909,
+        0.4444444444444444,
+        0.26666666666666666,
+        0.33962264150943394,
+        0.4074074074074074,
+        0.017857142857142856,
+        0.40476190476190477,
+        0.2608695652173913
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.4358974358974359,
+      "skew_pp": 9.589743589743588,
+      "n_eff_retained": 8.479442508710802
+    },
+    "arm_c_worst_source": {
+      "source": 7,
+      "success_rate_wilson_lb": 0.003159128964463983,
+      "required_pool_for_50_per_source": 158271
+    }
+  },
+  {
+    "task": "mug_cleanup",
+    "variant": "D1",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/mug_cleanup_D1",
+    "n_attempts": 500,
+    "dgr": 0.2,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": 0.027924196925482182,
+        "spearman_rho": 0.03273582573476872,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": 0.04136765177143584,
+        "spearman_rho": 0.04395953741526086,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        18,
+        20,
+        22,
+        16,
+        24
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.18,
+        0.2,
+        0.22,
+        0.16,
+        0.24
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.10095202349473717,
+      "planned_total_attempts": 4953
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        20,
+        18,
+        23,
+        15,
+        24
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.2,
+        0.18,
+        0.23,
+        0.15,
+        0.24
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.09305903191162297,
+      "planned_total_attempts": 5373
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        53,
+        47,
+        44,
+        45,
+        60,
+        53,
+        54,
+        56,
+        42,
+        46
+      ],
+      "retained_counts": [
+        3,
+        9,
+        19,
+        13,
+        14,
+        8,
+        16,
+        1,
+        9,
+        8
+      ],
+      "per_source_success_rate": [
+        0.05660377358490566,
+        0.19148936170212766,
+        0.4318181818181818,
+        0.28888888888888886,
+        0.23333333333333334,
+        0.1509433962264151,
+        0.2962962962962963,
+        0.017857142857142856,
+        0.21428571428571427,
+        0.17391304347826086
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.49,
+      "skew_pp": 14.999999999999996,
+      "n_eff_retained": 7.800312012480498
+    },
+    "arm_c_worst_source": {
+      "source": 7,
+      "success_rate_wilson_lb": 0.003159128964463983,
+      "required_pool_for_50_per_source": 158271
+    }
+  },
+  {
+    "task": "mug_cleanup",
+    "variant": "D1E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/mug_cleanup_D1E",
+    "n_attempts": 500,
+    "dgr": 0.206,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.014584051736143352,
+        "spearman_rho": -0.006663880910009549,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.012509259447619946,
+        "spearman_rho": -0.008445484032479968,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        21,
+        20,
+        23,
+        20,
+        19
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.21,
+        0.2,
+        0.23,
+        0.2,
+        0.19
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.12514653992704258,
+      "planned_total_attempts": 3996
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        21,
+        22,
+        20,
+        18,
+        22
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.21,
+        0.22,
+        0.2,
+        0.18,
+        0.22
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.11700131654251038,
+      "planned_total_attempts": 4274
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        53,
+        47,
+        44,
+        45,
+        60,
+        53,
+        54,
+        56,
+        42,
+        46
+      ],
+      "retained_counts": [
+        4,
+        5,
+        24,
+        15,
+        14,
+        12,
+        15,
+        0,
+        9,
+        5
+      ],
+      "per_source_success_rate": [
+        0.07547169811320754,
+        0.10638297872340426,
+        0.5454545454545454,
+        0.3333333333333333,
+        0.23333333333333334,
+        0.22641509433962265,
+        0.2777777777777778,
+        0.0,
+        0.21428571428571427,
+        0.10869565217391304
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.5242718446601942,
+      "skew_pp": 18.427184466019416,
+      "n_eff_retained": 7.0118968935888955
+    },
+    "arm_c_worst_source": {
+      "source": 7,
+      "success_rate_wilson_lb": 0.0,
+      "required_pool_for_50_per_source": null
+    }
+  },
+  {
+    "task": "mug_cleanup",
+    "variant": "D2E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/mug_cleanup_D2E",
+    "n_attempts": 500,
+    "dgr": 0.13,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.029315338138626204,
+        "spearman_rho": -0.024947919151024046,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.019931018453683752,
+        "spearman_rho": -0.016789887785371264,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        13,
+        14,
+        14,
+        14,
+        10
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.13,
+        0.14,
+        0.14,
+        0.14,
+        0.1
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.05522854161313613,
+      "planned_total_attempts": 9054
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        14,
+        12,
+        16,
+        13,
+        10
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.14,
+        0.12,
+        0.16,
+        0.13,
+        0.1
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.05522854161313613,
+      "planned_total_attempts": 9054
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        53,
+        47,
+        44,
+        45,
+        60,
+        53,
+        54,
+        56,
+        42,
+        46
+      ],
+      "retained_counts": [
+        1,
+        3,
+        14,
+        7,
+        12,
+        7,
+        10,
+        0,
+        6,
+        5
+      ],
+      "per_source_success_rate": [
+        0.018867924528301886,
+        0.06382978723404255,
+        0.3181818181818182,
+        0.15555555555555556,
+        0.2,
+        0.1320754716981132,
+        0.18518518518518517,
+        0.0,
+        0.14285714285714285,
+        0.10869565217391304
+      ],
+      "top3_share_attempted": 0.34,
+      "top3_share_retained": 0.5538461538461539,
+      "skew_pp": 21.384615384615387,
+      "n_eff_retained": 6.937602627257799
+    },
+    "arm_c_worst_source": {
+      "source": 7,
+      "success_rate_wilson_lb": 0.0,
+      "required_pool_for_50_per_source": null
+    }
+  },
+  {
+    "task": "square",
+    "variant": "D2",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/square_D2",
+    "n_attempts": 500,
+    "dgr": 0.21,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.057155689161448545,
+        "spearman_rho": -0.050672087677111614,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.05715568916144851,
+        "spearman_rho": -0.050672087677111614,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        29,
+        15,
+        18,
+        22,
+        21
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.29,
+        0.15,
+        0.18,
+        0.22,
+        0.21
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.09305903191162297,
+      "planned_total_attempts": 5373
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        29,
+        15,
+        18,
+        22,
+        21
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.29,
+        0.15,
+        0.18,
+        0.22,
+        0.21
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.09305903191162297,
+      "planned_total_attempts": 5373
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        44,
+        51,
+        60,
+        46,
+        62,
+        39,
+        52,
+        42,
+        55,
+        49
+      ],
+      "retained_counts": [
+        8,
+        14,
+        14,
+        6,
+        16,
+        11,
+        16,
+        5,
+        2,
+        13
+      ],
+      "per_source_success_rate": [
+        0.18181818181818182,
+        0.27450980392156865,
+        0.23333333333333334,
+        0.13043478260869565,
+        0.25806451612903225,
+        0.28205128205128205,
+        0.3076923076923077,
+        0.11904761904761904,
+        0.03636363636363636,
+        0.2653061224489796
+      ],
+      "top3_share_attempted": 0.354,
+      "top3_share_retained": 0.4380952380952381,
+      "skew_pp": 8.409523809523812,
+      "n_eff_retained": 8.333333333333332
+    },
+    "arm_c_worst_source": {
+      "source": 8,
+      "success_rate_wilson_lb": 0.010029330855724924,
+      "required_pool_for_50_per_source": 49853
+    }
+  },
+  {
+    "task": "stack",
+    "variant": "D0",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_D0",
+    "n_attempts": 500,
+    "dgr": 0.698,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": 0.05790044401464206,
+        "spearman_rho": 0.06752791555067462,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": 0.05790044401464209,
+        "spearman_rho": 0.06752791555067462,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        70,
+        69,
+        61,
+        68,
+        81
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.7,
+        0.69,
+        0.61,
+        0.68,
+        0.81
+      ],
+      "scarcest_bin": 2,
+      "scarcest_dgr_wilson_lb": 0.5120283616749816,
+      "planned_total_attempts": 977
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        70,
+        69,
+        61,
+        68,
+        81
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.7,
+        0.69,
+        0.61,
+        0.68,
+        0.81
+      ],
+      "scarcest_bin": 2,
+      "scarcest_dgr_wilson_lb": 0.5120283616749816,
+      "planned_total_attempts": 977
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        46,
+        43,
+        46,
+        47,
+        43,
+        48,
+        58,
+        51,
+        54,
+        64
+      ],
+      "retained_counts": [
+        26,
+        28,
+        33,
+        34,
+        31,
+        35,
+        40,
+        37,
+        37,
+        48
+      ],
+      "per_source_success_rate": [
+        0.5652173913043478,
+        0.6511627906976745,
+        0.717391304347826,
+        0.723404255319149,
+        0.7209302325581395,
+        0.7291666666666666,
+        0.6896551724137931,
+        0.7254901960784313,
+        0.6851851851851852,
+        0.75
+      ],
+      "top3_share_attempted": 0.352,
+      "top3_share_retained": 0.35816618911174786,
+      "skew_pp": 0.6166189111747877,
+      "n_eff_retained": 9.718423362323467
+    },
+    "arm_c_worst_source": {
+      "source": 0,
+      "success_rate_wilson_lb": 0.42247182776628217,
+      "required_pool_for_50_per_source": 1183
+    }
+  },
+  {
+    "task": "stack",
+    "variant": "D1",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_D1",
+    "n_attempts": 500,
+    "dgr": 0.652,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.11295114388956633,
+        "spearman_rho": -0.08802519316883088,
+        "per_bin_dgr_monotone_decreasing": true
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.11295114388956635,
+        "spearman_rho": -0.08802519316883088,
+        "per_bin_dgr_monotone_decreasing": true
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        69,
+        68,
+        66,
+        63,
+        60
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.69,
+        0.68,
+        0.66,
+        0.63,
+        0.6
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.5020007846184025,
+      "planned_total_attempts": 997
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        69,
+        68,
+        66,
+        63,
+        60
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.69,
+        0.68,
+        0.66,
+        0.63,
+        0.6
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.5020007846184025,
+      "planned_total_attempts": 997
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        42,
+        53,
+        59,
+        48,
+        55,
+        47,
+        52,
+        39,
+        54,
+        51
+      ],
+      "retained_counts": [
+        21,
+        25,
+        40,
+        35,
+        39,
+        29,
+        38,
+        26,
+        35,
+        38
+      ],
+      "per_source_success_rate": [
+        0.5,
+        0.4716981132075472,
+        0.6779661016949152,
+        0.7291666666666666,
+        0.7090909090909091,
+        0.6170212765957447,
+        0.7307692307692307,
+        0.6666666666666666,
+        0.6481481481481481,
+        0.7450980392156863
+      ],
+      "top3_share_attempted": 0.336,
+      "top3_share_retained": 0.3588957055214724,
+      "skew_pp": 2.2895705521472354,
+      "n_eff_retained": 9.624705669262815
+    },
+    "arm_c_worst_source": {
+      "source": 1,
+      "success_rate_wilson_lb": 0.3438202760898141,
+      "required_pool_for_50_per_source": 1454
+    }
+  },
+  {
+    "task": "stack",
+    "variant": "D2E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_D2E",
+    "n_attempts": 500,
+    "dgr": 0.588,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.14101914302742147,
+        "spearman_rho": -0.14000149429786946,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.14101914302742144,
+        "spearman_rho": -0.14000149429786946,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        69,
+        64,
+        53,
+        59,
+        49
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.69,
+        0.64,
+        0.53,
+        0.59,
+        0.49
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.39421830092386145,
+      "planned_total_attempts": 1269
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        69,
+        64,
+        53,
+        59,
+        49
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.69,
+        0.64,
+        0.53,
+        0.59,
+        0.49
+      ],
+      "scarcest_bin": 4,
+      "scarcest_dgr_wilson_lb": 0.39421830092386145,
+      "planned_total_attempts": 1269
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        46,
+        41,
+        51,
+        50,
+        57,
+        45,
+        47,
+        58,
+        51,
+        54
+      ],
+      "retained_counts": [
+        19,
+        19,
+        25,
+        35,
+        41,
+        31,
+        22,
+        33,
+        35,
+        34
+      ],
+      "per_source_success_rate": [
+        0.41304347826086957,
+        0.4634146341463415,
+        0.49019607843137253,
+        0.7,
+        0.7192982456140351,
+        0.6888888888888889,
+        0.46808510638297873,
+        0.5689655172413793,
+        0.6862745098039216,
+        0.6296296296296297
+      ],
+      "top3_share_attempted": 0.338,
+      "top3_share_retained": 0.37755102040816324,
+      "skew_pp": 3.955102040816322,
+      "n_eff_retained": 9.428010471204189
+    },
+    "arm_c_worst_source": {
+      "source": 0,
+      "success_rate_wilson_lb": 0.2828839329710102,
+      "required_pool_for_50_per_source": 1767
+    }
+  },
+  {
+    "task": "stack_three",
+    "variant": "D0",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_three_D0",
+    "n_attempts": 500,
+    "dgr": 0.28,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": 0.03844703639322477,
+        "spearman_rho": 0.043822239033799816,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": 0.03844703639322473,
+        "spearman_rho": 0.043822239033799816,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        27,
+        24,
+        29,
+        29,
+        31
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.27,
+        0.24,
+        0.29,
+        0.29,
+        0.31
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.16691211265459965,
+      "planned_total_attempts": 2996
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        27,
+        24,
+        29,
+        29,
+        31
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.27,
+        0.24,
+        0.29,
+        0.29,
+        0.31
+      ],
+      "scarcest_bin": 1,
+      "scarcest_dgr_wilson_lb": 0.16691211265459965,
+      "planned_total_attempts": 2996
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        50,
+        51,
+        44,
+        54,
+        52,
+        46,
+        54,
+        60,
+        46,
+        43
+      ],
+      "retained_counts": [
+        8,
+        8,
+        18,
+        14,
+        15,
+        19,
+        15,
+        23,
+        13,
+        7
+      ],
+      "per_source_success_rate": [
+        0.16,
+        0.1568627450980392,
+        0.4090909090909091,
+        0.25925925925925924,
+        0.28846153846153844,
+        0.41304347826086957,
+        0.2777777777777778,
+        0.38333333333333336,
+        0.2826086956521739,
+        0.16279069767441862
+      ],
+      "top3_share_attempted": 0.336,
+      "top3_share_retained": 0.42857142857142855,
+      "skew_pp": 9.257142857142853,
+      "n_eff_retained": 8.884859474161377
+    },
+    "arm_c_worst_source": {
+      "source": 1,
+      "success_rate_wilson_lb": 0.08169125888021325,
+      "required_pool_for_50_per_source": 6120
+    }
+  },
+  {
+    "task": "stack_three",
+    "variant": "D1",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_three_D1",
+    "n_attempts": 500,
+    "dgr": 0.258,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.027089260717233225,
+        "spearman_rho": -0.021392671912180725,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.027089260717233266,
+        "spearman_rho": -0.021392671912180725,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        24,
+        26,
+        33,
+        23,
+        23
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.24,
+        0.26,
+        0.33,
+        0.23,
+        0.23
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.15843154746876406,
+      "planned_total_attempts": 3156
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        24,
+        26,
+        33,
+        23,
+        23
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.24,
+        0.26,
+        0.33,
+        0.23,
+        0.23
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.15843154746876406,
+      "planned_total_attempts": 3156
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        48,
+        48,
+        55,
+        58,
+        42,
+        42,
+        46,
+        62,
+        54,
+        45
+      ],
+      "retained_counts": [
+        8,
+        14,
+        12,
+        18,
+        9,
+        10,
+        11,
+        16,
+        15,
+        16
+      ],
+      "per_source_success_rate": [
+        0.16666666666666666,
+        0.2916666666666667,
+        0.21818181818181817,
+        0.3103448275862069,
+        0.21428571428571427,
+        0.23809523809523808,
+        0.2391304347826087,
+        0.25806451612903225,
+        0.2777777777777778,
+        0.35555555555555557
+      ],
+      "top3_share_attempted": 0.35,
+      "top3_share_retained": 0.3875968992248062,
+      "skew_pp": 3.7596899224806246,
+      "n_eff_retained": 9.417657045840409
+    },
+    "arm_c_worst_source": {
+      "source": 0,
+      "success_rate_wilson_lb": 0.08695410039453223,
+      "required_pool_for_50_per_source": 5750
+    }
+  },
+  {
+    "task": "stack_three",
+    "variant": "D2E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/stack_three_D2E",
+    "n_attempts": 500,
+    "dgr": 0.218,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.09022886590170738,
+        "spearman_rho": -0.0932124508765186,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.0902288659017074,
+        "spearman_rho": -0.0932124508765186,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        28,
+        21,
+        24,
+        15,
+        21
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.28,
+        0.21,
+        0.24,
+        0.15,
+        0.21
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.09305903191162297,
+      "planned_total_attempts": 5373
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        28,
+        21,
+        24,
+        15,
+        21
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.28,
+        0.21,
+        0.24,
+        0.15,
+        0.21
+      ],
+      "scarcest_bin": 3,
+      "scarcest_dgr_wilson_lb": 0.09305903191162297,
+      "planned_total_attempts": 5373
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        49,
+        58,
+        54,
+        58,
+        51,
+        54,
+        44,
+        58,
+        41,
+        33
+      ],
+      "retained_counts": [
+        7,
+        17,
+        9,
+        14,
+        6,
+        14,
+        5,
+        17,
+        9,
+        11
+      ],
+      "per_source_success_rate": [
+        0.14285714285714285,
+        0.29310344827586204,
+        0.16666666666666666,
+        0.2413793103448276,
+        0.11764705882352941,
+        0.25925925925925924,
+        0.11363636363636363,
+        0.29310344827586204,
+        0.21951219512195122,
+        0.3333333333333333
+      ],
+      "top3_share_attempted": 0.348,
+      "top3_share_retained": 0.44036697247706424,
+      "skew_pp": 9.236697247706427,
+      "n_eff_retained": 8.716801173881144
+    },
+    "arm_c_worst_source": {
+      "source": 6,
+      "success_rate_wilson_lb": 0.04952707589567494,
+      "required_pool_for_50_per_source": 10095
+    }
+  },
+  {
+    "task": "threading",
+    "variant": "D2E",
+    "pool_dir": "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_ic/e1/threading_D2E",
+    "n_attempts": 500,
+    "dgr": 0.316,
+    "trend_by_definition": {
+      "d_raw": {
+        "distance_key": "d_raw",
+        "point_biserial_r": -0.02686932843347812,
+        "spearman_rho": -0.020773643238033615,
+        "per_bin_dgr_monotone_decreasing": false
+      },
+      "d_pos": {
+        "distance_key": "d_pos",
+        "point_biserial_r": -0.026869328433478133,
+        "spearman_rho": -0.020773643238033615,
+        "per_bin_dgr_monotone_decreasing": false
+      }
+    },
+    "pool_plan_d_pos": {
+      "distance_key": "d_pos",
+      "k": 5,
+      "per_bin_retained": [
+        28,
+        37,
+        29,
+        36,
+        28
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.28,
+        0.37,
+        0.29,
+        0.36,
+        0.28
+      ],
+      "scarcest_bin": 0,
+      "scarcest_dgr_wilson_lb": 0.20139559167598364,
+      "planned_total_attempts": 2483
+    },
+    "pool_plan_d_raw": {
+      "distance_key": "d_raw",
+      "k": 5,
+      "per_bin_retained": [
+        28,
+        37,
+        29,
+        36,
+        28
+      ],
+      "per_bin_attempts": [
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "per_bin_dgr": [
+        0.28,
+        0.37,
+        0.29,
+        0.36,
+        0.28
+      ],
+      "scarcest_bin": 0,
+      "scarcest_dgr_wilson_lb": 0.20139559167598364,
+      "planned_total_attempts": 2483
+    },
+    "ancestry": {
+      "num_sources": 10,
+      "attempted_counts": [
+        45,
+        52,
+        48,
+        52,
+        34,
+        61,
+        52,
+        62,
+        41,
+        53
+      ],
+      "retained_counts": [
+        17,
+        26,
+        19,
+        2,
+        3,
+        13,
+        22,
+        21,
+        21,
+        14
+      ],
+      "per_source_success_rate": [
+        0.37777777777777777,
+        0.5,
+        0.3958333333333333,
+        0.038461538461538464,
+        0.08823529411764706,
+        0.21311475409836064,
+        0.4230769230769231,
+        0.3387096774193548,
+        0.5121951219512195,
+        0.2641509433962264
+      ],
+      "top3_share_attempted": 0.352,
+      "top3_share_retained": 0.43670886075949367,
+      "skew_pp": 8.47088607594937,
+      "n_eff_retained": 8.131596091205214
+    },
+    "arm_c_worst_source": {
+      "source": 3,
+      "success_rate_wilson_lb": 0.010611488322077558,
+      "required_pool_for_50_per_source": 47118
+    }
+  }
+]
