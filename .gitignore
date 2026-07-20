@@ -26,3 +26,7 @@ research/
 lab_stack_mimic/videos/
 *.mp4
 *.gif
+
+# 별개 서브프로젝트 (데이터 포함) — 이 레포에서 추적 안 함
+lab_peg_mimic/
+figures/motivation_ext/regions/
