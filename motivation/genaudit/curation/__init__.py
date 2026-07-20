@@ -8,6 +8,7 @@ from genaudit.curation.binning import (
 from genaudit.curation.samplers import (
     InsufficientPoolError,
     SampleResult,
+    sample_ancestry_balanced,
     sample_baseline,
     sample_stratified_uniform,
 )
