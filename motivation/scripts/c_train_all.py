@@ -28,11 +28,25 @@ VENV_PY = HOME / "mimicgen_jihoonkwon/robosuite_mimicgen/venv/bin/python"
 ROBOMIMIC = HOME / "mimicgen_jihoonkwon/robosuite_mimicgen/robomimic"
 
 
+def _num_epochs(config_path: str) -> int:
+    return int(json.loads(Path(config_path).read_text())["train"]["num_epochs"])
+
+
 def run_one(config_path: str, results_dir: Path) -> tuple[str, str]:
-    name = json.loads(Path(config_path).read_text())["experiment"]["name"]
-    if list(results_dir.rglob(f"{name}/**/models")):
+    config = json.loads(Path(config_path).read_text())
+    name = config["experiment"]["name"]
+    final_epoch = int(config["train"]["num_epochs"])
+    # a run is complete only if its FINAL checkpoint exists — a mere models/
+    # dir can be a partial (interrupted) run, which must re-run, not skip
+    if list(results_dir.rglob(f"{name}/**/model_epoch_{final_epoch}.pth")):
         print(f"SKIP (done) {name}", flush=True)
         return name, "skipped"
+    # a partial run left a dir that would make robomimic prompt to overwrite;
+    # remove it so the fresh run starts cleanly under stdin=/dev/null
+    for stale in results_dir.rglob(f"{name}"):
+        if stale.is_dir():
+            import shutil
+            shutil.rmtree(stale, ignore_errors=True)
     env = dict(os.environ)
     env["LD_LIBRARY_PATH"] = f"{NV}/cu13/lib:{NV}/cudnn/lib"
     log = results_dir / f"log_{name}.txt"
