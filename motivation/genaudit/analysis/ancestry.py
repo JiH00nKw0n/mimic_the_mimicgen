@@ -15,10 +15,19 @@ class AncestryStats:
     attempted_counts: tuple[int, ...]
     retained_counts: tuple[int, ...]
     per_source_success_rate: tuple[float, ...]
+    # Primary skew metric: total-variation distance from the uniform ancestry
+    # distribution — parameter-free (no arbitrary "top-k"), bounded in
+    # [0, 1 - 1/N], read as "the fraction of demos that would have to change
+    # source to make the ancestry uniform". Reported for attempts and
+    # survivors; skew_tv isolates the filtering-induced increase.
+    tv_uniform_attempted: float
+    tv_uniform_retained: float
+    skew_tv: float  # TV_retained - TV_attempted
+    n_eff_retained: float  # inverse-Simpson effective number of ancestors
+    # kept for continuity with the earlier report / cross-checking only
     top3_share_attempted: float
     top3_share_retained: float
-    skew_pp: float  # (retained top-3 share - attempted top-3 share) * 100
-    n_eff_retained: float  # 1 / sum q_i^2 over retained shares
+    skew_pp: float
 
 
 def _top_k_share(counts: np.ndarray, k: int = 3) -> float:
@@ -26,6 +35,16 @@ def _top_k_share(counts: np.ndarray, k: int = 3) -> float:
     if total == 0:
         raise ValueError("empty counts")
     return float(np.sort(counts)[::-1][:k].sum() / total)
+
+
+def _tv_to_uniform(counts: np.ndarray) -> float:
+    """Total-variation distance of a count distribution from uniform."""
+    total = counts.sum()
+    if total == 0:
+        raise ValueError("empty counts")
+    shares = counts / total
+    n = len(counts)
+    return float(0.5 * np.abs(shares - 1.0 / n).sum())
 
 
 def ancestry_stats(records: Sequence[AttemptRecord], num_sources: int) -> AncestryStats:
@@ -46,6 +65,8 @@ def ancestry_stats(records: Sequence[AttemptRecord], num_sources: int) -> Ancest
     )
     shares = retained / retained.sum()
     n_eff = 1.0 / float(np.square(shares).sum())
+    tv_att = _tv_to_uniform(attempted)
+    tv_ret = _tv_to_uniform(retained)
     top3_attempted = _top_k_share(attempted)
     top3_retained = _top_k_share(retained)
     return AncestryStats(
@@ -53,10 +74,13 @@ def ancestry_stats(records: Sequence[AttemptRecord], num_sources: int) -> Ancest
         attempted_counts=tuple(int(count) for count in attempted),
         retained_counts=tuple(int(count) for count in retained),
         per_source_success_rate=tuple(float(rate) for rate in success_rates),
+        tv_uniform_attempted=tv_att,
+        tv_uniform_retained=tv_ret,
+        skew_tv=tv_ret - tv_att,
+        n_eff_retained=n_eff,
         top3_share_attempted=top3_attempted,
         top3_share_retained=top3_retained,
         skew_pp=(top3_retained - top3_attempted) * 100.0,
-        n_eff_retained=n_eff,
     )
 
 
