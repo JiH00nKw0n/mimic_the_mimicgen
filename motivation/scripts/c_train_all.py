@@ -28,10 +28,6 @@ VENV_PY = HOME / "mimicgen_jihoonkwon/robosuite_mimicgen/venv/bin/python"
 ROBOMIMIC = HOME / "mimicgen_jihoonkwon/robosuite_mimicgen/robomimic"
 
 
-def _num_epochs(config_path: str) -> int:
-    return int(json.loads(Path(config_path).read_text())["train"]["num_epochs"])
-
-
 def run_one(config_path: str, results_dir: Path) -> tuple[str, str]:
     config = json.loads(Path(config_path).read_text())
     name = config["experiment"]["name"]
