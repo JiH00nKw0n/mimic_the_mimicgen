@@ -45,11 +45,17 @@ def create_frozen_resets(
     """Sample `num_resets` initial states from the dataset's env (its native
     reset distribution) and store them for reuse by every arm."""
     import numpy as np
+    import robomimic.utils.obs_utils as ObsUtils
 
     EnvUtils, FileUtils = _require_robomimic()
     h5py = _require_h5py()
     _register_variants()
 
+    # robomimic envs require obs-modality registration before reset(); a
+    # minimal low-dim spec suffices since we only harvest simulator states.
+    ObsUtils.initialize_obs_utils_with_obs_specs(
+        {"obs": {"low_dim": ["robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos", "object"], "rgb": []}}
+    )
     env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=str(dataset_path))
     env = EnvUtils.create_env_from_metadata(env_meta=env_meta, render=False, render_offscreen=False)
     np.random.seed(seed)
