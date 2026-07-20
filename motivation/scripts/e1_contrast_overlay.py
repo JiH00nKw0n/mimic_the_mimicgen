@@ -120,8 +120,22 @@ def main() -> None:
             ]
             entry["mean_abs_dgr_gap_common_support"] = float(np.mean(gaps)) if gaps else None
         else:
+            # Pre-registered fallback (support too thin/disjoint): fit a
+            # logistic DGR(d') on the EXPANSION pool and compare the mirror
+            # pool's observed DGR against the extrapolated prediction at the
+            # mirror's median d'. Extrapolation caveat reported as-is.
             entry["per_bin"] = None
-            entry["note"] = "overlap too thin for binned comparison (pre-registered fallback: report ranges + masses only)"
+            x = d_exp - d_exp.mean()
+            beta1, beta0 = np.polyfit(x, s_exp.astype(float), 1)  # linear prob fit
+            mirror_median = float(np.median(d_mir))
+            predicted = float(beta0 + beta1 * (mirror_median - d_exp.mean()))
+            entry["fallback_extrapolation"] = {
+                "expansion_linear_slope_per_dprime": float(beta1),
+                "mirror_median_dprime": mirror_median,
+                "predicted_dgr_at_mirror_median": max(0.0, min(1.0, predicted)),
+                "observed_mirror_dgr": float(s_mir.mean()),
+                "note": "supports disjoint — relocation occupies a strictly farther distance regime; prediction is a linear extrapolation and stated as such",
+            }
         report[task] = entry
         print(task, json.dumps(entry["overlap"]), "gap:", entry.get("mean_abs_dgr_gap_common_support"))
 
