@@ -106,8 +106,13 @@ def extract_attempt_records(
     source_yaw: Sequence[Mapping],
     demo_hdf5: str | Path | None = None,
     failed_hdf5: str | Path | None = None,
+    attempt_id_prefix: str = "",
 ) -> list[AttemptRecord]:
     """Turn a keep_failed generation run into AttemptRecords.
+
+    attempt_id_prefix disambiguates records pooled from several generation
+    seeds (e.g. "s1_"); the retained demo's group name in a merged training
+    hdf5 must equal `{attempt_id_prefix}{demo_name}` so filter keys resolve.
 
     Note: the global attempt ORDER across the two files is not recoverable
     from mimicgen output; records carry stable per-file ids instead, which is
@@ -127,7 +132,7 @@ def extract_attempt_records(
             names = sorted(handle["data"].keys(), key=_demo_sort_key)
             for name in names:
                 group = handle[f"data/{name}"]
-                attempt_id = f"{name}@{path.name}"
+                attempt_id = f"{attempt_id_prefix}{name}@{path.name}"
                 new_xy, new_yaw = _initial_state(group, list(geometry.symmetry_orders))
                 source_id, mixed_sources = _source_demo_index(group, attempt_id)
                 if not 0 <= source_id < len(source_xy):
