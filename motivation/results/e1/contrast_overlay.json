@@ -1,0 +1,70 @@
+{
+  "threading": {
+    "expansion": {
+      "n": 500,
+      "dgr": 0.316,
+      "d_range": [
+        0.04516576392286082,
+        0.36709951223553006
+      ]
+    },
+    "mirror": {
+      "n": 500,
+      "dgr": 0.22,
+      "d_range": [
+        0.4770560895252133,
+        0.6841367014636104
+      ]
+    },
+    "overlap": {
+      "interval": [
+        0.4770560895252133,
+        0.36709951223553006
+      ],
+      "expansion_mass": 0.0,
+      "mirror_mass": 0.0
+    },
+    "per_bin": null,
+    "fallback_extrapolation": {
+      "expansion_linear_slope_per_dprime": -0.18714200000726267,
+      "mirror_median_dprime": 0.5867956426888312,
+      "predicted_dgr_at_mirror_median": 0.24126245952727612,
+      "observed_mirror_dgr": 0.22,
+      "note": "supports disjoint \u2014 relocation occupies a strictly farther distance regime; prediction is a linear extrapolation and stated as such"
+    }
+  },
+  "coffee": {
+    "expansion": {
+      "n": 500,
+      "dgr": 0.484,
+      "d_range": [
+        0.03094798922156059,
+        0.35022152335734014
+      ]
+    },
+    "mirror": {
+      "n": 500,
+      "dgr": 0.278,
+      "d_range": [
+        0.4420252662268698,
+        0.6510932529724589
+      ]
+    },
+    "overlap": {
+      "interval": [
+        0.4420252662268698,
+        0.35022152335734014
+      ],
+      "expansion_mass": 0.0,
+      "mirror_mass": 0.0
+    },
+    "per_bin": null,
+    "fallback_extrapolation": {
+      "expansion_linear_slope_per_dprime": 0.19949038267007574,
+      "mirror_median_dprime": 0.5505967322915635,
+      "predicted_dgr_at_mirror_median": 0.5570296764555249,
+      "observed_mirror_dgr": 0.278,
+      "note": "supports disjoint \u2014 relocation occupies a strictly farther distance regime; prediction is a linear extrapolation and stated as such"
+    }
+  }
+}
