@@ -51,27 +51,39 @@ def find_pool_files(seed_dir: Path) -> tuple[Path | None, Path | None]:
     return (demo[0] if demo else None, failed[0] if failed else None)
 
 
-def build_merged_training_hdf5(seed_demo_paths: dict[str, Path], out_path: Path) -> int:
-    """Copy every retained demo group into one file as '{prefix}{orig}'."""
+def build_merged_training_hdf5(
+    seed_demo_paths: dict[str, Path], out_path: Path
+) -> dict[str, str]:
+    """Copy every retained demo group into one file, named demo_0..N-1.
+
+    robomimic sorts demos by int(name[5:]), so group names must be exactly
+    'demo_<int>'. The original '{prefix}{orig}' provenance (which seed +
+    original index each demo came from) is kept as a group attr and returned
+    as a mapping so arm selections can be translated to the new names.
+    """
     h5py = _require_h5py()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    written = 0
+    provenance_to_name: dict[str, str] = {}
     with h5py.File(out_path, "w") as dst:
         data = dst.create_group("data")
         total_samples = 0
+        running = 0
         for prefix, demo_path in seed_demo_paths.items():
             with h5py.File(demo_path, "r") as src:
                 src_data = src["data"]
                 for name in src_data:
-                    src.copy(src_data[name], data, name=f"{prefix}{name}")
-                    written += 1
+                    new_name = f"demo_{running}"
+                    src.copy(src_data[name], data, name=new_name)
+                    provenance = f"{prefix}{name}"
+                    data[new_name].attrs["provenance"] = provenance
+                    provenance_to_name[provenance] = new_name
                     total_samples += int(src_data[name]["actions"].shape[0])
-                # carry env_args from the first seed's data attrs (identical across seeds)
+                    running += 1
                 if "env_args" in src_data.attrs and "env_args" not in data.attrs:
                     data.attrs["env_args"] = src_data.attrs["env_args"]
-        data.attrs["total"] = written
+        data.attrs["total"] = running
         data.attrs["num_samples"] = total_samples
-    return written
+    return provenance_to_name
 
 
 def main() -> None:
@@ -117,10 +129,11 @@ def main() -> None:
     records_path = out_dir / "attempts.jsonl"
     write_jsonl(all_records, records_path)
     merged_hdf5 = out_dir / "train.hdf5"
-    n_retained_file = build_merged_training_hdf5(seed_demo_paths, merged_hdf5)
+    # provenance ("s{seed}_{orig}") -> merged group name ("demo_{i}")
+    provenance_to_name = build_merged_training_hdf5(seed_demo_paths, merged_hdf5)
     n_retained = sum(r.success for r in all_records)
     print(f"{experiment.task}: {len(all_records)} attempts, {n_retained} retained "
-          f"(merged {n_retained_file} demos -> {merged_hdf5})")
+          f"(merged {len(provenance_to_name)} demos -> {merged_hdf5})")
 
     # 3: freeze edges on the pooled attempted distance distribution
     records = list(read_jsonl(records_path))
@@ -151,7 +164,9 @@ def main() -> None:
         for dataset_seed in experiment.dataset_seeds:
             for arm in experiment.arms:
                 result = _sample_arm(arm, dataset_seed, retained_bins, retained_sources, k, experiment)
-                demo_names = [records[retained_idx[i]].attempt_id.split("@")[0] for i in result.selected]
+                # attempt_id ("s1_demo_5@demo.hdf5") -> provenance -> merged name
+                provenances = [records[retained_idx[i]].attempt_id.split("@")[0] for i in result.selected]
+                demo_names = [provenance_to_name[p] for p in provenances]
                 missing = [n for n in demo_names if n not in group_names]
                 if missing:
                     raise KeyError(f"{arm.name}: {len(missing)} names absent from merged hdf5 (e.g. {missing[:3]})")
