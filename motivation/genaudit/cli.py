@@ -110,7 +110,11 @@ def _sample_arm(
     k_used: int,
     experiment: ExperimentSpec,
 ):
-    from genaudit.curation.samplers import sample_baseline, sample_stratified_uniform
+    from genaudit.curation.samplers import (
+        sample_ancestry_balanced,
+        sample_baseline,
+        sample_stratified_uniform,
+    )
 
     rng = _arm_rng(dataset_seed, arm.name)
     if arm.name == "baseline":
@@ -138,15 +142,10 @@ def _sample_arm(
                 f"source count {num_sources} — fix quota_per_stratum "
                 f"(size/quota must equal the number of source demos)"
             )
-        return sample_stratified_uniform(
-            retained_sources,
-            num_sources,
-            arm.size,
-            rng,
-            arm=arm.name,
-            tv_threshold=experiment.tv_threshold,
-            min_bin_fraction=experiment.min_bin_fraction,
-        )
+        # source-exclusion water-filling fallback (PLAN §2.4): a thin source is
+        # dropped rather than failing, since 50/source is infeasible at N=6250
+        # for the hardest sources (predicted in B0).
+        return sample_ancestry_balanced(retained_sources, num_sources, arm.size, rng)
     raise ValueError(f"unknown arm {arm.name!r}")
 
 

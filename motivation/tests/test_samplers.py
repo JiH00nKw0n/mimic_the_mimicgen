@@ -63,3 +63,30 @@ def test_ancestry_balancing_uses_same_mechanism():
     )
     assert result.per_stratum_counts == tuple([50] * 10)
     assert result.arm == "ancestry_balanced"
+
+
+def test_ancestry_balanced_excludes_starved_source_and_reaches_size():
+    from genaudit.curation.samplers import sample_ancestry_balanced
+
+    # sources 0-7 and 9 have plenty; source 8 has only 34 retained
+    labels = np.concatenate(
+        [np.repeat(np.arange(8), 200), np.full(200, 9), np.full(34, 8)]
+    )
+    result = sample_ancestry_balanced(labels, 10, 500, np.random.default_rng(0))
+    assert result.size == 500
+    assert 8 in result.info["excluded_sources"]
+    # kept sources balanced (quota 500/9 = 55, +1 remainder to some)
+    kept_counts = [result.per_stratum_counts[s] for s in result.info["kept_sources"]]
+    assert max(kept_counts) - min(kept_counts) <= 1
+    assert result.per_stratum_counts[8] == 0
+    assert result.info["n_eff"] > 8.0  # 9 balanced sources
+
+
+def test_ancestry_balanced_all_sources_healthy_keeps_all():
+    from genaudit.curation.samplers import sample_ancestry_balanced
+
+    labels = np.repeat(np.arange(10), 80)
+    result = sample_ancestry_balanced(labels, 10, 500, np.random.default_rng(1))
+    assert result.info["excluded_sources"] == []
+    assert result.per_stratum_counts == tuple([50] * 10)
+    assert result.info["n_eff"] == pytest.approx(10.0)

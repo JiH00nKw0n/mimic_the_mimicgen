@@ -161,6 +161,7 @@ def main() -> None:
                     "size": result.size,
                     "per_stratum_counts": list(result.per_stratum_counts),
                     "certification": asdict(result.certification) if result.certification else None,
+                    "info": result.info,  # ancestry arm: excluded sources, n_eff
                     "demo_names": demo_names,
                 }
                 print(f"  {key}: {result.per_stratum_counts}")
