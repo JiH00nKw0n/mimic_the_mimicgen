@@ -12,11 +12,15 @@ from __future__ import annotations
 import runpy
 import sys
 
-from genaudit.envs.robosuite_variants import register_custom_variants
+from genaudit.envs.robosuite_variants import (
+    register_custom_variants,
+    register_new_variants,
+)
 
 
 def main() -> None:
     created = register_custom_variants()
+    created.update(register_new_variants())  # motivation_new N0/N1/N2 ladder
     print(f"[genaudit] registered variants: {sorted(created)}")
     sys.argv[0] = "generate_dataset.py"
     runpy.run_module("mimicgen.scripts.generate_dataset", run_name="__main__")
