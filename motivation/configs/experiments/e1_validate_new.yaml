@@ -1,0 +1,23 @@
+# motivation_new — quick reachability/DGR validation of the isotropic N2 boxes.
+# 30 attempts per task at the widest (N2) variant: confirms the arm reaches
+# (successes appear) and D2 DGR is high enough (>~10%) to fill the E2 pool.
+experiment: e1
+protocol:
+  num_attempts: 30
+  seed: 1
+tasks:
+  square: [N2]
+  threading: [N2]
+  coffee: [N2]
+  three_piece_assembly: [N2]
+  stack: [N2]
+  stack_three: [N2]
+  mug_cleanup: [N2]
+  hammer_cleanup: [N2]
+  coffee_preparation: [N2]
+binning:
+  k: 5
+paths:
+  out_root: experiments/motivation_new/validate
+notes: |
+  Validation only. Full N0/N1/N2 sweep + E2 pools run after this passes.
