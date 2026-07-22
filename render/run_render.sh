@@ -20,4 +20,4 @@ export PYTHONUNBUFFERED=1
 source /home/ubuntu/jake/env_uwlab/bin/activate
 
 cd "$HERE"
-python render_viewpoints.py --dataset "$DATASET" "$@"
+python render_viewpoints.py --device cpu --dataset "$DATASET" "$@"
