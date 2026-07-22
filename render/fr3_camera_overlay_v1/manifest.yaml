@@ -1,0 +1,124 @@
+schema_version: stage2.portable_camera_overlay_manifest.v1
+bundle_id: fr3_four_camera_overlay_depth_refined
+bundle_revision: 2
+calibration_revision: fr3_four_camera_v3_depth_refined
+generated_at: '2026-07-21T19:18:02+09:00'
+portable_root: .
+canonical_overlay: overlay.yaml
+entrypoints:
+  check_runtime: tools/check_runtime.py
+  validate: tools/validate_overlay.py
+  apply_to_isaac: tools/apply_overlay_to_isaac.py
+  smoke_render: tools/smoke_render.py
+runtime_compatibility:
+  python: '>=3.10'
+  validator_requirements: requirements-validator.txt
+  isaac_sim:
+    tested_versions:
+    - '5.1'
+    python_launcher: Isaac Sim bundled Python
+    other_versions: unverified
+    reference_scene_smoke:
+      status: pass
+      report: validation/isaac_5_1_smoke/report.yaml
+      sensor_pipeline: isaacsim.sensors.camera.Camera_RGBA
+      camera_count: 4
+      wrist_pose_count: 2
+external_asset_policy: team_assets_are_required_but_not_embedded
+asset_requirements:
+  robot:
+    asset_id: fr3_facelift_franka_hand
+    provided_by_consumer: true
+    required_frames:
+    - fr3v2_link0
+    - fr3v2_hand_tcp
+    required_arm_joints:
+    - fr3v2_joint1
+    - fr3v2_joint2
+    - fr3v2_joint3
+    - fr3v2_joint4
+    - fr3v2_joint5
+    - fr3v2_joint6
+    - fr3v2_joint7
+  table:
+    asset_id: fr3_cube_stacking_table
+    provided_by_consumer: true
+    alignment_frame: fr3v2_table_task
+    nominal_top_surface_z_m: 0.72
+  threaded_plate:
+    asset_id: threaded_plate_geometry_optional
+    provided_by_consumer: true
+    geometry_required_for_camera_pose: false
+files:
+- path: ASSET_BINDING_TEMPLATE.yaml
+  size_bytes: 1661
+  sha256: 32f8db68b887f3634a5c2d967f48dea9972adc0714b180ce33fb52a51486d299
+- path: LLM_SETUP_PROMPT_KO.md
+  size_bytes: 6645
+  sha256: a32a09bd258bb758ba0848d4e5cadf868e6b10c7caa27ec64f282700b0489650
+- path: README.md
+  size_bytes: 4010
+  sha256: 1a70c5593d7d8efb5c85cbd3c7ac8165c8aefeaf9ad2bf0eedd72dba1617b8d1
+- path: TEAM_HANDOFF_KO.md
+  size_bytes: 5663
+  sha256: 41c5043fce1624b5badb27d3f2844ac3f58c6096877a00fb232b79f1e2a3ca7b
+- path: overlay.yaml
+  size_bytes: 23368
+  sha256: b3de6fc6e74f4c0553f8efef1a1a67ed8509fda9596fb232e3b1072a903c0136
+- path: requirements-validator.txt
+  size_bytes: 30
+  sha256: 39b15b365f27d1aba6a57908a29e8c957b605149f0518a33f09f6391f407f7e7
+- path: tools/apply_overlay_to_isaac.py
+  size_bytes: 15568
+  sha256: 6b5254972024c82b96339cf93f9bfe6b105147b59131d94b7d82b6eb0e56f830
+- path: tools/check_runtime.py
+  size_bytes: 1690
+  sha256: 3add20b8e3f73fb152e02b332b46be2a27038d8636b5748029e245f2cec92e18
+- path: tools/smoke_render.py
+  size_bytes: 8056
+  sha256: 498484260d2520c797a58e68f9520ebd7651bffc6e9adba1f57839076c361f01
+- path: tools/validate_overlay.py
+  size_bytes: 9513
+  sha256: a92f41a20d58dc80ad929764a443a59dce7dee74bd643b73b4b63fdc9ac8c4d1
+- path: validation/camera_layout.png
+  size_bytes: 280562
+  sha256: 9046483caadbb7df1df1e3697d3a2a6f2910c6b276efe9a3cf4844dade9d8c64
+- path: validation/fixed_camera/board_projection_contact_sheet.png
+  size_bytes: 1292569
+  sha256: 565f07b3c77cec2b18bfebc9f51b0e53b885113b42f5149d534e7ec9cd0e7a10
+- path: validation/fixed_camera/contact_sheet.png
+  size_bytes: 884150
+  sha256: 8227f703d8458a7f31e0919accd7e15ea0b3e89c9b48f5246b657ccec4b1346a
+- path: validation/fixed_camera/report.md
+  size_bytes: 1707
+  sha256: b41d550ac17829e10ddf0c80528304c28e4c5f6592bdb3ba6c5c4b14df790b7c
+- path: validation/isaac_5_1_smoke/report.yaml
+  size_bytes: 1447
+  sha256: 848d1b28a0e952c0bb8ad1be6d5835e7d9b21c0d5fd65081308cc4c01fd2ea32
+- path: validation/isaac_5_1_smoke/third_person_0_home.png
+  size_bytes: 174633
+  sha256: 5ab3cae3cc08633c439ca135717472028a757d73bbd713f41274f488616b2f00
+- path: validation/isaac_5_1_smoke/third_person_1_home.png
+  size_bytes: 181346
+  sha256: cbc94ce4a67188a5f3f39f75c6b1d8636d1e2bea0a66643bba2258804d2c611b
+- path: validation/isaac_5_1_smoke/third_person_2_home.png
+  size_bytes: 147980
+  sha256: 3b865a3bf449af70a37165f213d44f9bff5a6c9998942c6dd4398992dc9826ed
+- path: validation/isaac_5_1_smoke/wrist_home.png
+  size_bytes: 297297
+  sha256: 1201da70019e52646dc54a78b11c9984f1b5dbf7bcb3942915d40e759a5279ed
+- path: validation/isaac_5_1_smoke/wrist_second_q.png
+  size_bytes: 166365
+  sha256: 30338661b0d16d27e79047120feec014588a07f349ce1b22fdd79cb5bae1dbc8
+- path: validation/wrist_multiscene/metrics.yaml
+  size_bytes: 2171
+  sha256: aaad1935c504840901990b7c4856bfbe88b374328215fc71bd7e0c01af9d8342
+- path: validation/wrist_multiscene/selection_summary.yaml
+  size_bytes: 3406
+  sha256: 4a83e4710ca9ac5df9f6a5989774f2180dcf77eef3fd95456151986cfec74509
+- path: validation/wrist_multiscene/shared_board_pose.yaml
+  size_bytes: 1367
+  sha256: af6383d2f9ae15d2156319f8a4a0eff2e3f3cb2a2ae1fd47c4dcd27f4d150dfb
+- path: validation/wrist_multiscene/three_scene_comparison.png
+  size_bytes: 3125656
+  sha256: a575f8fd6f47577c0507bb083f4f56fe3b89f66d27e9f16f245a7f74ed2e0d0e

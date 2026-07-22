@@ -1,0 +1,122 @@
+schema_version: stage2.wrist_multiscene_selection_summary.v1
+status: portable_summary
+selection_method: pose_08 reference followed by greedy maximin camera translation/rotation
+  diversity
+scene_count: 3
+shared_board_pose: shared_board_pose.yaml
+extrinsic_calibration_id: fr3_wrist_camera_tape_mount_depth_refined_v2
+scenes:
+- order: 1
+  pose: pose_08
+  base_T_camera_optical:
+    matrix:
+    - - 0.6338890313917032
+      - -0.7733606205324797
+      - -0.009901842803568942
+      - 0.6447727765720602
+    - - -0.6579520463734884
+      - -0.5324757003269592
+      - -0.5325117212177151
+      - 0.35111427645787263
+    - - 0.40655110448039317
+      - 0.34406827690290276
+      - -0.8463647087838907
+      - 0.3531987221959685
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    translation_m:
+    - 0.6447727765720602
+    - 0.35111427645787263
+    - 0.3531987221959685
+    quaternion_xyzw:
+    - 0.8678607953615822
+    - -0.412310555608642
+    - 0.11426062330409964
+    - 0.25251169392765427
+  board_distance_m: 0.3851830949266602
+  charuco_corners: 24
+  reprojection_rmse_px: 0.3005968754459493
+  shared_board_translation_error_m: 0.003126611447761052
+  shared_board_rotation_error_deg: 0.877018060424286
+  minimum_diversity_from_other_selected:
+    translation_m: 0.3815302510910642
+    rotation_deg: 26.93764009513502
+    score: 4.713223847415143
+- order: 2
+  pose: pose_12
+  base_T_camera_optical:
+    matrix:
+    - - -0.005363397421585143
+      - -0.9754297345605136
+      - 0.22024546965443784
+      - 0.397256270704735
+    - - -0.9979372935874758
+      - 0.019310882112046745
+      - 0.061222936056340986
+      - 0.008690684144364497
+    - - -0.06397180656666113
+      - -0.21946280497446605
+      - -0.9735212813273972
+      - 0.5186943390003299
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    translation_m:
+    - 0.397256270704735
+    - 0.008690684144364497
+    - 0.5186943390003299
+    quaternion_xyzw:
+    - -0.6980055518750845
+    - 0.7067877264180932
+    - -0.055971497170750194
+    - 0.10053134257914839
+  board_distance_m: 0.5481615095814795
+  charuco_corners: 22
+  reprojection_rmse_px: 0.1706409581668903
+  shared_board_translation_error_m: 0.008011642754893628
+  shared_board_rotation_error_deg: 1.1305788428256365
+  minimum_diversity_from_other_selected:
+    translation_m: 0.32936124808366857
+    rotation_deg: 56.5299123874122
+    score: 5.1779428937504255
+- order: 3
+  pose: pose_11
+  base_T_camera_optical:
+    matrix:
+    - - 0.5823716076460714
+      - -0.6939644050907006
+      - 0.42338719285642074
+      - 0.27961071721969716
+    - - -0.5924649770730547
+      - -0.7189430070681715
+      - -0.3634641709021672
+      - 0.30981549228578076
+    - - 0.5566224587182542
+      - -0.039170869978662815
+      - -0.8298416001837703
+      - 0.4557482874464304
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    translation_m:
+    - 0.27961071721969716
+    - 0.30981549228578076
+    - 0.4557482874464304
+    quaternion_xyzw:
+    - 0.8847536683871411
+    - -0.3634993072447068
+    - 0.2769159616374297
+    - 0.09163378251787128
+  board_distance_m: 0.551874863233957
+  charuco_corners: 22
+  reprojection_rmse_px: 0.24815546579516817
+  shared_board_translation_error_m: 0.005813705025308609
+  shared_board_rotation_error_deg: 1.0252329140231398
+  minimum_diversity_from_other_selected:
+    translation_m: 0.3815302510910642
+    rotation_deg: 26.93764009513502
+    score: 4.713223847415143

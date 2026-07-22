@@ -1,0 +1,70 @@
+schema_version: stage2.portable_camera_overlay_smoke_render.v1
+status: pass
+camera_paths:
+  third_person_0: /CubeStacking/robots/fr3/calibrated_cameras/third_person_0
+  third_person_1: /CubeStacking/robots/fr3/calibrated_cameras/third_person_1
+  third_person_2: /CubeStacking/robots/fr3/calibrated_cameras/third_person_2
+  wrist: /CubeStacking/robots/fr3/fr3v2_hand/fr3v2_hand_tcp/wrist_d405_color
+home_q_rad:
+- 0.0
+- -0.785398
+- 0.0
+- -2.356194
+- 0.0
+- 1.570796
+- 0.785398
+second_q_rad:
+- 0.4883807003
+- -0.4567577243
+- 0.3127650619
+- -3.0709569454
+- -0.01088918
+- 3.876437664
+- 0.7312410474
+images:
+  third_person_0:
+    path: third_person_0_home.png
+    shape:
+    - 720
+    - 1280
+    - 3
+    mean: 211.0347117332176
+    std: 25.21018652566172
+    nonblank: true
+  third_person_1:
+    path: third_person_1_home.png
+    shape:
+    - 720
+    - 1280
+    - 3
+    mean: 217.1941623263889
+    std: 27.628663067978554
+    nonblank: true
+  third_person_2:
+    path: third_person_2_home.png
+    shape:
+    - 720
+    - 1280
+    - 3
+    mean: 201.82944986979166
+    std: 26.016638461124433
+    nonblank: true
+  wrist:
+    path: wrist_home.png
+    shape:
+    - 720
+    - 1280
+    - 3
+    mean: 184.31055338541665
+    std: 28.314671456217
+    nonblank: true
+wrist_second_q:
+  path: wrist_second_q.png
+  shape:
+  - 720
+  - 1280
+  - 3
+  mean: 223.01394314236111
+  std: 26.601957706600007
+  nonblank: true
+sensor_pipeline: isaacsim.sensors.camera.Camera_RGBA
