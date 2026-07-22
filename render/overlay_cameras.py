@@ -186,30 +186,55 @@ def camera_metadata(ov: dict, width: int, height: int) -> dict:
 # -------------------------------------------------------------- Isaac config
 def build_camera_cfgs(
     ov: dict,
-    hand_T_tcp: np.ndarray,
+    hand_T_tcp: np.ndarray | None,
+    base_adapter: np.ndarray | None,
     width: int,
     height: int,
     robot_prim: str = "{ENV_REGEX_NS}/Robot",
     roles: tuple[str, ...] = ALL_ROLES,
+    standalone: bool = False,
 ) -> dict:
-    """role -> isaaclab.sensors.CameraCfg. Import only after AppLauncher."""
+    """role -> isaaclab.sensors.CameraCfg. Import only after AppLauncher.
+
+    Default: cameras are CHILD prims of the robot links with the calibrated
+    local offset (fixed cams under fr3_link0 at base_adapter @ parent_T_camera_usd,
+    wrist under fr3_hand at hand_T_tcp @ parent_T_camera_usd). The fabric
+    hierarchy then recomposes their world pose from the physx link transforms —
+    which requires the replay loop to STEP physics once per written state
+    (render-only loops never push link transforms to fabric on Isaac Lab 3.0).
+    The offset quaternion order is version-detected (camera_quat_order()).
+
+    standalone=True spawns them under the env namespace with no offset instead,
+    for world-pose driving via Camera.set_world_poses (debug fallback; note that
+    a physics step recomposes fabric and clobbers those direct world writes).
+    """
     import isaaclab.sim as sim_utils
     from isaaclab.sensors import CameraCfg
 
     if abs(width / height - NATIVE_W / NATIVE_H) > 1e-3:
         raise ValueError(f"render size {width}x{height} must keep the 16:9 native aspect")
+    order = camera_quat_order()
+    A = np.eye(4) if base_adapter is None else base_adapter
 
     cfgs = {}
     for role in roles:
         cam = ov["runtime"]["cameras"][role]
-        T_usd = T_from(cam["parent_T_camera_usd"])
-        if cam["parent_semantic"] == "hand_tcp":
-            parent, T_local = f"{robot_prim}/fr3_hand", hand_T_tcp @ T_usd
-        else:  # robot_base
-            parent, T_local = f"{robot_prim}/fr3_link0", T_usd
         model = cam["isaac_camera_model"]
+        kw = {}
+        if standalone:
+            prim_path = "{ENV_REGEX_NS}/" + cam["isaac_prim_name"]
+        else:
+            T_usd = T_from(cam["parent_T_camera_usd"])
+            if cam["parent_semantic"] == "hand_tcp":
+                parent, T_local = f"{robot_prim}/fr3_hand", hand_T_tcp @ T_usd
+            else:  # robot_base
+                parent, T_local = f"{robot_prim}/fr3_link0", A @ T_usd
+            prim_path = f"{parent}/{cam['isaac_prim_name']}"
+            q = quat_wxyz_from_R(T_local[:3, :3])
+            rot = tuple(q[[1, 2, 3, 0]]) if order == "xyzw" else tuple(q)
+            kw["offset"] = CameraCfg.OffsetCfg(pos=tuple(T_local[:3, 3]), rot=rot, convention="opengl")
         cfgs[role] = CameraCfg(
-            prim_path=f"{parent}/{cam['isaac_prim_name']}",
+            prim_path=prim_path,
             update_period=0.0,
             height=height,
             width=width,
@@ -222,17 +247,65 @@ def build_camera_cfgs(
                 vertical_aperture_offset=float(model["vertical_aperture_offset_mm"]),
                 clipping_range=tuple(float(v) for v in model["clipping_range_m"]),
             ),
-            offset=CameraCfg.OffsetCfg(
-                pos=tuple(T_local[:3, 3]),
-                rot=tuple(quat_wxyz_from_R(T_local[:3, :3])),
-                convention="opengl",  # rot already IS the USD/OpenGL camera frame
-            ),
+            **kw,
         )
     return cfgs
 
 
-def load_binding(path: str, ov: dict) -> tuple[np.ndarray, dict]:
-    """(fr3_hand_T_fr3v2_hand_tcp, full binding dict) from probe_tcp_binding.py's YAML.
+def camera_quat_order() -> str:
+    """"wxyz" or "xyzw" — Isaac Lab 3.0 switched quaternions to (x,y,z,w) API-wide:
+    camera OffsetCfg/set_world_poses, ArticulationData reads (body_link_quat_w),
+    and asset writes (write_root_pose_to_sim) all changed together; 2.x is wxyz.
+
+    Detected from CameraCfg.OffsetCfg's identity default: 2.x uses (1,0,0,0)
+    (w,x,y,z), 3.0 uses (0,0,0,1) (x,y,z,w). Import only after AppLauncher.
+    """
+    from isaaclab.sensors import CameraCfg
+
+    return "xyzw" if tuple(CameraCfg.OffsetCfg().rot) == (0.0, 0.0, 0.0, 1.0) else "wxyz"
+
+
+def quat_wxyz_from_data(q, order: str) -> np.ndarray:
+    """Quaternion read from Isaac Lab data buffers -> (w,x,y,z)."""
+    q = np.asarray(q, dtype=np.float64)
+    return np.array([q[3], q[0], q[1], q[2]]) if order == "xyzw" else q
+
+
+def pose_T_from_data(pos, quat, order: str) -> np.ndarray:
+    """4x4 from an Isaac Lab (pos, quat) read, respecting the version's quat order."""
+    T = np.eye(4)
+    T[:3, :3] = R_from_quat_wxyz(quat_wxyz_from_data(quat, order))
+    T[:3, 3] = np.asarray(pos, dtype=np.float64)
+    return T
+
+
+def camera_link_transforms(
+    ov: dict,
+    hand_T_tcp: np.ndarray,
+    base_adapter: np.ndarray,
+    roles: tuple[str, ...] = ALL_ROLES,
+) -> dict:
+    """role -> (physx link name, link_T_camera_usd 4x4) for world-pose driving.
+
+    base_adapter = sim_fr3_link0_T_calibrated_fr3v2_link0 (from the probe): the
+    Isaac fr3.usd base frame is yawed vs the calibration convention. The wrist
+    needs no extra adapter — hand_T_tcp already absorbs the whole chain:
+        W_T_cam = W_T_fr3_hand  @ hand_T_tcp   @ hand_tcp_T_cam_usd   (wrist)
+        W_T_cam = W_T_fr3_link0 @ base_adapter @ link0_T_cam_usd      (fixed)
+    """
+    out = {}
+    for role in roles:
+        cam = ov["runtime"]["cameras"][role]
+        T_usd = T_from(cam["parent_T_camera_usd"])
+        if cam["parent_semantic"] == "hand_tcp":
+            out[role] = ("fr3_hand", hand_T_tcp @ T_usd)
+        else:  # robot_base
+            out[role] = ("fr3_link0", base_adapter @ T_usd)
+    return out
+
+
+def load_binding(path: str, ov: dict) -> tuple[np.ndarray, np.ndarray, dict]:
+    """(hand_T_tcp, base_adapter, full binding dict) from probe_tcp_binding.py's YAML.
 
     Refuses a binding measured against a DIFFERENT overlay revision — the bundle's
     invalidation policy (new wrist mount => new calibration) must force a re-probe.
@@ -246,4 +319,6 @@ def load_binding(path: str, ov: dict) -> tuple[np.ndarray, dict]:
             raise ValueError(
                 f"binding {path} was measured against {key}={b.get(key)!r} but the overlay is {want!r} "
                 f"— rerun probe_tcp_binding.py against the current bundle")
-    return np.asarray(b["hand_tcp"]["team_frame_T_calibrated_frame"]["matrix"], dtype=np.float64), b
+    hand_T_tcp = np.asarray(b["hand_tcp"]["team_frame_T_calibrated_frame"]["matrix"], dtype=np.float64)
+    base_adapter = np.asarray(b["robot_base"]["team_frame_T_calibrated_frame"]["matrix"], dtype=np.float64)
+    return hand_T_tcp, base_adapter, b

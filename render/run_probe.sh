@@ -13,4 +13,4 @@ export PYTHONUNBUFFERED=1
 source /home/ubuntu/jake/env_uwlab/bin/activate
 
 cd "$HERE"
-python probe_tcp_binding.py "$@"
+python probe_tcp_binding.py --device cpu "$@"

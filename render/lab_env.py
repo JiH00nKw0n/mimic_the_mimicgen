@@ -23,6 +23,9 @@ from isaaclab_tasks.utils import parse_env_cfg
 
 TASK = "Isaac-Stack-Cube-Franka-IK-Rel-v0"
 DESK_Z, CUBE = 0.720, 0.05
+# NOTE Isaac Lab 3.0 has MIXED quaternion conventions: cfg/init-state quats stay
+# (w,x,y,z) — verified: re-encoding this rot as xyzw flips the robot upside down —
+# while runtime data reads and asset writes are (x,y,z,w). Keep cfg values classic.
 ROBOT_POS, ROBOT_ROT = (0.72, 0.138, 0.722), (0.0, 0.0, 0.0, 1.0)
 BASE_XY = (0.32, 0.138)
 
@@ -56,6 +59,12 @@ def _cube_cfg(name, color, xy):
 
 def build_env_cfg(device: str, table_usd: str, cameras: dict | None = None, num_envs: int = 1):
     cfg = parse_env_cfg(TASK, device=device, num_envs=num_envs)
+    # fabric skips the physx->USD writeback, so camera prims parented to robot
+    # links never see the spawn yaw or per-step link motion (Isaac Lab 3.0).
+    # USD-pipeline mode restores classic composition; the scene is tiny, so the
+    # writeback cost is irrelevant next to RTX rendering.
+    if hasattr(cfg.sim, "use_fabric"):
+        cfg.sim.use_fabric = False
     if os.path.isfile(table_usd):
         cfg.scene.table = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Table",
             init_state=AssetBaseCfg.InitialStateCfg(pos=(0, 0, 0), rot=(1, 0, 0, 0)),
@@ -72,7 +81,9 @@ def build_env_cfg(device: str, table_usd: str, cameras: dict | None = None, num_
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.20, BASE_XY[1], DESK_Z - 0.01)),
         spawn=sim_utils.CuboidCfg(size=(0.55, 0.6, 0.02), collision_props=sim_utils.CollisionPropertiesCfg(),
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.55, 0.55, 0.58), opacity=0.0)))
-    cfg.scene.robot = FR3_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    cfg.scene.robot = FR3_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/Robot",
+        init_state=FR3_CFG.init_state)
     cfg.scene.cube_1 = _cube_cfg("Cube_1", (1.0, 0.0, 0.0), (BASE_XY[0], BASE_XY[1] - 0.10))
     cfg.scene.cube_2 = _cube_cfg("Cube_2", (0.0, 0.0, 1.0), (BASE_XY[0], BASE_XY[1]))
     cfg.scene.cube_3 = _cube_cfg("Cube_3", (1.0, 1.0, 0.0), (BASE_XY[0], BASE_XY[1] + 0.10))
