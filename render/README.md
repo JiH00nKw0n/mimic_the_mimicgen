@@ -44,6 +44,31 @@ bash run_render.sh .../skillgen_stack2000.hdf5 --count 100 --append
 
 `--append`는 중단된 런 재개용(이미 렌더된 demo는 건너뜀). 스팟 인스턴스에서 유용.
 
+## 다른 태스크 렌더링 (peg in hole 등)
+
+씬은 데이터셋에서 자동 발견된다 (rigid object 이름들, 예: peg). 외부 등록 태스크는
+`--task`와 `--register`로 지정하면 환경 설정을 그대로 가져와 리셋 이벤트만 벗겨 쓴다.
+aidas의 peg 예시 (isaac-lab-skillgen 도커, peg 코드와 asset 마운트 필요):
+
+```bash
+docker run --rm --gpus all -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=Y -e OMNI_KIT_ACCEPT_EULA=YES \
+  -e PYTHONPATH=/peg -e LAB_PEG_ENV_USD=/work/assets/peg_hole_env.usd -e LAB_PEG_HOLE_USD=/work/assets/hole_01.usd \
+  -v /home/ubuntu/fr3_render_smoke:/work -v /home/ubuntu/peg_work:/peg_work:ro \
+  -v /home/ubuntu/peg_work/lab_peg_mimic:/peg:ro -v /home/ubuntu/peg_work/peg_in_hole/assets:/work/assets:ro \
+  -v /home/ubuntu/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+  -v /home/ubuntu/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+  --entrypoint bash isaac-lab-skillgen:latest -lc "cd /work/render && \
+    /workspace/isaaclab/isaaclab.sh -p render_viewpoints.py \
+      --dataset /peg_work/gen_skillgen.hdf5 --output /work/out/peg_fr3cams.hdf5 \
+      --task Isaac-PegInsert-LabFR3-IK-Rel-Mimic-v0 --register peg_register \
+      --count 5 --preview_video 2 --device cpu"
+```
+
+주의: peg 환경의 기록된 obs eef_pos는 TCP가 아니라 fr3_hand 프레임 기준이다.
+`[align]` 진단이 두 규약을 모두 보고하고 어느 쪽이 맞는지 알려준다 (peg는 hand@t가
+mm 수준이면 정상). 검증 결과: 생성 stack(fwd_gen_s05) 1.1mm, 생성 peg(gen_skillgen)
+hand 기준 서브밀리미터, 프리뷰 4개 뷰 정상 (peg 파지·삽입 과정 wrist 시점 포함).
+
 ## 출력 포맷
 
 ```
