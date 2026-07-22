@@ -45,6 +45,10 @@ parser.add_argument("--output", default="", help="default: <dataset stem>_fr3cam
 parser.add_argument("--overlay", default=os.path.join(os.path.dirname(__file__), "fr3_camera_overlay_v1/overlay.yaml"))
 parser.add_argument("--binding", default=os.path.join(os.path.dirname(__file__), "fr3_binding.yaml"))
 parser.add_argument("--table_usd", default="/home/ubuntu/jake/aidas/3cube_stack/table_scene.usdc")
+parser.add_argument("--task", default="", help="externally registered task id (e.g. the lab peg-insert env); "
+                                               "default builds the lab 3-cube-stack scene")
+parser.add_argument("--register", default="", help="comma-separated modules to import (task registration) "
+                                                   "before gym.make, e.g. peg_register (needs PYTHONPATH)")
 parser.add_argument("--demos", default="", help='explicit "demo_0,demo_7" list (overrides --start/--count)')
 parser.add_argument("--start", type=int, default=0)
 parser.add_argument("--count", type=int, default=-1, help="-1 = all")
@@ -134,10 +138,16 @@ def main():
     cams = build_camera_cfgs(ov, hand_T_tcp, base_adapter, args.width, args.height,
                              standalone=(args.pose_mode == "drive"))
     link_T = camera_link_transforms(ov, hand_T_tcp, base_adapter)
-    env = gym.make(lab_env.TASK, cfg=lab_env.build_env_cfg(args.device, args.table_usd, cameras=cams)).unwrapped
+    if args.task:
+        for mod in filter(None, (m.strip() for m in args.register.split(","))):
+            __import__(mod)
+        from isaaclab_tasks.utils import parse_env_cfg
+        cfg = lab_env.strip_env_cfg(parse_env_cfg(args.task, device=args.device, num_envs=1), cameras=cams)
+        env = gym.make(args.task, cfg=cfg).unwrapped
+    else:
+        env = gym.make(lab_env.TASK, cfg=lab_env.build_env_cfg(args.device, args.table_usd, cameras=cams)).unwrapped
     robot = env.scene["robot"]
     cam_objs = {r: env.scene[r] for r in ALL_ROLES}
-    cube_assets = {i: env.scene[f"cube_{i}"] for i in (1, 2, 3)}
     origin = env.scene.env_origins
     finger_idx = [i for i, n in enumerate(robot.joint_names) if "finger" in n]
     i_hand = robot.body_names.index("fr3_hand")
@@ -215,8 +225,11 @@ def main():
             jv = S["articulation"]["robot"]["joint_velocity"]
             rp = S["articulation"]["robot"].get("root_pose")
             rv = S["articulation"]["robot"].get("root_velocity")
-            cp = {i: S["rigid_object"][f"cube_{i}"]["root_pose"] for i in (1, 2, 3)}
-            cv = {i: S["rigid_object"][f"cube_{i}"]["root_velocity"] for i in (1, 2, 3)}
+            # rigid objects discovered from the recording (stack: cube_1..3; peg: peg)
+            rig_names = list(S.get("rigid_object", {}).keys())
+            rigs = {n: env.scene[n] for n in rig_names}
+            cp = {n: S["rigid_object"][n]["root_pose"] for n in rig_names}
+            cv = {n: S["rigid_object"][n]["root_velocity"] for n in rig_names}
             acts = src["data"][name]["actions"][()]
             T_s, T_a = jp.shape[0], acts.shape[0]
             T_use = min(T_s, T_a)
@@ -239,10 +252,10 @@ def main():
                     robot.write_root_velocity_to_sim(rv[s:s + 1])
                 robot.write_joint_state_to_sim(jp[s:s + 1], jv[s:s + 1])
                 robot.set_joint_position_target(jp[s:s + 1])
-                for i in (1, 2, 3):
-                    p = cp[i][s:s + 1].clone(); p[:, :3] += origin
-                    cube_assets[i].write_root_pose_to_sim(p)
-                    cube_assets[i].write_root_velocity_to_sim(cv[i][s:s + 1])
+                for n in rig_names:
+                    p = cp[n][s:s + 1].clone(); p[:, :3] += origin
+                    rigs[n].write_root_pose_to_sim(p)
+                    rigs[n].write_root_velocity_to_sim(cv[n][s:s + 1])
                 sync_step()
 
             def write_state_dict(sd):
@@ -257,11 +270,13 @@ def main():
                 jq = art["joint_position"].reshape(1, -1)
                 robot.write_joint_state_to_sim(jq, art["joint_velocity"].reshape(1, -1))
                 robot.set_joint_position_target(jq)
-                for i in (1, 2, 3):
-                    ro = sd["rigid_object"][f"cube_{i}"]
+                for n in rig_names:
+                    if n not in sd.get("rigid_object", {}):
+                        continue
+                    ro = sd["rigid_object"][n]
                     p = ro["root_pose"].reshape(1, -1).clone(); p[:, :3] += origin
-                    cube_assets[i].write_root_pose_to_sim(p)
-                    cube_assets[i].write_root_velocity_to_sim(ro["root_velocity"].reshape(1, -1))
+                    rigs[n].write_root_pose_to_sim(p)
+                    rigs[n].write_root_velocity_to_sim(ro["root_velocity"].reshape(1, -1))
                 sync_step()
 
             env.reset()
@@ -277,7 +292,7 @@ def main():
             obs_eef = None
             if not diag_done and "obs" in src["data"][name] and "eef_pos" in src["data"][name]["obs"]:
                 obs_eef = src["data"][name]["obs"]["eef_pos"][()]
-            err_t, err_next, n_diag = 0.0, 0.0, 0
+            err_t, err_next, err_hand, n_diag = 0.0, 0.0, 0.0, 0
 
             imgs = {r: [] for r in ALL_ROLES}
             for k, t in enumerate(steps):
@@ -298,24 +313,30 @@ def main():
                     imgs[r].append(grab_rgb(cam_objs[r]))
                 if obs_eef is not None and t + 1 < obs_eef.shape[0]:
                     hand_T = link_pose_T(i_hand)
-                    tcp = hand_T[:3, 3] + hand_T[:3, :3] @ np.array([0.0, 0.0, 0.1034]) - origin[0].cpu().numpy()
+                    hand = hand_T[:3, 3] - origin[0].cpu().numpy()
+                    tcp = hand + hand_T[:3, :3] @ np.array([0.0, 0.0, 0.1034])
                     if k < 3:
-                        print(f"    [align-dbg] t={t} hand={np.round(hand_T[:3, 3], 3).tolist()} "
+                        print(f"    [align-dbg] t={t} hand={np.round(hand, 3).tolist()} "
                               f"tcp={np.round(tcp, 3).tolist()} obs[t]={np.round(obs_eef[t], 3).tolist()}")
                     err_t += float(np.linalg.norm(tcp - obs_eef[t]))
                     err_next += float(np.linalg.norm(tcp - obs_eef[t + 1]))
+                    err_hand += float(np.linalg.norm(hand - obs_eef[t]))
                     n_diag += 1
 
             if obs_eef is not None and n_diag:
                 diag_done = True
-                a, b = err_t / n_diag, err_next / n_diag
-                print(f"  [align] rendered-frame TCP vs recorded obs/eef_pos: mean |err| "
-                      f"@t={a * 1000:.1f} mm  @t+1={b * 1000:.1f} mm  (state_offset={args.state_offset}; "
-                      f"@t should be the small one — if @t+1 is clearly smaller, rerun with the other offset)")
+                a, b, c = err_t / n_diag, err_next / n_diag, err_hand / n_diag
+                print(f"  [align] replayed frame vs recorded obs/eef_pos: mean |err| "
+                      f"tcp@t={a * 1000:.1f} mm  tcp@t+1={b * 1000:.1f} mm  hand@t={c * 1000:.1f} mm")
+                print(f"  [align] the dataset's eef convention is {'TCP (+0.1034)' if a <= c else 'the raw fr3_hand frame'}; "
+                      f"the matching column should be mm-level (state_offset={args.state_offset} — "
+                      f"if only @t+1 is small, rerun with the other offset)")
 
-            # success tag from the demo's true final recorded state
-            cubes = [cp[i][T_s - 1].tolist() for i in (1, 2, 3)]
-            st = tower_status(cubes, jp[T_s - 1, finger_idx].tolist(), canonical=False)
+            # success tag from the demo's true final recorded state (stack scenes only)
+            st = None
+            if {"cube_1", "cube_2", "cube_3"} <= set(rig_names):
+                cubes = [cp[f"cube_{i}"][T_s - 1].tolist() for i in (1, 2, 3)]
+                st = tower_status(cubes, jp[T_s - 1, finger_idx].tolist(), canonical=False)
 
             if name in data_grp:  # overwrite a partial demo from an interrupted run
                 del data_grp[name]
@@ -333,12 +354,14 @@ def main():
                             print(f"  [warn] skipping obs/{key} (subgroup, scalar, or shorter than {T_use})")
                         continue
                     og.create_dataset(key, data=ds[()][steps])
-            g.attrs["replay_success_any_order"] = bool(st["ok"])
-            g.attrs["stack_order"] = "->".join(f"c{o + 1}" for o in st["order"])
+            if st is not None:
+                g.attrs["replay_success_any_order"] = bool(st["ok"])
+                g.attrs["stack_order"] = "->".join(f"c{o + 1}" for o in st["order"])
             g.attrs["num_samples"] = len(steps)  # LAST: doubles as the completeness marker for --append
             total += len(steps)
             out.flush()
-            print(f"  [done] {name}: {len(steps)} frames x 4 cams  3-tower={'YES' if st['ok'] else 'no'}")
+            tag = f"  3-tower={'YES' if st['ok'] else 'no'}" if st is not None else ""
+            print(f"  [done] {name}: {len(steps)} frames x 4 cams{tag}")
 
             if previews_left > 0:
                 previews_left -= 1

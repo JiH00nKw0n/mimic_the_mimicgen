@@ -57,6 +57,26 @@ def _cube_cfg(name, color, xy):
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color)))
 
 
+def strip_env_cfg(cfg, cameras: dict | None = None):
+    """Make ANY manager-based env cfg replay-ready: fabric off (physx->USD writeback
+    needed for link-parented cameras), every event/termination/recorder stripped
+    (states are written directly; nothing may randomize or reset them), cameras attached.
+    Used for externally registered tasks (e.g. the lab peg-insert env)."""
+    if hasattr(cfg.sim, "use_fabric"):
+        cfg.sim.use_fabric = False
+    for name in list(vars(cfg.events).keys()):
+        try:
+            setattr(cfg.events, name, None)
+        except Exception:
+            pass
+    cfg.terminations = {}
+    cfg.recorders = {}
+    if cameras:
+        for name, cam_cfg in cameras.items():
+            setattr(cfg.scene, name, cam_cfg)
+    return cfg
+
+
 def build_env_cfg(device: str, table_usd: str, cameras: dict | None = None, num_envs: int = 1):
     cfg = parse_env_cfg(TASK, device=device, num_envs=num_envs)
     # fabric skips the physx->USD writeback, so camera prims parented to robot
