@@ -1,0 +1,51 @@
+schema_version: stage2.wrist_multiscene_comparison.v1
+status: provisional_multiview_consistency_measured
+scene_count: 3
+scenes:
+- pose: pose_08
+  board_translation_error_mm: 3.126611447761052
+  board_rotation_error_deg: 0.877018060424286
+  board_projected_error:
+    mean_px: 6.211363392835445
+    median_px: 6.1763025586099225
+    p95_px: 7.589083841478831
+    maximum_px: 8.059045525092836
+  full_frame_edge_p95_px: 151.34728276384746
+  full_frame_edge_match_fraction: 0.5822856707851168
+- pose: pose_12
+  board_translation_error_mm: 8.011642754893629
+  board_rotation_error_deg: 1.1305788428256365
+  board_projected_error:
+    mean_px: 5.489762558104743
+    median_px: 5.455974930668293
+    p95_px: 5.886296754108078
+    maximum_px: 5.997323192872313
+  full_frame_edge_p95_px: 170.68098385147016
+  full_frame_edge_match_fraction: 0.4983934900956414
+- pose: pose_11
+  board_translation_error_mm: 5.813705025308609
+  board_rotation_error_deg: 1.0252329140231398
+  board_projected_error:
+    mean_px: 7.023505128237012
+    median_px: 6.967530191717437
+    p95_px: 7.371557607042186
+    maximum_px: 7.563845763215849
+  full_frame_edge_p95_px: 218.55205329623422
+  full_frame_edge_match_fraction: 0.4602418018772731
+aggregate:
+  shared_board_translation_error_mean_mm: 5.650653075987763
+  shared_board_translation_error_max_mm: 8.011642754893629
+  shared_board_rotation_error_mean_deg: 1.0109432724243541
+  shared_board_rotation_error_max_deg: 1.1305788428256365
+  projected_board_corner_error_mean_px: 6.241543693059067
+  projected_board_corner_error_p95_px: 7.459512692963589
+  full_frame_edge_p95_mean_px: 180.1934399705173
+  full_frame_edge_p95_max_px: 218.55205329623422
+  full_frame_edge_match_fraction_mean: 0.5136403209193438
+  full_frame_edge_match_fraction_minimum: 0.4602418018772731
+interpretation:
+  primary_metric: shared fixed-board 3D and projected-corner consistency
+  edge_metric: diagnostic_only_due_to_unmodeled_finger_mount_cable_and_room_geometry
+  independence: The three poses are part of the 12-pose hand-eye dataset used to estimate
+    the shared board and extrinsic, so this is an in-sample consistency check.
+figure: three_scene_comparison.png

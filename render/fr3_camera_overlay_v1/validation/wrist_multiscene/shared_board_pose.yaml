@@ -1,0 +1,43 @@
+schema_version: stage2.wrist_multiscene_shared_board.v1
+status: robust_shared_pose_from_12_handeye_observations
+convention: base_T_board maps ChArUco board coordinates into fr3v2_link0.
+base_T_board:
+  matrix:
+  - - -0.9999071654024356
+    - 0.012643059080445893
+    - 0.0050807119534958724
+    - 0.5918121322741237
+  - - 0.012676221095443864
+    - 0.9998982086394923
+    - 0.006548723407911812
+    - 0.16460928615252812
+  - - -0.0049973988839660515
+    - 0.006612519687854457
+    - -0.9999656497039144
+    - 0.023019065042027054
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+  translation_m:
+  - 0.5918121322741237
+  - 0.16460928615252812
+  - 0.023019065042027054
+  quaternion_xyzw:
+  - 0.006330001224061485
+  - 0.9999713775586083
+  - 0.0032904049533645004
+  - 0.002519599826463845
+provenance:
+  dataset_id: wrist_d405_reattached_manual_01
+  extrinsic_calibration_id: fr3_wrist_camera_tape_mount_depth_refined_v2
+  pose_count: 12
+  translation_estimator: componentwise_median
+  rotation_estimator: scipy_Rotation_mean
+quality:
+  translation_error_mean_m: 0.004419633640258509
+  translation_error_max_m: 0.008011642754893628
+  rotation_error_mean_deg: 1.3389644494450532
+  rotation_error_max_deg: 1.9091882317457853
+limitation: The shared board is estimated from the same 12-pose hand-eye dataset;
+  this measures multi-view consistency, not independent absolute accuracy.

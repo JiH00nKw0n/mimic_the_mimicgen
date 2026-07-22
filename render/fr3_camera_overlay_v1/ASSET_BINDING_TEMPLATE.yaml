@@ -1,0 +1,70 @@
+schema_version: stage2.fr3_camera_overlay_asset_binding.v1
+status: template_requires_team_review
+scene:
+  input_usd: REPLACE_WITH_TEAM_SCENE_USD
+  output_usd: REPLACE_WITH_OUTPUT_USD
+  meters_per_unit: null
+  up_axis: null
+robot_base:
+  team_prim: REPLACE_WITH_ROBOT_BASE_OR_ADAPTER_PRIM
+  calibrated_semantic: fr3v2_link0
+  compatibility_class: unverified
+  team_frame_T_calibrated_frame:
+    matrix:
+    - - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 1.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 1.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+  identity_transform_accepted: false
+  evidence: REPLACE_WITH_URDF_JOINT_OR_USD_PRIM_EVIDENCE
+hand_tcp:
+  team_prim: REPLACE_WITH_HAND_TCP_OR_ADAPTER_PRIM
+  calibrated_semantic: fr3v2_hand_tcp
+  compatibility_class: unverified
+  team_frame_T_calibrated_frame:
+    matrix:
+    - - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 1.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 1.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+  identity_transform_accepted: false
+  evidence: REPLACE_WITH_URDF_FIXED_JOINT_OR_USD_PRIM_EVIDENCE
+table_asset:
+  team_prim: REPLACE_WITH_TABLE_ASSET_PRIM
+  asset_id: REPLACE_WITH_TEAM_TABLE_ASSET_ID
+  compatibility_class: unverified
+  use_overlay_nominal_table_offset: false
+  table_task_T_team_table_asset: null
+  top_surface_alignment_verified: false
+  evidence: REPLACE_WITH_MESH_OR_USD_TOP_SURFACE_EVIDENCE
+existing_cameras:
+  duplicate_check_complete: false
+  reuse_or_replace_policy: unverified
+review:
+  reviewer: REPLACE_WITH_NAME
+  reviewed_at: REPLACE_WITH_TIMESTAMP
+  ready_to_apply: false
