@@ -168,7 +168,8 @@ transform은 어느 태스크에서도 whole-task 유의가 없다.
 coffee는 ancestry가 오히려 돕는다(전체 +4.5%p, near-mid에서 +16%p). 정리하면 **source 축
 재균등화(ancestry)는 다른 어떤 arm보다 정책을 크게 흔들되, 그 부호가 태스크에 따라 갈려(coffee 도움 /
 stack·three_piece 유의한 손해) 안정적인 처방이 못 된다.** net은 음수다. transform은 흔드는 폭 자체가
-작아 어느 쪽으로도 유의하지 않다.
+작아 어느 쪽으로도 유의하지 않다. 이 ancestry 효과는 **거리 이동이 아니라 순수 source 구성에서
+온다** — ancestry의 transform 거리 분포는 baseline과 사실상 동일하다(부록 C).
 
 ---
 
@@ -222,4 +223,34 @@ near / mid / far 각 구간의 arm별 성공률.
   무관하므로 태스크당 1회.
 - far-bin + paired: `mnew_farbin.py` — d_eval 3등분, arm별 구간 SR, (장면, 시드) 단위 McNemar 정확검정.
 - 거리 분해(4분위): `mnew_quantile.py` — d_eval 4분위별 baseline vs transform / baseline vs ancestry SR + McNemar.
+- arm별 학습셋 거리 프로파일: `mnew_armdist.py` — 각 arm이 고른 데모의 d_pos 분포(부록 C).
 - 산출물: 태스크별 `e2_arms/<task>_N2/eval/farbin_summary.json`.
+
+### 부록 C — ancestry는 transform 거리 분포를 바꾸지 않는다 (효과는 순수 source 구성)
+
+"source별 균등(ancestry)이 near-source 생존자를 끌어올려 학습셋을 가까운 쪽으로 쏠리게 한다"는
+기대를 직접 검증했다. 각 arm이 고른 학습 데모의 transform 거리(d_pos) 분포다 — near% = 최근접
+quantile bin(attempted 기준 20%)에 든 비율, 2 seed 풀.
+
+| task | baseline 평균(near%) | ancestry 평균(near%) | transform 평균(near%) |
+|---|---|---|---|
+| square | .260 (27.3%) | .257 (28.9%) | .270 (20%) |
+| stack | .275 (24.7%) | .274 (23.3%) | .285 (20%) |
+| three_piece | .352 (28.7%) | .354 (30.4%) | .386 (20%) |
+| coffee | .257 (27.1%) | .255 (26.0%) | .270 (20%) |
+| threading | .272 (24.1%) | .271 (22.9%) | .279 (20%) |
+| stack_three | .283 (24.2%) | .286 (21.5%) | .292 (20%) |
+| hammer | .263 (23.5%) | .262 (23.4%) | .271 (20%) |
+
+**ancestry의 거리 분포는 baseline과 사실상 동일하다** — 평균 d_pos 차이가 셋째 자리(≤0.003)이고
+near% 차이도 ±2%p 안이며 방향도 일정하지 않다(square·three_piece는 근소하게 더 가깝지만
+stack·stack_three·threading은 오히려 더 멀다). 거리를 실제로 옮기는 arm은 transform_uniform뿐이고
+(near% 정확히 20%, 평균도 더 큼) 그것은 far 쪽 이동이다.
+
+기대가 빗나간 이유: "생존자가 적은 source는 가까운 데서만 성공한다"는 전제는 source들의 거리
+프로파일이 서로 크게 다를 때만 성립하는데, 이 등방·소형 박스에서는 source demo 10개가 비슷한 거리
+범위에서 성공해 source를 재배분해도 거리 분포가 거의 움직이지 않는다. 특히 ancestry가 가장 크게 깎는
+stack(전체 p=0.002)조차 near%가 baseline보다 **낮다**(23.3 < 24.7) — near-shift로는 손해가 설명되지
+않는다. 따라서 **ancestry의 정책 효과는 거리 재배분이 아니라 어떤 source를 얼마나 담느냐(순수 source
+구성)에서 온다.** §5-(2)의 "source 축 재균등화가 정책을 흔든다"는, transform 축을 고정한 채 source
+축만 토글한 대조로서 성립한다.
