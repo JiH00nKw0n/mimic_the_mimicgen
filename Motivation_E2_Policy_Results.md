@@ -76,7 +76,55 @@ p값.
 
 ---
 
-## 4. 정직한 결론 두 가지
+## 4. 거리 특화(specialization) 검정 — baseline이 가까운 구간을 더 잘하나?
+
+**동기.** baseline의 학습셋은 필터가 남긴 쏠림 탓에 near-source demo 쪽으로 편중돼 있다. "각 arm은
+자기 학습 데이터가 몰린 거리에서 더 잘한다"는 특화 논리대로라면, baseline은 near에서,
+transform_uniform은 far에서 상대적으로 우세해야 한다. 각 태스크의 d_eval을 4분위로 잘라 이를 직접
+확인했다.
+
+**최근접 25%(Q1)에서 arm별 SR과 baseline 대비 격차(transform Δt, ancestry Δa):**
+
+| task | base | trans | Δt | anc | Δa |
+|---|---|---|---|---|---|
+| threading | **.730** | .660 | −0.070 | .650 | −0.080 |
+| three_piece | **.210** | .190 | −0.020 | .120 | −0.090 |
+| coffee | **.670** | .660 | −0.010 | .650 | −0.020 |
+| hammer | .900 | .900 | 0.000 | .890 | −0.010 |
+| stack_three | .740 | .750 | +0.010 | .690 | −0.050 |
+| stack | .870 | .890 | +0.020 | .770 | −0.100 |
+| square | .730 | .780 | +0.050 | .800 | +0.070 |
+| mug | .270 | .320 | +0.050 | — | — |
+
+**transform 특화는 확인되지 않는다.** 최근접 Q1에서 baseline이 transform보다 근소하게 앞선 건
+threading(−7%p)·three_piece(−2)·coffee(−1) 세 태스크뿐이고, 나머지 다섯(square +5, mug +5,
+stack +2, stack_three +1, hammer 0)은 오히려 transform이 앞서거나 동률이다. 여덟 중 어느 것도
+유의하지 않다(전부 p>0.3). **baseline이 near-source 데이터에 편중돼 있는데도 near를 특별히 더
+잘하지는 않는다.**
+
+**게다가 transform 우세가 앉는 구간이 태스크마다 다르다.** square는 Q1~Q3에 걸쳐 +5~6%p로 넓게
+퍼지고 최원거리 Q4에서만 사그라들지만, three_piece는 반대로 far 쪽(Q1 −2 → Q4 +8), threading은
+일관된 방향이 없다. **"한쪽은 near, 한쪽은 far"라는 깔끔한 거리 교차는 어느 태스크에서도 나타나지
+않는다.** 태스크마다 우세 위치가 흩어져 평균에서 상쇄되는 것이, §2 aggregate가 얕고 §3 far 격차의
+부호가 갈린 근본 이유다.
+
+**demo 균등(ancestry)도 far가 아니라 near·mid에서 작동한다.** 최근접 Q1만 보면 ancestry는 대부분
+baseline보다 낮고(stack −10, three_piece −9, threading −8%p) square만 +7이다. 더 중요한 건
+ancestry가 크게 깎는 stack·three_piece에서 그 손실이 far가 아니라 near~mid에 걸쳐 있다는 점이다 —
+stack은 Q1~Q3에서 각각 −10·−10·−11%p(각 p≈0.06)로 꾸준히 깎이고 최원거리 Q4에서만 무승부(−1)다.
+반대로 ancestry가 돕는 coffee는 그 이득이 Q2(near-mid)에 몰려 +16%p(p=0.009, 단 여러 셀 중 하나라
+다중검정 보정 후엔 약함)다. 즉 **ancestry의 부호는 태스크마다 갈리지만(coffee 도움 /
+stack·three_piece 손해), 작동 구간은 transform과 똑같이 near·mid이고 far는 어느 arm에게든
+무승부다.**
+
+**단, 이 자름은 2 seed에서 검정력이 없다.** Q1은 장면 50개 × 2 seed = 표본 100(불일치쌍 ~20–35개)
+이라 ±7%p를 유의하게 가려낼 수 없다(threading의 −7%p도 p=0.34). 특화 가설은 점추정상 지지되지
+않으나, 2 seed로는 확정도 반증도 못 한다 — 6 seed 확장과 **박스 기하 기반 절대 D0 밴드**(진짜 D0
+안에 든 상태만 추림)로 매듭짓는다.
+
+---
+
+## 5. 정직한 결론 두 가지
 
 ### (1) "효과가 far 구간에 몰린다"는 예상은 확증되지 않았다
 
@@ -86,36 +134,40 @@ p값.
   coffee 정도다. square는 오히려 near·mid에서 더 벌어지고 far에서 사라진다.
 - 즉 transform 거리를 평평하게 만든 재배분이, 정작 먼 구간의 성능을 특별히 되살리지는 못한다.
 
-### (2) 실험 전체에서 유일하게 유의한 신호는 — ancestry 재균등화가 오히려 해롭다는 것
+### (2) 유의한 처치 효과는 ancestry에서만 나오고, 그 방향은 태스크마다 갈린다
 
-에피소드 단위로 짝지어 본 McNemar에서 통계적으로 유의하게 나온 건 이 두 개뿐이다.
+전-태스크(whole-task) 단위로 짝지어 본 McNemar에서 통계적으로 유의하게 나온 건 ancestry의 두 개뿐이다.
+transform은 어느 태스크에서도 whole-task 유의가 없다.
 
 | 비교 | 판정 | 방향 |
 |---|---|---|
 | three_piece: baseline vs ancestry | b 34 / **c 62, p = 0.006** | baseline 승 (ancestry가 나쁨) |
 | stack: baseline vs ancestry | b 36 / **c 68, p = 0.002** | baseline 승 (ancestry가 나쁨) |
 
-(b = ancestry가 이긴 에피소드 수, c = baseline이 이긴 수.) 나머지 태스크도 합치면 음의 방향이다.
-**source별로 균등하게 맞춰 뽑으면 정책이 나빠진다** — 이게 지금 데이터에서 통계적으로 분명한
-유일한 결론이다.
+(b = ancestry가 이긴 에피소드 수, c = baseline이 이긴 수.) 다만 방향이 한쪽만은 아니다 — §4에서 봤듯
+coffee는 ancestry가 오히려 돕는다(전체 +4.5%p, near-mid에서 +16%p). 정리하면 **source 축
+재균등화(ancestry)는 다른 어떤 arm보다 정책을 크게 흔들되, 그 부호가 태스크에 따라 갈려(coffee 도움 /
+stack·three_piece 유의한 손해) 안정적인 처방이 못 된다.** net은 음수다. transform은 흔드는 폭 자체가
+작아 어느 쪽으로도 유의하지 않다.
 
 ---
 
-## 5. 그래서 무슨 이야기가 되나
+## 6. 그래서 무슨 이야기가 되나
 
 깨끗한 승리 서사 — "transform 균등 리샘플링이 정책을, 특히 먼 구간에서 살린다" — 는 **이 데이터와
 2 seed로는 성립하지 않는다.** 대신 성립하는 건 이렇다.
 
 > 생성 필터가 만드는 쏠림은 E1에서 실재한다(거리 ↑ → DGR ↓, source 편중). 하지만 남은 데이터를
 > 소박하게 다시 균등화하는 것 — transform 축이든 source 축이든 — 은 정책 성능을 안정적으로 되살리지
-> 못하고, **source 축 균등화는 유의하게 깎는다.**
+> 못한다. transform 축 균등화는 흔드는 폭이 작아 어느 쪽으로도 유의하지 않고, **source 축
+> 균등화(ancestry)는 정책을 크게 흔들지만 그 부호가 태스크마다 갈려 되레 해로울 때가 많다.**
 
 이건 오히려 더 정직하고 반증 가능한 메시지다. "편향은 분명히 있는데, 뻔한 처방은 듣지 않고
 심지어 역효과가 난다"는 결과는, 큐레이션이 공짜가 아니라는 걸 데이터로 보여준다.
 
 ---
 
-## 6. 한계와 진행 중인 보강
+## 7. 한계와 진행 중인 보강
 
 - **2 seed다.** transform 효과 폭이 1–5%p로 얕은데, 짝지은 표본이 태스크당 400쌍(200장면 × 2시드)
   이라 이 크기 효과를 유의하게 잡기엔 검정력이 모자란다. 예로 square 전체가 b 82 / c 63 (p = 0.13)인데,
@@ -149,4 +201,5 @@ near / mid / far 각 구간의 arm별 성공률.
   env interface(`get_object_poses`)로 물체 위치를 읽어 `nearest_source_distance`로 계산. arm·시드와
   무관하므로 태스크당 1회.
 - far-bin + paired: `mnew_farbin.py` — d_eval 3등분, arm별 구간 SR, (장면, 시드) 단위 McNemar 정확검정.
+- 거리 분해(4분위): `mnew_quantile.py` — d_eval 4분위별 baseline vs transform / baseline vs ancestry SR + McNemar.
 - 산출물: 태스크별 `e2_arms/<task>_N2/eval/farbin_summary.json`.
