@@ -12,6 +12,8 @@ Isaac Lab Camera 센서 4대로 매 스텝 RGB를 캡처한다.
 
 ## 파일
 
+- `OVERLAY.md` — **캘리브레이션 번들 레퍼런스** (좌표 규약, yaml 구조, 정확도,
+  갱신 절차까지; 번들이 뭔지 궁금하면 이 문서부터)
 - `fr3_camera_overlay_v1/` — 주상님 번들 사본 (`overlay.yaml`이 canonical)
 - `overlay_cameras.py` — overlay 파싱 → Isaac Lab `CameraCfg` 4개 생성
 - `lab_env.py` — lab FR3 + 책상 scene (lab_stack_mimic/record_video.py와 동일) +
