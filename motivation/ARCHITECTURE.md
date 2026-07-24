@@ -135,3 +135,7 @@ python -m genaudit analyze     --experiment-config ...
 # 학습 (서버, GPU): E-변형 env_meta를 해석하려면 반드시 wrapper로
 python -m genaudit.training.run_train --config bc_rnn_low_dim_....json
 ```
+
+> 위는 genaudit CLI의 일반 형태다. **등방·무회전 재설계(motivation_new)의 실제 실행 파이프라인**
+> — 단일 N2 풀에서 사후 추출 → 학습 → 고정장면 paired 평가 → 거리 분석 — 은 `scripts/mnew_*`로
+> 구현돼 있고, 단계·스크립트·현재 실행 상태는 [README.md](README.md)의 "실제 실행 파이프라인" 절 참조.
