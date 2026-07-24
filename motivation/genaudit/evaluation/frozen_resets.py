@@ -34,9 +34,13 @@ def _register_variants() -> None:
     """E-series env names (Threading_D2E, ...) live in dataset env_meta and
     checkpoints; every process that builds an env from them must register the
     variants first or robosuite raises 'unknown environment'."""
-    from genaudit.envs.robosuite_variants import register_custom_variants
+    from genaudit.envs.robosuite_variants import (
+        register_custom_variants,
+        register_new_variants,
+    )
 
     register_custom_variants()
+    register_new_variants()  # motivation_new N0/N1/N2
 
 
 def create_frozen_resets(
