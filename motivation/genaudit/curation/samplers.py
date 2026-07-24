@@ -163,6 +163,10 @@ def sample_ancestry_balanced(
 
     # water-fill: drop the most-starved source until an equal quota fits
     while True:
+        if not kept:
+            raise InsufficientPoolError(
+                f"{arm}: survivor pool too thin/skewed to build {size} demos"
+            )
         quota = size // len(kept)
         if quota == 0:
             raise InsufficientPoolError(
