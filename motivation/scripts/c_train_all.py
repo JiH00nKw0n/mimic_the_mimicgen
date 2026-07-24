@@ -29,31 +29,40 @@ ROBOMIMIC = HOME / "mimicgen_jihoonkwon/robosuite_mimicgen/robomimic"
 
 
 def run_one(config_path: str, results_dir: Path) -> tuple[str, str]:
-    config = json.loads(Path(config_path).read_text())
-    name = config["experiment"]["name"]
-    final_epoch = int(config["train"]["num_epochs"])
-    # a run is complete only if its FINAL checkpoint exists — a mere models/
-    # dir can be a partial (interrupted) run, which must re-run, not skip
-    if list(results_dir.rglob(f"{name}/**/model_epoch_{final_epoch}.pth")):
-        print(f"SKIP (done) {name}", flush=True)
-        return name, "skipped"
-    # a partial run left a dir that would make robomimic prompt to overwrite;
-    # remove it so the fresh run starts cleanly under stdin=/dev/null
-    for stale in results_dir.rglob(f"{name}"):
-        if stale.is_dir():
+    name = config_path
+    try:
+        config = json.loads(Path(config_path).read_text())
+        name = config["experiment"]["name"]
+        final_epoch = int(config["train"]["num_epochs"])
+        # A run writes to results_dir/<name>/<timestamp>/...; scope every lookup
+        # to that single directory. Never rglob the whole results tree — with
+        # concurrent runs, a sibling's mkdir/rmtree races the walk's scandir and
+        # raises FileNotFoundError, which (via pool.map) would kill every run.
+        run_dir = results_dir / name
+        # a run is complete only if its FINAL checkpoint exists — a mere models/
+        # dir can be a partial (interrupted) run, which must re-run, not skip
+        if run_dir.is_dir() and list(run_dir.glob(f"**/model_epoch_{final_epoch}.pth")):
+            print(f"SKIP (done) {name}", flush=True)
+            return name, "skipped"
+        # a partial run left a dir that would make robomimic prompt to overwrite;
+        # remove it so the fresh run starts cleanly under stdin=/dev/null
+        if run_dir.exists():
             import shutil
-            shutil.rmtree(stale, ignore_errors=True)
-    env = dict(os.environ)
-    env["LD_LIBRARY_PATH"] = f"{NV}/cu13/lib:{NV}/cudnn/lib"
-    log = results_dir / f"log_{name}.txt"
-    log.parent.mkdir(parents=True, exist_ok=True)
-    with log.open("w") as sink, open(os.devnull) as devnull:
-        code = subprocess.run(
-            [str(VENV_PY), "robomimic/scripts/train.py", "--config", config_path],
-            cwd=str(ROBOMIMIC), env=env, stdout=sink, stderr=subprocess.STDOUT, stdin=devnull,
-        ).returncode
-    print(f"{'OK  ' if code == 0 else 'FAIL'} {name}", flush=True)
-    return name, "ok" if code == 0 else f"exit {code}"
+            shutil.rmtree(run_dir, ignore_errors=True)
+        env = dict(os.environ)
+        env["LD_LIBRARY_PATH"] = f"{NV}/cu13/lib:{NV}/cudnn/lib"
+        log = results_dir / f"log_{name}.txt"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with log.open("w") as sink, open(os.devnull) as devnull:
+            code = subprocess.run(
+                [str(VENV_PY), "robomimic/scripts/train.py", "--config", config_path],
+                cwd=str(ROBOMIMIC), env=env, stdout=sink, stderr=subprocess.STDOUT, stdin=devnull,
+            ).returncode
+        print(f"{'OK  ' if code == 0 else 'FAIL'} {name}", flush=True)
+        return name, "ok" if code == 0 else f"exit {code}"
+    except Exception as error:  # noqa: BLE001 — one run must never crash the pool
+        print(f"ERR  {name}: {type(error).__name__}: {error}", flush=True)
+        return name, f"error {type(error).__name__}"
 
 
 def main() -> None:
