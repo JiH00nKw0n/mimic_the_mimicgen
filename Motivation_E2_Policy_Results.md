@@ -194,7 +194,8 @@ near / mid / far 각 구간의 arm별 성공률.
 - 거리 분해(4분위): `mnew_quantile.py` — d_eval 4분위별 baseline vs transform / vs ancestry SR + McNemar.
 - arm별 학습셋 거리 프로파일: `mnew_armdist.py` — 각 arm이 고른 데모의 d_pos 분포(부록 C).
 - 시드 확장(2→6): `mnew_addseeds.py`(filter key 추가) + `mnew_seeds.sh`(학습·평가·분석 오케스트레이터).
-- 산출물: 태스크별 `e2_arms/<task>_N2/eval/{eval_summary,farbin_summary}.json`.
+- 전수 슬라이싱: `mnew_slice.py` — transform vs baseline을 데실·소스별·연속·효율·풀링·다중검정으로 모두 쪼갬(부록 D).
+- 산출물: 태스크별 `e2_arms/<task>_N2/eval/{eval_summary,farbin_summary}.json`, `e2_arms/slice_results.json`.
 
 ### 부록 C — ancestry는 transform 거리 분포를 바꾸지 않는다 (효과는 순수 source 구성)
 
@@ -220,3 +221,35 @@ far 쪽 이동이다. 따라서 **ancestry의 정책 효과(특히 stack 손해)
 또한 이 TV(baseline, 균등)가 곧 **transform 축 survivor skew의 크기**인데, 등방·소형 박스 재설계에서는
 0.04~0.15로 얕다(원래 방향성 D2 변형은 계획상 0.10~0.30 예상). 처치가 건드릴 skew 자체가 작은 것이,
 정책 효과가 작게 나오는 근본 원인이다.
+
+### 부록 D — 전수 슬라이싱: transform_uniform은 어느 컷에서도 baseline과 다르지 않다
+
+§3–4의 tercile·quartile보다 촘촘하게, transform_uniform과 baseline을 가능한 모든 축으로 쪼개
+차이가 숨어 있는지 확인했다(`mnew_slice.py`, 6 seed, paired unit = (task, reset, seed)).
+
+**최대검정력 앵커.** 8태스크를 모두 풀링하면 9,600 페어 — base 0.5686 vs treat 0.5704,
+b1449/c1432, **McNemar p=0.766.** 이 크기면 ~1.5%p 실효과도 잡히는데 잡히지 않는다.
+
+**모든 컷:**
+- **d_eval 데실(태스크 × 10구간 = 80셀):** p<0.05가 8개 나오나 우연 기대 4.0개의 2배에 불과하고
+  방향이 갈린다(transform 우세 3 / baseline 우세 5). 가족 최소 p(stack d0, 0.0117)를 Bonferroni
+  보정하면 **0.936** — 전멸. "far일수록 유리" 같은 단조 구배도 없다(인접 구간에서 부호가 뒤집힘).
+- **가장 가까운 source demo별(≈86층):** raw p들이 보정 문턱을 못 넘는다.
+- **연속(불일치쌍 d_eval Mann-Whitney):** 전 태스크 무의 — transform이 이기는 장면과 baseline이
+  이기는 장면의 거리가 다르지 않다.
+- **효율(공동 성공 에피소드의 스텝, Wilcoxon):** 전 태스크 무의 — 성공률뿐 아니라 도달 속도도 같다.
+- **시드 방향:** 대부분 갈린다(3+/3−, 4+/2−).
+
+**유일하게 유의한 태스크 — 그것도 반대 방향.** hammer는 transform이 **더 나쁘다**(b34/c61,
+p=0.0073, 6시드 중 5시드). 시드 방향은 일관되나 낙폭 2.25%p로 얕고, 8태스크 최소 p라
+Bonferroni(0.0073 × 8 = 0.058)를 못 넘는다. "transform이 돕는다"의 증거가 아니라 "특정 태스크에서
+살짝 해로울 수 있다"는 반대쪽 경계 신호다.
+
+**추가 시드 값어치가 있는 유일한 후보.** three_piece는 transform 쪽 6시드 중 5시드 일관(+2.7%p,
+overall p=0.10), 저성공이라 천장효과가 없다. 지금은 무의지만 8태스크 중 방향 일관성이 가장 깨끗해,
+확정하려면 시드를 더 늘려야 한다.
+
+**적대적 검증.** 6개 검사(prosecutor) 에이전트가 각 각도(풀링·태스크별·near/far 데실·소스·효율)에서
+"차이를 찾아내라"고 후보를 끌어내고, 회의적 판정자가 다중검정·시드안정성·풀링모순으로 걸렀다
+(총 13 에이전트, 만장일치). **진짜 차이 판정 = 0개.** 앵커 p=0.766과 함께, **소박한 transform
+재균등화는 어느 구간에서도 정책을 바꾸지 않는다**가 이 데이터에서 확립된다.
