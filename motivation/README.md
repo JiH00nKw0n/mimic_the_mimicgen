@@ -53,10 +53,10 @@ source 위치 중심의 정사각형으로 정의하고(회전 없음, `genaudit
 | `mnew_quantile.py` | d_eval 4분위 baseline vs transform / vs ancestry (특화 검정) | §4 |
 | `mnew_armdist.py` | arm별 학습셋 d_pos 분포(평균·near%·균등 대비 TV) | 부록 C |
 
-### 지금 실행 상태 (2026-07-24)
+### 지금 실행 상태 (2026-07-25)
 
-- **2시드 결과 완료** → 리포트에 반영. (E1: 거리↑ → DGR↓ 전 태스크 재현 / E2: transform 얕게 우세·무유의, ancestry 태스크 의존, far 아닌 near·mid에서 작동.)
-- **6시드 확장 진행 중**: `mnew_seeds.sh`가 시드 103–106을 추가 학습(약 92런). low-dim BC-RNN은 GPU를 안 쓰는 **CPU 학습**이라 `OMP_NUM_THREADS=1 × concurrency 8`로 8코어를 독립 런으로 꽉 채워 돌린다(util ~91%, ~5.8 run/h). 완주 시 `SEEDS_DONE` 마커 → 6시드로 farbin/quantile/armdist 자동 갱신 → 리포트 §3–4·부록 C 교체 예정.
+- **6시드 완전판 완료** → 리포트에 반영. (E1: 거리↑ → DGR↓ 전 태스크 재현 / E2: **transform 균등은 이득 없음** — 2시드에서 보였던 우세는 표본을 6시드로 늘리자 소멸, hammer에선 오히려 유의하게 나쁨 / **ancestry 균등은 stack에서 유의하게 해로움**(p<0.001, 전 구간) — 2시드에서 함께 유의했던 three_piece는 사라짐. 결론: 소박한 재균등화는 정책을 되살리지 못하고 source 축은 위험. 부록 C: ancestry는 거리 분포를 안 바꿈 → 효과는 순수 source 구성.)
+- 학습 레시피: low-dim BC-RNN은 GPU를 안 쓰는 **CPU 학습**이라 `OMP_NUM_THREADS=1 × concurrency 8`로 8코어를 독립 런으로 채운다(util ~90%+). 92런 학습 ~26h + eval ~5h. `c_train_all`은 최종 ckpt 있으면 skip(재개 가능) — 서버 재부팅 후에도 이어서 완주함.
 - 서버 경로: `~/mimicgen_jihoonkwon/experiments/motivation_new/{gen,records,e2_arms,e2_results,e2_train_cfgs}`, venv `~/mimicgen_jihoonkwon/robosuite_mimicgen/venv`, `PYTHONPATH=<repo>/motivation`.
 
 > **주의**: `mnew_*`는 서버 절대경로(`/home/ubuntu/...`)가 파일 상단 상수로 하드코딩된 **실제 실행본**이다. 다른 환경에서 재현하려면 그 상수만 바꾸면 된다.
@@ -65,4 +65,4 @@ source 위치 중심의 정사각형으로 정의하고(회전 없음, `genaudit
 
 - Phase A (문서 + 코어 + 테스트): 이 폴더
 - Phase B0 이후 (서버 생성·학습): PLAN.md §4 실행 단계 참조
-- **motivation_new (E2 정책)**: 2시드 완료·리포트 작성, 6시드 확장 학습 중 — 위 "실제 실행 파이프라인" 참조
+- **motivation_new (E2 정책)**: 6시드 완전판 완료 — 결과는 [`../Motivation_E2_Policy_Results.md`](../Motivation_E2_Policy_Results.md), 실행은 위 "실제 실행 파이프라인" 참조
