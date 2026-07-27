@@ -16,7 +16,7 @@ import numpy as np
 REPO = "/home/ubuntu/mimicgen_jihoonkwon/mimic_the_mimicgen/motivation"
 A = Path("/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_arms")
 R = Path("/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_results")
-ARMS = ["baseline", "transform_uniform", "ancestry_balanced"]
+ARMS = os.environ.get("MNEW_ARMS", "baseline,transform_uniform,ancestry_balanced").split(",")
 SEEDS = [int(x) for x in os.environ.get("MNEW_SEEDS_ALL", "101,102").split(",")]
 HORIZON = 400
 WORKERS = 6
@@ -93,7 +93,8 @@ def main():
     with mp.get_context("spawn").Pool(WORKERS, maxtasksperchild=1) as pool:
         for r in pool.imap_unordered(eval_policy, jobs):
             print(f"[eval] {r}", flush=True)
-    aggregate(tasks)
+    if not os.environ.get("MNEW_NOAGG"):
+        aggregate(tasks)
     print("EVAL DONE", flush=True)
 
 
