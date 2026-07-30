@@ -14,8 +14,8 @@ from pathlib import Path
 import numpy as np
 
 REPO = "/home/ubuntu/mimicgen_jihoonkwon/mimic_the_mimicgen/motivation"
-A = Path("/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_arms")
-R = Path("/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_results")
+A = Path(os.environ.get("MNEW_A", "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_arms"))
+R = Path(os.environ.get("MNEW_R", "/home/ubuntu/mimicgen_jihoonkwon/experiments/motivation_new/e2_results"))
 ARMS = os.environ.get("MNEW_ARMS", "baseline,transform_uniform,ancestry_balanced").split(",")
 SEEDS = [int(x) for x in os.environ.get("MNEW_SEEDS_ALL", "101,102").split(",")]
 HORIZON = 400
