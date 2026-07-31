@@ -1,0 +1,111 @@
+<title>합성 데이터 소스 품질 케이스 스터디</title>
+<style>
+  :root{
+    --bg:#0d1015; --surface:#151a21; --surface2:#1b222b; --border:#28313d;
+    --ink:#e7edf4; --muted:#8a97a7; --faint:#5c6675;
+    --accent:#38c5d6;
+    --ok:#3fb84f; --ok-dim:rgba(63,184,79,.16);
+    --fail:#f2603f; --fail-dim:rgba(242,96,63,.16);
+    --high:#2fd6c0; --mid:#8a97a7; --low:#f0a63a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef1f5; --surface:#ffffff; --surface2:#f4f6f9; --border:#dbe1e9;
+      --ink:#18202a; --muted:#5a6573; --faint:#8b95a2; --accent:#0f9bad;
+      --ok:#1f9d38; --ok-dim:rgba(31,157,56,.12); --fail:#d64425; --fail-dim:rgba(214,68,37,.12);
+      --high:#0e9d8c; --mid:#5a6573; --low:#c07d15; --shadow:0 1px 2px rgba(16,24,32,.06),0 8px 24px rgba(16,24,32,.08);}
+  }
+  :root[data-theme="dark"]{ --bg:#0d1015; --surface:#151a21; --surface2:#1b222b; --border:#28313d;
+    --ink:#e7edf4; --muted:#8a97a7; --faint:#5c6675; --accent:#38c5d6;
+    --ok:#3fb84f; --ok-dim:rgba(63,184,79,.16); --fail:#f2603f; --fail-dim:rgba(242,96,63,.16);
+    --high:#2fd6c0; --mid:#8a97a7; --low:#f0a63a; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.28);}
+  :root[data-theme="light"]{ --bg:#eef1f5; --surface:#ffffff; --surface2:#f4f6f9; --border:#dbe1e9;
+    --ink:#18202a; --muted:#5a6573; --faint:#8b95a2; --accent:#0f9bad;
+    --ok:#1f9d38; --ok-dim:rgba(31,157,56,.12); --fail:#d64425; --fail-dim:rgba(214,68,37,.12);
+    --high:#0e9d8c; --mid:#5a6573; --low:#c07d15; --shadow:0 1px 2px rgba(16,24,32,.06),0 8px 24px rgba(16,24,32,.08);}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;padding:clamp(28px,5vw,64px) clamp(18px,4vw,40px) 96px;}
+
+  header.top{border-bottom:1px solid var(--border);padding-bottom:32px;margin-bottom:40px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:14px;}
+  h1{font-size:clamp(26px,4.4vw,40px);line-height:1.1;letter-spacing:-.02em;margin:0 0 18px;
+    text-wrap:balance;font-weight:680;}
+  .lede{font-size:clamp(15px,1.9vw,17px);color:var(--muted);max-width:66ch;margin:0 0 8px;}
+  .lede b{color:var(--ink);font-weight:620;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px 20px;margin-top:24px;font-family:var(--mono);font-size:12.5px;
+    color:var(--muted);align-items:center;}
+  .legend .k{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block;}
+
+  section.task{margin-top:44px;}
+  .taskhead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+  .taskhead h2{font-size:20px;margin:0;letter-spacing:-.01em;font-weight:660;}
+  .contrast{font-family:var(--mono);font-size:12.5px;color:var(--faint);}
+  .colhead{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 8px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);}
+  .colhead span{padding-left:2px;}
+
+  .srcrow{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:14px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .srcrow.missing{opacity:.6;}
+  .srchead{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:0 2px;}
+  .rolelab{font-size:13.5px;font-weight:600;color:var(--ink);}
+  .srcid{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .dgr{margin-left:auto;display:inline-flex;align-items:baseline;gap:5px;font-family:var(--mono);
+    padding:3px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);}
+  .dgr b{font-size:15px;} .dgr small{font-size:10px;letter-spacing:.08em;color:var(--faint);text-transform:uppercase;}
+  .dgr.high b{color:var(--high);} .dgr.mid b{color:var(--mid);} .dgr.low b{color:var(--low);}
+
+  .cells{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  figure.cell{margin:0;display:flex;flex-direction:column;gap:8px;}
+  figure.cell video{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;
+    border:1px solid var(--border);background:#000;display:block;}
+  .cell.empty{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;
+    border:1px dashed var(--border);border-radius:10px;color:var(--faint);font-family:var(--mono);}
+  figcaption{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;}
+  .pill{padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.02em;}
+  .pill.ok{background:var(--ok-dim);color:var(--ok);}
+  .pill.fail{background:var(--fail-dim);color:var(--fail);}
+  .dpos{color:var(--faint);}
+
+  footer{margin-top:56px;padding-top:24px;border-top:1px solid var(--border);
+    font-family:var(--mono);font-size:12px;color:var(--faint);max-width:70ch;}
+  @media (max-width:640px){
+    .cells,.colhead{grid-template-columns:1fr;}
+    .colhead{display:none;}
+    figcaption .colname{display:inline;}
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">MimicGen · 합성 데이터 감사</div>
+    <h1>어떤 source 데모는 좋은 합성 데이터를 만들고, 어떤 건 아니다</h1>
+    <p class="lede">MimicGen은 사람 source 데모 10개를 새 초기조건으로 <b>transform</b>해서 합성 데이터를 만들고,
+      성공한 것만 남긴다. 그런데 <b>소스마다 전이 신뢰도(생성 성공률 = DGR)가 천차만별</b>이다 — 어떤 소스는
+      어떤 배치로 옮겨도 잘 성공하고(고DGR), 어떤 소스는 거의 실패한다(저DGR).</p>
+    <p class="lede">각 태스크에서 <b>많이 쓰인 소스(고DGR)</b>와 <b>적게 쓰인 소스(저DGR)</b>의 실제 합성 데모를
+      성공·실패 × 가까운/먼 변형으로 나란히 놨다. 고DGR 소스는 거리와 무관하게 깔끔히 성공하고, 저DGR 소스는
+      대부분 실패하며 드문 성공도 아슬아슬하다. <b>이것이 소스를 균등하게 섞는 큐레이션(ancestry)이 해로운 이유</b>이자,
+      필터가 고DGR 소스를 과대표집하는 편향이 오히려 이로운 이유다.</p>
+    <div class="legend">
+      <span class="k"><span class="swatch" style="background:var(--high)"></span>고DGR</span>
+      <span class="k"><span class="swatch" style="background:var(--low)"></span>저DGR</span>
+      <span class="k"><span class="swatch" style="background:var(--ok)"></span>성공</span>
+      <span class="k"><span class="swatch" style="background:var(--fail)"></span>실패</span>
+      <span class="k">d = transform 거리(0=원본, 클수록 멀리 이동)</span>
+    </div>
+  </header>
+
+  {{SECTIONS}}
+
+  <footer>영상은 stack N2 등 각 태스크 생성 풀의 실제 합성 데모(states 재생, agentview). 소스·성공/실패·거리는
+    파일명에 인코딩. 태스크별 고/저DGR 소스는 생성 성공률로 자동 선택(저DGR은 성공 데모 ≥3개 있는 것 중 최저).</footer>
+</div>
