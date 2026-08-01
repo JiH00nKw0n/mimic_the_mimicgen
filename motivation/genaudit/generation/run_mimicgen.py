@@ -19,10 +19,24 @@ from genaudit.envs.robosuite_variants import (
 
 
 def main() -> None:
+    # Our own flags are stripped before delegation (generate_dataset's
+    # argparse rejects unknown arguments).
+    argv = list(sys.argv[1:])
+    physics_path = None
+    if "--physics" in argv:
+        index = argv.index("--physics")
+        physics_path = argv[index + 1]
+        del argv[index:index + 2]
+
     created = register_custom_variants()
     created.update(register_new_variants())  # motivation_new N0/N1/N2 ladder
     print(f"[genaudit] registered variants: {sorted(created)}")
-    sys.argv[0] = "generate_dataset.py"
+    if physics_path is not None:
+        from genaudit.envs.physics_variants import register_from_file
+
+        physics_class = register_from_file(physics_path)
+        print(f"[genaudit] registered physics variant: {physics_class}")
+    sys.argv = ["generate_dataset.py"] + argv
     runpy.run_module("mimicgen.scripts.generate_dataset", run_name="__main__")
 
 
