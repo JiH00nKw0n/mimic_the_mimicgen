@@ -58,6 +58,30 @@ def _initial_state(group, objects: Sequence[str]) -> tuple[dict, dict]:
     return xy, yaw
 
 
+def _stage2_extras_from_model(group) -> dict:
+    """Realized stage2 physics from the demo's model_file XML.
+
+    Physics variants (genaudit.envs.physics_variants) record every realized
+    contract-space value as <custom><numeric name="s2_*"> elements; MuJoCo
+    round-trips them through sim.model.get_xml(), so each attempt's physics is
+    recoverable from its own stored model. Returns {} when absent (non-physics
+    pools), so this is safe to call unconditionally.
+    """
+    xml = group.attrs.get("model_file")
+    if xml is None:
+        return {}
+    if isinstance(xml, bytes):
+        xml = xml.decode("utf-8", errors="replace")
+    extras: dict = {}
+    for match in re.finditer(r"<numeric\b[^>]*>", xml):
+        tag = match.group(0)
+        name = re.search(r'name="s2_([A-Za-z0-9_]+)"', tag)
+        data = re.search(r'data="([^"]+)"', tag)
+        if name and data:
+            extras[f"s2_{name.group(1)}"] = float(data.group(1).split()[0])
+    return extras
+
+
 def _source_demo_index(group, attempt_id: str) -> tuple[int, bool]:
     """Selected source demo index; flags per-subtask disagreement.
 
@@ -107,6 +131,7 @@ def extract_attempt_records(
     demo_hdf5: str | Path | None = None,
     failed_hdf5: str | Path | None = None,
     attempt_id_prefix: str = "",
+    stage2_extras: bool = False,
 ) -> list[AttemptRecord]:
     """Turn a keep_failed generation run into AttemptRecords.
 
@@ -146,6 +171,8 @@ def extract_attempt_records(
                 extras: dict = {}
                 if mixed_sources:
                     extras["mixed_source_subtasks"] = True
+                if stage2_extras:
+                    extras.update(_stage2_extras_from_model(group))
                 records.append(
                     AttemptRecord(
                         task=task,
