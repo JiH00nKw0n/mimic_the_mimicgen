@@ -84,7 +84,37 @@ exp2-A의 hidgr/lodgr +51pp가 "거리·커버리지 artifact"였을 가능성�
 - P0 게이트 기준 stack{4,7} far 평가 상태의 약 15%는 학습 d_pos 지지 밖이며 bin4에 포함돼 있다.
 - arm 크기가 실험 패밀리마다 다르므로(500/400/350/250) 패밀리 간 절대 SR 비교는 하지 말 것. 패밀리 안에서는 크기 동일.
 
-## 7. 재현 경로
+## 7. ctrl2 — 다태스크 보강 결과 (2026-08-02)
+
+같은 설계를 4~5개 태스크로 확장했다(시드 301–303, run-level paired t 기준, 소스쌍은 태스크별 feasibility 게이트로 선정). threading의 A/B arm 11런은 서버 사고(디스크 풀 → 학습 실패 → 오케스트레이터 행)로 8런만 늦게 완주해 B 대조가 평가에 못 들어갔다 — 아래 표의 공백. 전체 수치는 `motivation/scripts/ctrl2_analyze.py` + `motivation/data/ctrl2_eval/`로 재현.
+
+| EXP | task | Δ (arm1−arm2) | 시드별 | p(run) | 판정 |
+|---|---|---|---|---|---|
+| C2 품질 | stack | +19.8 | +20.0/+21.0/+18.5 | 0.0013 | 확증 |
+| C2 품질 | stack_three | +21.5 | +22.5/+27.0/+15.0 | 0.026 | 확증 |
+| C2 품질 | square | +13.2 | +7.5/+14.0/+18.0 | 0.050 | 확증(경계) |
+| C2 품질 | coffee | +12.0 | +15.5/+9.0/+11.5 | 0.024 | 확증 |
+| C2 품질 | three_piece | +6.8 | +8.5/+9.0/+3.0 | 0.071 | 방향 일치(바닥 SR 0.13) |
+| A 밀도 | stack | −1.5 | −3.0/0.0/−1.5 | 0.23 | null |
+| A 밀도 | square | **+6.7 (near우세)** | +7.5/+7.0/+5.5 | **0.008** | 유의 |
+| A 밀도 | coffee | **−6.3 (far우세)** | −8.0/−8.0/−3.0 | 0.063 | 경계 |
+| A 밀도 | threading | **−7.7 (far우세)** | −7.0/−12.0/−4.0 | 0.082 | 경계 |
+| B 커버리지 | stack | 0.0 | +1.0/0.0/−1.0 | 1.0 | null |
+| B 커버리지 | square | +1.8 | −7.0/+1.5/+11.0 | 0.76 | null(시드 요동) |
+| B 커버리지 | coffee | **+9.7 (far필요)** | +9.0/+7.0/+13.0 | **0.032** | 유의 |
+| D DGR충분성 | threading | +9.2 | +12.5/+9.0/+6.0 | 0.040 | 재확인 |
+| D DGR충분성 | stack | 0.0 | −2.0/0.0/+2.0 | 1.0 | null |
+| D DGR충분성 | square | −1.0 | +4.0/+4.5/−11.5 | 0.87 | null |
+| D DGR충분성 | coffee | +1.7 | +0.5/+0.5/+4.0 | 0.29 | null |
+
+**해석.**
+
+1. **소스 품질 인과는 태스크 일반이다 — 이 프로그램의 최강 결과.** 거리 5분위 완전 매칭 하에 소스쌍 교체만으로 5/5 태스크 동방향(+7~+22pp; 부호검정 p=1/16), 3시드 run-level로도 4/5 유의·경계. 1태스크 한정이라는 유일한 약점이 닫혔다.
+2. **밀도는 "보편 null"이 아니라 "일관성 없는 태스크 의존"이다.** stack만 null이고 square는 near-heavy가 +6.7(유의), coffee·threading은 반대로 far-heavy가 +6~8(경계). 방향이 갈리므로 큐레이션 규칙은 못 만든다 — "밀도 축을 만질 이유가 없다"는 결론은 유지되지만 근거가 바뀐다: 효과가 없어서가 아니라 **방향을 예측할 수 없어서**다. E2의 8태스크 재균등화 null과도 정합적이다(완만한 재배분은 무효, 3:1 극단 반전에서만 태스크별 ±7pp).
+3. **커버리지 문턱은 태스크 의존으로 확정 — "40~60%면 충분" 가설 기각.** coffee에서 far 데이터 제거(B_nearpad)가 −9.7pp(run-level p=0.032)를 만들고, 격차가 자기 소스 기준 far 구간에 집중된다(near +7.5 / mid +5.0 / **far +16.7pp**) — 순수한 커버리지 상실 시그니처. stack은 여전히 무해, square는 시드 요동 null. 즉 far 커버리지가 필요한 태스크(coffee)와 불필요한 태스크(stack)가 공존하고, 문턱은 상수가 아니다.
+4. **DGR 불충분성은 threading 한정의 존재 증명으로 확정.** threading +9.2가 재확인됐지만 stack·square·coffee의 DGR-매칭 쌍은 전부 등가 — "DGR이 같으면 대개 비슷하고, 가끔(threading s1 같은) 예외 소스가 있다"가 정확한 형태. DGR은 대부분의 경우 좋은 프록시이고, 예외 탐지가 per-source 지표의 역할이다.
+
+## 8. 재현 경로
 
 - 서버(aidas-l40s): 데이터 `~/mimicgen_jihoonkwon/experiments/motivation_controlled/` (arms/<task>/train.hdf5 + filter key, results/ 39 run, gates/ deval matrix·P0), 오케스트레이터 로그 `~/ctrl_run.log`
 - per-episode 평가: `motivation_controlled/arms/<task>_N2/eval/e2_<task>_<arm>_seed<s>.jsonl` — 로컬 사본 `motivation/data/ctrl_eval/`
