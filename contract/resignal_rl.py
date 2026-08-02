@@ -192,22 +192,40 @@ def main():
                    & (np.linalg.norm(ee - cp[0, 1], axis=1) < 0.45))
         cand = np.flatnonzero(descend[:max(1, d1 - 4)])
         t_trim = int(cand[0]) if len(cand) else 0
-        idx = [t_trim] * (HEAD + 1)
-        for t in range(t_trim + 1, T):
-            idx.append(t)
-            if t in DW:
-                idx.extend([t] * DWELL)
-        idx = np.asarray(idx)
+        # ---- timeline builder. Keep the source approach / grasp / carry to
+        # the first place; REPLACE the low fast RL traverses between
+        # subtasks with a synthetic raised path (up -> over -> down): v13
+        # stacked cube_2 in every grasping attempt and then lost the tower
+        # during the low RL-style transit to cube_3 / the final place.
+        c1x, c1y, c1z = (float(v) for v in cp[0, 0])
+        c3x0, c3y0, c3z0 = (float(v) for v in cp[0, 2])
+        CUBE = 0.0507
+        LIFT_Z = c1z + 0.14           # traverse height clearing the tower
+        rows, pins, zero_spans = [], [], []
+
+        def block(t_src, n, pin=None):
+            s = len(rows)
+            rows.extend([int(t_src)] * n)
+            if pin is not None:
+                pins.append((s, len(rows), pin))
+            zero_spans.append((s, len(rows)))
+            return s
+
+        block(t_trim, HEAD + 1)                       # settle at entry
+        rows.extend(range(t_trim + 1, d1 + 1))        # approach cube_2
+        s_d1 = block(d1, DWELL, (None, None, cp[0, 1, 2] + 0.005))
+        rows.extend(range(d1 + 1, p1 + 1))            # lift + carry (source)
+        s_p1 = block(p1, DWELL, (c1x, c1y, c1z + CUBE + 0.005))
+        block(p1, DWELL, (c1x, c1y, LIFT_Z))          # retreat straight up
+        block(d2r, DWELL, (c3x0, c3y0, c3z0 + 0.105))  # over cube_3
+        s_d2 = block(d2r, DWELL, (None, None, c3z0 + 0.005))
+        block(d2r, DWELL, (c3x0, c3y0, LIFT_Z))       # lift cube_3 high
+        block(p2, DWELL, (c1x, c1y, LIFT_Z))          # over the tower
+        s_p2 = block(p2, DWELL, (c1x, c1y, c1z + 2 * CUBE + 0.005))
+        rows.extend(range(p2 + 1, T))                 # source tail
+        idx = np.asarray(rows)
         newT = len(idx)
-
-        def pos(t):
-            return (t - t_trim) + HEAD + DWELL * sum(1 for p in DW if p < t)
-
-        ins = {p: pos(p) + 1 for p in DW}   # first inserted row after p
-        dwelled = np.zeros(newT, dtype=bool)
-        dwelled[1:HEAD + 1] = True
-        for p in DW:
-            dwelled[ins[p]:ins[p] + DWELL] = True
+        e_d1, e_p1, e_d2 = (s + DWELL for s in (s_d1, s_p1, s_d2))
 
         ep = data.create_group(name)
         for key, value in g.attrs.items():
@@ -234,26 +252,14 @@ def main():
         info_in = obs_in["datagen_info"]
         info = obs.create_group("datagen_info")
         eef44 = vertical_hand_track(info_in["eef_pose/franka"][()][idx])
-        # pin each dwell to its task-correct height (source frames near the
-        # boundary have the cube already lifted / still descending, leaving a
-        # constant 2-3 cm bias): grasps at the resting cube center + 5 mm,
-        # places one (two) cube heights above cube_1.
-        CUBE = 0.0507
-        z_pin = {d1: cp[0, 1, 2] + 0.005,
-                 p1: cp[0, 0, 2] + CUBE + 0.005,
-                 d2r: cp[0, 2, 2] + 0.005,
-                 p2: cp[0, 0, 2] + 2 * CUBE + 0.005}
-        for p, z in z_pin.items():
-            eef44[ins[p] - 1:ins[p] + DWELL, 2, 3] = z
-        # place dwells also need their XY pinned to the stack target: the
-        # source releases on the move, so the frame before release is still
-        # en route — v12 grasped reliably but dropped the cube 5-12 cm short
-        # of cube_1. The transform maps source-cube_1-relative geometry onto
-        # the current cube_1, so pinning to the SOURCE cube_1 center lands
-        # the held cube on the actual tower.
-        for p in (p1, p2):
-            eef44[ins[p] - 1:ins[p] + DWELL, 0, 3] = cp[0, 0, 0]
-            eef44[ins[p] - 1:ins[p] + DWELL, 1, 3] = cp[0, 0, 1]
+        # apply the builder's waypoint pins (grasp heights at the resting
+        # cube center + 5 mm, places over the source cube_1 center at stack
+        # height, traverses at LIFT_Z clearing the tower)
+        for s, e, (px, py, pz) in pins:
+            if px is not None:
+                eef44[s:e, 0, 3] = px
+                eef44[s:e, 1, 3] = py
+            eef44[s:e, 2, 3] = pz
         info.create_dataset("eef_pose/franka", data=eef44)
         info.create_dataset("target_eef_pose/franka",
                             data=np.concatenate([eef44[1:], eef44[-1:]]))
@@ -261,9 +267,14 @@ def main():
             info.create_dataset(
                 f"object_pose/cube_{c}",
                 data=yaw_only_track(info_in[f"object_pose/cube_{c}"][()][idx]))
-        for key, arr in (("grasp_1", grasp_1), ("stack_1", stack_1),
-                         ("grasp_2", grasp_2)):
-            info.create_dataset(f"subtask_term_signals/{key}", data=arr[idx])
+        # subtask signals are SYNTHESIZED from the dwell ends (the source
+        # frames carrying the original onsets were cut with the traverses):
+        # each grasp/place subtask completes when its dwell ends
+        row_idx = np.arange(newT)
+        for key, onset in (("grasp_1", e_d1), ("stack_1", e_p1),
+                           ("grasp_2", e_d2)):
+            info.create_dataset(f"subtask_term_signals/{key}",
+                                data=(row_idx >= onset))
 
         if "states" in g:
             st = ep.create_group("states")
@@ -281,18 +292,19 @@ def main():
             walk(g["states"], st)
 
         # gripper schedule anchored to the dwells: approach open, close
-        # mid-grasp-dwell (hand converges first), hold through transport,
-        # open mid-place-dwell (stationary release onto the tower)
+        # mid-grasp-dwell (hand converges first), hold through the raised
+        # traverse, open mid-place-dwell (stationary release onto the tower)
         sched = np.ones(newT, dtype=np.float32)
-        sched[ins[d1] + CLOSE_AT:ins[p1] + CLOSE_AT] = -1.0
-        sched[ins[d2r] + CLOSE_AT:ins[p2] + CLOSE_AT] = -1.0
+        sched[s_d1 + CLOSE_AT:s_p1 + CLOSE_AT] = -1.0
+        sched[s_d2 + CLOSE_AT:s_p2 + CLOSE_AT] = -1.0
         acts = g["actions"][()][np.minimum(idx, len(g["actions"]) - 1)]
-        acts[dwelled[:len(acts)], :6] = 0.0
+        for s, e in zero_spans:
+            acts[s:e, :6] = 0.0
         acts[:, 6] = sched[:len(acts)]
         ep.create_dataset("actions", data=acts)
-        print(f"  dwell@{DW} close1 [{ins[d1] + CLOSE_AT},{ins[p1] + CLOSE_AT}) "
-              f"close2 [{ins[d2r] + CLOSE_AT},{ins[p2] + CLOSE_AT}) "
-              f"T {T}->{newT}")
+        print(f"  blocks d1@{s_d1} p1@{s_p1} d2@{s_d2} p2@{s_p2} "
+              f"close1 [{s_d1 + CLOSE_AT},{s_p1 + CLOSE_AT}) "
+              f"close2 [{s_d2 + CLOSE_AT},{s_p2 + CLOSE_AT}) T {T}->{newT}")
         kept += 1
         total += newT
 
