@@ -229,8 +229,14 @@ def main():
             # collection is canonical fwd (always cube_2->cube_1 then
             # cube_3->cube_2, verified on the bundle).
             ee_world = [base_to_lab_world(rp[k], rq[k]) for k in range(steps)]
-            ee_pos_w = np.asarray([p for p, _ in ee_world], dtype=np.float32)
+            hand_pos_w = np.asarray([p for p, _ in ee_world], dtype=np.float32)
             ee_quat_w = np.asarray([q for _, q in ee_world], dtype=np.float32)
+            # the lab annotation convention (verified on fwd_annotated) puts
+            # eef everywhere in TCP coordinates, not the fr3_hand body: shift
+            # along the hand +z (empirically validated on the grasp events)
+            ee_pos_w = np.stack([
+                hand_pos_w[k] + _rot_wxyz(ee_quat_w[k]) @ np.array([0, 0, 0.1034])
+                for k in range(steps)]).astype(np.float32)
             cubes_w = np.zeros((steps, 3, 7), dtype=np.float32)
             for k in range(steps):
                 t = index[k]
@@ -238,7 +244,7 @@ def main():
                     pw, qw = base_to_lab_world(cubes_b[t, c, :3],
                                                cubes_b[t, c, 3:7])
                     cubes_w[k, c] = list(pw) + list(qw)
-            fingers = joints[index[:steps], 7:9].mean(axis=1)
+            fingers = np.abs(joints[index[:steps], 7:9]).mean(axis=1)
 
             def pose44(pos, quat):
                 mat = np.eye(4, dtype=np.float32)
@@ -250,19 +256,15 @@ def main():
                               for k in range(steps)])
             closed = fingers < 0.03          # closing/closed (open = 0.04)
             released = fingers > 0.03
-            # grasp proximity is judged at the TCP (hand body center sits
-            # ~10.3 cm above the fingertips along the hand -z axis)
-            tcp_w = np.stack([
-                ee_pos_w[k] + _rot_wxyz(ee_quat_w[k]) @ np.array([0, 0, 0.1034])
-                for k in range(steps)])  # +z verified empirically: min dist
-            # to the grasped cube 1.6 cm vs 17.7 cm with the opposite sign
+            # ee_pos_w is already TCP (see above) — use it directly for
+            # grasp proximity (min dist to the grasped cube ~1.6 cm)
             near = lambda c: np.linalg.norm(  # noqa: E731
-                tcp_w - cubes_w[:, c, :3], axis=1) < 0.10
+                ee_pos_w - cubes_w[:, c, :3], axis=1) < 0.10
             stacked = lambda top, low: (  # noqa: E731
                 (np.linalg.norm(cubes_w[:, top, :2] - cubes_w[:, low, :2],
                                 axis=1) < 0.04)
-                & (cubes_w[:, top, 2] - cubes_w[:, low, 2] > 0.038)
-                & (cubes_w[:, top, 2] - cubes_w[:, low, 2] < 0.052)
+                & (cubes_w[:, top, 2] - cubes_w[:, low, 2] > 0.035)
+                & (cubes_w[:, top, 2] - cubes_w[:, low, 2] < 0.065)
                 & released)
             grasp_1 = closed & near(1)                      # holding cube_2
             stack_1 = stacked(1, 0)                         # cube_2 on cube_1

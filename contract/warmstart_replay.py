@@ -257,7 +257,7 @@ def main():
 
     # settle: actively hold the demo's INITIAL pose (a zero action would be a
     # follow-me servo that ratifies drift instead of resisting it)
-    grip0 = 1.0 if float(np.mean(joints0[7:9])) > GRIPPER_OPEN_THRESHOLD else -1.0
+    grip0 = 1.0 if float(np.mean(np.abs(joints0[7:9]))) > GRIPPER_OPEN_THRESHOLD else -1.0
     pos_init, quat_init = actual_ee()
     for _ in range(args.settle_steps):
         pos_now, quat_now = actual_ee()
