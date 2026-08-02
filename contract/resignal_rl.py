@@ -245,6 +245,15 @@ def main():
                  p2: cp[0, 0, 2] + 2 * CUBE + 0.005}
         for p, z in z_pin.items():
             eef44[ins[p] - 1:ins[p] + DWELL, 2, 3] = z
+        # place dwells also need their XY pinned to the stack target: the
+        # source releases on the move, so the frame before release is still
+        # en route — v12 grasped reliably but dropped the cube 5-12 cm short
+        # of cube_1. The transform maps source-cube_1-relative geometry onto
+        # the current cube_1, so pinning to the SOURCE cube_1 center lands
+        # the held cube on the actual tower.
+        for p in (p1, p2):
+            eef44[ins[p] - 1:ins[p] + DWELL, 0, 3] = cp[0, 0, 0]
+            eef44[ins[p] - 1:ins[p] + DWELL, 1, 3] = cp[0, 0, 1]
         info.create_dataset("eef_pose/franka", data=eef44)
         info.create_dataset("target_eef_pose/franka",
                             data=np.concatenate([eef44[1:], eef44[-1:]]))
