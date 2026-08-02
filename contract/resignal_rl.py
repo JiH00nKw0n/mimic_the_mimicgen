@@ -92,7 +92,11 @@ LIFT_M = 0.01
 HOLD_LO, HOLD_HI = 0.018, 0.033
 NEAR_M = 0.08
 OPEN_M = 0.036       # fingers wider than this = cube released
-DWELL = 14           # frames (20 Hz, pre-densify) frozen at each grasp pose
+DWELL = 20           # frames (20 Hz, pre-densify) frozen at each grasp pose
+CLOSE_AT = 12        # close the gripper this many frames INTO the dwell:
+                     # the approach lag is still 3-6 cm at dwell entry, and
+                     # fingers seal in ~0.3 s — closing at dwell start loses
+                     # the race and the shut fist bulldozes the cube (v10)
 HEAD = 20            # frames frozen at the start pose: the RL start pose is
                      # far from the env home, so the generator's short
                      # interpolation leaves a 30-50 cm tracking deficit that
@@ -262,8 +266,8 @@ def main():
         if release_2 < 0:
             release_2 = newT - FINAL_OPEN_TAIL
         sched = np.ones(newT, dtype=np.float32)
-        sched[ins1 + 1:release_1] = -1.0
-        sched[ins2 + 1:release_2] = -1.0
+        sched[ins1 + CLOSE_AT:release_1] = -1.0
+        sched[ins2 + CLOSE_AT:release_2] = -1.0
         acts = g["actions"][()][np.minimum(idx, len(g["actions"]) - 1)]
         acts[dwelled[:len(acts)], :6] = 0.0
         acts[:, 6] = sched[:len(acts)]
