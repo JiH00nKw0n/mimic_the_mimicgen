@@ -212,6 +212,12 @@ def main():
         info_in = obs_in["datagen_info"]
         info = obs.create_group("datagen_info")
         eef44 = vertical_hand_track(info_in["eef_pose/franka"][()][idx])
+        # lower each grasp dwell to the RESTING cube height: the dwell frame
+        # (lift onset - 2) has the source cube already ~1 cm off the table,
+        # so relative to a resting cube the waypoint sits 2-2.5 cm high —
+        # v9 executed grasps closed at a constant z +3.4 cm with xy < 1 cm.
+        eef44[ins1 - 1:ins1 + DWELL, 2, 3] = cp[0, 1, 2] + 0.005
+        eef44[ins2 - 1:ins2 + DWELL, 2, 3] = cp[0, 2, 2] + 0.005
         info.create_dataset("eef_pose/franka", data=eef44)
         info.create_dataset("target_eef_pose/franka",
                             data=np.concatenate([eef44[1:], eef44[-1:]]))
