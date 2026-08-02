@@ -39,6 +39,10 @@ parser.add_argument("--reference", default=None,
                     help="RL bundle hdf5 for the action reference envelope")
 parser.add_argument("--source_hz", type=float, default=None,
                     help="override source sample rate (default: env step rate)")
+parser.add_argument("--time_stretch", type=float, default=1.0,
+                    help="slow the demo down by this factor before the 10Hz "
+                         "resample (halves controller lag at 2.0; a retarget-"
+                         "side reparameterization, no contract knob touched)")
 parser.add_argument("--table_usd", default="/nonexistent.usdc")
 parser.add_argument("--retarget_version", default="offline_fk_v1")
 AppLauncher.add_app_launcher_args(parser)
@@ -130,7 +134,7 @@ def main():
             joints, joint_vel, root, cubes = episode_arrays(group)
             T = len(joints)
             source_hz = args.source_hz or (1.0 / step_dt)
-            times = np.arange(T) / source_hz
+            times = np.arange(T) / source_hz * args.time_stretch
 
             ee_pos, ee_quat, grip = [], [], []
             tcp_world = []
