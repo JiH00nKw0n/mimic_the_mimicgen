@@ -142,15 +142,25 @@ def main():
         # (v4: fingers sealed 5-45 cm short of the cube, min approach 4.6 cm).
         d1 = max(1, o1 - 2)
         d2r = max(o2 + 1, o3 - 2)
-        idx = [0] * (HEAD + 1)
-        for t in range(1, T):
+        # head-trim: RL demos start with the arm fully extended overhead (all
+        # joints ~0) — a differential-IK singularity. FK ground truth showed
+        # the generated robot thrashing 0.5-1 m from every cube while chasing
+        # waypoints through that region (the recorded eef obs tracks the
+        # TARGET, which is why numeric probes looked "close"). Cut the prefix
+        # and start at the approach entry, low and near the first cube.
+        descend = ((ee[:, 2] - cp[0, 1, 2] < 0.30)
+                   & (np.linalg.norm(ee - cp[0, 1], axis=1) < 0.45))
+        cand = np.flatnonzero(descend[:max(1, d1 - 4)])
+        t_trim = int(cand[0]) if len(cand) else 0
+        idx = [t_trim] * (HEAD + 1)
+        for t in range(t_trim + 1, T):
             idx.append(t)
             if t == d1 or t == d2r:
                 idx.extend([t] * DWELL)
         idx = np.asarray(idx)
         newT = len(idx)
-        ins1 = HEAD + d1 + 1                # first inserted row of dwell 1
-        ins2 = HEAD + d2r + DWELL + 1       # first inserted row of dwell 2
+        ins1 = HEAD + (d1 - t_trim) + 1     # first inserted row of dwell 1
+        ins2 = HEAD + (d2r - t_trim) + DWELL + 1  # first row of dwell 2
         dwelled = np.zeros(newT, dtype=bool)
         dwelled[1:HEAD + 1] = True
         dwelled[ins1:ins1 + DWELL] = True
@@ -161,7 +171,17 @@ def main():
             ep.attrs[key] = value
         ep.attrs["num_samples"] = newT
         ep.attrs["dwell_frames"] = DWELL
+        ep.attrs["head_trim"] = t_trim
         src.copy(g["initial_state"], ep, name="initial_state")
+        # reset from the LAB home config (bent elbow, well-conditioned), not
+        # the RL candle pose: differential IK started at the singularity
+        # never recovers. The generator's interpolation bridges home -> the
+        # (now low) first waypoint.
+        jp = ep["initial_state/articulation/robot/joint_position"]
+        jp[...] = np.array([[0.0, -0.569, 0.0, -2.810, 0.0, 3.037, 0.741,
+                             0.04, 0.04]], dtype=np.float32)
+        jv = ep["initial_state/articulation/robot/joint_velocity"]
+        jv[...] = np.zeros((1, 9), dtype=np.float32)
 
         obs_in, obs = g["obs"], ep.create_group("obs")
         for key in obs_in:
@@ -206,10 +226,11 @@ def main():
             hits = np.flatnonzero(mask & (np.arange(newT) > t0))
             return int(hits[0]) if len(hits) else -1
 
-        o1n, o3n = o1 + HEAD + DWELL, o3 + HEAD + 2 * DWELL
+        o1n = o1 - t_trim + HEAD + DWELL
+        o3n = o3 - t_trim + HEAD + 2 * DWELL
         release_1 = first_after(o1n, fingers_n > OPEN_M)
         if release_1 < 0 or release_1 >= o3n:
-            release_1 = max(o1n + 1, o2 + DWELL - 2)
+            release_1 = max(o1n + 1, o2 - t_trim + HEAD + DWELL - 2)
         release_2 = first_after(o3n, fingers_n > OPEN_M)
         if release_2 < 0:
             release_2 = newT - FINAL_OPEN_TAIL
