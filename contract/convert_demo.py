@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -53,6 +54,17 @@ import torch  # noqa: E402
 import gymnasium as gym  # noqa: E402
 from isaaclab.utils.math import subtract_frame_transforms  # noqa: E402
 
+
+def _rot_wxyz(quat):
+    w, x, y, z = np.asarray(quat, dtype=np.float64)
+    n = math.sqrt(w * w + x * x + y * y + z * z)
+    w, x, y, z = w / n, x / n, y / n, z / n
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+        [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+    ])
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 for rel in ("../render", "../lab_stack_mimic"):
@@ -63,6 +75,11 @@ import traj_tools  # noqa: E402
 from lab_env import build_env_cfg  # noqa: E402  (repo render/lab_env.py)
 
 GRIPPER_OPEN_THRESHOLD = 0.02  # finger joint > 2 cm -> open
+# hand -> TCP translation from render/fr3_binding.yaml (|z| = 0.1034 m).
+# Sign follows this asset's fr3_hand frame (z toward the wrist): the TCP sits
+# at -z. Only used for the sanity check against recorded obs/eef_pos (world
+# TCP); the contract export itself is the fr3_hand body in robot_base.
+HAND_T_TCP = (0.0, 0.0, -0.1034)
 
 
 def episode_arrays(group):
@@ -116,6 +133,7 @@ def main():
             times = np.arange(T) / source_hz
 
             ee_pos, ee_quat, grip = [], [], []
+            tcp_world = []
             cube_b = []
             for t in range(T):
                 robot.write_joint_state_to_sim(
@@ -133,6 +151,19 @@ def main():
                 pos_b, quat_b = to_base(pos_w, quat_w, root_pos, root_quat)
                 ee_pos.append([float(v) for v in pos_b])
                 ee_quat.append([float(v) for v in quat_b])
+                # sanity-check TCP in the RECORDED world: base-frame FK is
+                # invariant to the sim robot's spawn pose, so reconstruct the
+                # world pose under the source demo's recorded root (wxyz,
+                # yaw180 in the lab recordings), then add the hand->TCP offset
+                # along the hand frame. Explicit numpy math — frame-convention
+                # bugs here were only visible numerically, so keep it audited.
+                rot_root = _rot_wxyz(root[t, 3:7])
+                rot_hand_w = rot_root @ _rot_wxyz(
+                    [float(v) for v in quat_b])
+                tcp = (root[t, :3]
+                       + rot_root @ np.array([float(v) for v in pos_b])
+                       + rot_hand_w @ np.asarray(HAND_T_TCP))
+                tcp_world.append(tcp.tolist())
                 grip.append(1.0 if float(joints[t, 7:9].mean())
                             > GRIPPER_OPEN_THRESHOLD else -1.0)
                 # cube poses: recorded world states -> demo's own base frame
@@ -147,13 +178,25 @@ def main():
                     row.append([float(v) for v in cp] + [float(v) for v in cq])
                 cube_b.append(row)
 
-            # sanity: FK vs recorded obs eef (when the source carries it)
+            # sanity: recorded obs/eef_pos is the WORLD-frame TCP in the lab
+            # datasets — compare against our FK hand pose + hand->TCP offset.
             fk_check = None
             if "obs" in group and "eef_pos" in group["obs"]:
                 rec = group["obs/eef_pos"][()]
-                fk = np.asarray(ee_pos)
+                fk = np.asarray(tcp_world)
                 n = min(len(rec), len(fk))
-                fk_check = float(np.mean(np.linalg.norm(rec[:n] - fk[:n], axis=1)))
+                errs = np.linalg.norm(rec[:n] - fk[:n], axis=1)
+                fk_check = {
+                    "mean_m": float(np.mean(errs)),
+                    "p50_m": float(np.median(errs)),
+                    "p95_m": float(np.percentile(errs, 95)),
+                    "max_m": float(np.max(errs)),
+                    "argmax": int(np.argmax(errs)),
+                    "first_mid_last_m": [float(errs[0]), float(errs[n // 2]),
+                                         float(errs[-1])],
+                    "sample_mid": {"rec": rec[n // 2].tolist(),
+                                   "fk_tcp": fk[n // 2].tolist()},
+                }
 
             rt, rp, rq, rg = traj_tools.resample_pose_track(
                 times.tolist(), ee_pos, ee_quat, grip)
