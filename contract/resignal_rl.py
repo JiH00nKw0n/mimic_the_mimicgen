@@ -71,7 +71,12 @@ LIFT_M = 0.01
 HOLD_LO, HOLD_HI = 0.018, 0.033
 NEAR_M = 0.08
 OPEN_M = 0.036       # fingers wider than this = cube released
-DWELL = 8            # frames (20 Hz, pre-densify) frozen at each grasp pose
+DWELL = 14           # frames (20 Hz, pre-densify) frozen at each grasp pose
+HEAD = 20            # frames frozen at the start pose: the RL start pose is
+                     # far from the env home, so the generator's short
+                     # interpolation leaves a 30-50 cm tracking deficit that
+                     # persists as schedule lag through the whole approach
+                     # (v6: closest pass reached only at episode end)
 FINAL_OPEN_TAIL = 12  # fallback: open this many last frames if no release seen
 
 
@@ -135,18 +140,19 @@ def main():
         # the generator closes the gripper while STATIONARY at the cube. The
         # RL close-on-the-fly has zero timing margin under open-loop replay
         # (v4: fingers sealed 5-45 cm short of the cube, min approach 4.6 cm).
-        d1 = max(0, o1 - 2)
+        d1 = max(1, o1 - 2)
         d2r = max(o2 + 1, o3 - 2)
-        idx = []
-        for t in range(T):
+        idx = [0] * (HEAD + 1)
+        for t in range(1, T):
             idx.append(t)
             if t == d1 or t == d2r:
                 idx.extend([t] * DWELL)
         idx = np.asarray(idx)
         newT = len(idx)
-        ins1 = d1 + 1                       # first inserted row of dwell 1
-        ins2 = d2r + DWELL + 1              # first inserted row of dwell 2
+        ins1 = HEAD + d1 + 1                # first inserted row of dwell 1
+        ins2 = HEAD + d2r + DWELL + 1       # first inserted row of dwell 2
         dwelled = np.zeros(newT, dtype=bool)
+        dwelled[1:HEAD + 1] = True
         dwelled[ins1:ins1 + DWELL] = True
         dwelled[ins2:ins2 + DWELL] = True
 
@@ -200,7 +206,7 @@ def main():
             hits = np.flatnonzero(mask & (np.arange(newT) > t0))
             return int(hits[0]) if len(hits) else -1
 
-        o1n, o3n = o1 + DWELL, o3 + 2 * DWELL
+        o1n, o3n = o1 + HEAD + DWELL, o3 + HEAD + 2 * DWELL
         release_1 = first_after(o1n, fingers_n > OPEN_M)
         if release_1 < 0 or release_1 >= o3n:
             release_1 = max(o1n + 1, o2 + DWELL - 2)
