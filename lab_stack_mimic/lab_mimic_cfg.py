@@ -222,6 +222,18 @@ def _apply_lab_overrides(self):
     # attempts regardless (it hooks generate(), not the file writer).
     self.datagen_config.generation_keep_failed = os.environ.get("LAB_KEEP_FAILED", "1") == "1"
 
+    # Optional protocol knob: uniform subtask_term_offset_range override.
+    # Short RL-teacher sources violate isaaclab_mimic's boundary sanity with
+    # the stock (10,20) offsets; setting e.g. LAB_SUBTASK_OFFSETS=0,5 must be
+    # applied to EVERY comparison arm equally (human and RL) to stay fair.
+    _offsets = os.environ.get("LAB_SUBTASK_OFFSETS")
+    if _offsets:
+        _lo, _hi = (int(v) for v in _offsets.split(","))
+        for _arm_key in self.subtask_configs:
+            for _sub in self.subtask_configs[_arm_key]:
+                _sub.subtask_term_offset_range = (_lo, _hi)
+        print(f"[lab_mimic_cfg] subtask_term_offset_range override: ({_lo},{_hi})")
+
 
 def _apply_threshold_fixes(self):
     """Loosen the Panda-tuned grasp/gripper thresholds for the FR3."""
