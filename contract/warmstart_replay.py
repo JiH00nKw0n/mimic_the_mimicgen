@@ -31,7 +31,7 @@ parser.add_argument("--source", required=True, help="source episode hdf5 (states
 parser.add_argument("--demo", default="demo_0")
 parser.add_argument("--output", required=True)
 parser.add_argument("--table_usd", default=os.environ.get(
-    "LAB_TABLE_USD", "/home/ubuntu/jake/aidas/3cube_stack/table_scene.usdc"))
+    "LAB_TABLE_USD", "/nonexistent.usdc"))  # desk-slab fallback (lab_env)
 parser.add_argument("--settle_steps", type=int, default=5)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -45,14 +45,81 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 import gymnasium as gym  # noqa: E402
 from isaaclab.utils.math import subtract_frame_transforms  # noqa: E402
-from uwlab_tasks.manager_based.manipulation.omnireset.mdp.actions.actions_cfg import (  # noqa: E402
-    RelCartesianOSCActionCfg,
-)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 for rel in ("../render", "../lab_stack_mimic"):
     sys.path.insert(0, os.path.normpath(os.path.join(HERE, rel)))
+
+try:  # live UWLab checkout if present; otherwise the handoff's frozen copy
+    from uwlab_tasks.manager_based.manipulation.omnireset.mdp.actions.actions_cfg import (
+        RelCartesianOSCActionCfg,
+    )
+    OSC_SOURCE = "uwlab_tasks"
+except ImportError:
+    from uwlab_frozen import RelCartesianOSCActionCfg
+    OSC_SOURCE = "uwlab_frozen(handoff historical_09f7e5b)"
+
+# Isaac Lab 3.0-beta2 runtime shim (frozen file kept verbatim): during the
+# FIRST env.reset() the articulation buffers are still fabric/warp proxies,
+# so the frozen reset's EE read crashes. Skipping that latch is semantically
+# safe here: process_actions recomputes the desired pose from the CURRENT
+# actual EE every policy step, and our settle loop starts with zero actions
+# (target = current pose). Null-space recapture behaviour is preserved.
+_action_class = RelCartesianOSCActionCfg.class_type
+
+
+def _patched_reset(self, env_ids=None):
+    if env_ids is None:
+        env_ids = slice(None)
+    self._raw_actions[env_ids] = 0.0
+    if getattr(self, "_has_nullspace", False) and getattr(
+            self, "_regulate_to_reset", False):
+        self._need_capture[env_ids] = True
+
+
+_action_class.reset = _patched_reset
+
+# Second shim: data.root_pos_w/root_quat_w come back as fabric/warp proxies in
+# this beta image. The arm base is FIXED at the spawn pose, so substituting the
+# spawn constants is exact — body link reads stay on the physx tensor path.
+import isaaclab.utils.math as _math_utils  # noqa: E402
+from lab_env import ROBOT_POS as _ROOT_POS, ROBOT_ROT as _ROOT_QUAT  # noqa: E402
+
+
+def _patched_get_ee_pose_root_frame(self):
+    ee_pos_w = self._asset.data.body_pos_w[:, self._ee_body_idx]
+    ee_quat_w = self._asset.data.body_quat_w[:, self._ee_body_idx]
+    n = ee_pos_w.shape[0]
+    root_pos = torch.tensor(_ROOT_POS, dtype=ee_pos_w.dtype,
+                            device=ee_pos_w.device).expand(n, 3)
+    root_quat = torch.tensor(_ROOT_QUAT, dtype=ee_quat_w.dtype,
+                             device=ee_quat_w.device).expand(n, 4)
+    return _math_utils.subtract_frame_transforms(
+        root_pos, root_quat, ee_pos_w, ee_quat_w)
+
+
+_action_class._get_ee_pose_root_frame = _patched_get_ee_pose_root_frame
+
+
+def _patched_compute_jacobian(self, joint_pos):
+    # identical math to the frozen version; inputs coerced to torch (this
+    # beta's physx view returns warp arrays) and the fixed-base spawn quat
+    # substituted for the fabric-backed root read.
+    jac_full = self._asset.root_physx_view.get_jacobians()
+    if not isinstance(jac_full, torch.Tensor):
+        import warp as wp
+        jac_full = wp.to_torch(jac_full)
+    jac_w = jac_full[:, self._jacobi_body_idx, :, self._jacobi_joint_ids]
+    n = jac_w.shape[0]
+    root_quat = torch.tensor([list(_ROOT_QUAT)], dtype=jac_w.dtype,
+                             device=jac_w.device).repeat(n, 1)
+    base_rot = _math_utils.matrix_from_quat(_math_utils.quat_inv(root_quat))
+    return torch.cat([torch.bmm(base_rot, jac_w[:, :3, :]),
+                      torch.bmm(base_rot, jac_w[:, 3:, :])], dim=1)
+
+
+_action_class._compute_jacobian = _patched_compute_jacobian
 
 import adapter  # noqa: E402
 import cube_legacy_profile  # noqa: E402
@@ -86,9 +153,16 @@ def make_contract_env_cfg():
     # AbsBinary term for the +-1 actions the adapter emits)
     cfg.episode_length_s = 120.0
     # disable terminations so the replay always runs to the end of the track
-    if getattr(cfg, "terminations", None) is not None:
-        for field in list(vars(cfg.terminations)):
-            setattr(cfg.terminations, field, None)
+    terminations = getattr(cfg, "terminations", None)
+    if terminations is not None:
+        fields = set(getattr(type(terminations), "__annotations__", {}))
+        fields.update(getattr(terminations, "__dict__", {}))
+        for field in fields:
+            if not field.startswith("_"):
+                try:
+                    setattr(terminations, field, None)
+                except AttributeError:
+                    pass
     return cfg
 
 
@@ -126,19 +200,49 @@ def main():
     env.sim.forward()
     scene.update(dt=0.0)
 
+    root_pos_c = torch.tensor(list(_ROOT_POS), dtype=torch.float32,
+                              device=device)
+    root_quat_c = torch.tensor(list(_ROOT_QUAT), dtype=torch.float32,
+                               device=device)
+
     def actual_ee():
         pos_b, quat_b = subtract_frame_transforms(
-            robot.data.root_pos_w[0], robot.data.root_quat_w[0],
+            root_pos_c, root_quat_c,
             robot.data.body_pos_w[0, hand_index],
             robot.data.body_quat_w[0, hand_index])
         return ([float(v) for v in pos_b], [float(v) for v in quat_b])
 
-    # settle: hold current pose a few policy steps
+    # neutralize the USD's bogus fr3_link8 inertia (invalid {1,1,1} tensor /
+    # negative mass in the nucleus asset — PhysX only sphere-approximates it)
+    try:
+        import warp as wp
+
+        def as_torch(x):
+            return x if isinstance(x, torch.Tensor) else wp.to_torch(x)
+
+        link8 = robot.find_bodies("fr3_link8")[0][0]
+        masses = as_torch(robot.root_physx_view.get_masses()).cpu().clone()
+        masses[:, link8] = 1e-3
+        robot.root_physx_view.set_masses(masses, torch.arange(1))
+        inertias = as_torch(robot.root_physx_view.get_inertias()).cpu().clone()
+        inertias[:, link8] = torch.tensor(
+            [1e-5, 0, 0, 0, 1e-5, 0, 0, 0, 1e-5], dtype=inertias.dtype)
+        robot.root_physx_view.set_inertias(inertias, torch.arange(1))
+        print("[warmstart] fr3_link8 mass/inertia neutralized", flush=True)
+    except Exception as error:  # noqa: BLE001
+        print(f"[warmstart] link8 fix skipped: {type(error).__name__}: {error}",
+              flush=True)
+
+    # settle: actively hold the demo's INITIAL pose (a zero action would be a
+    # follow-me servo that ratifies drift instead of resisting it)
     grip0 = 1.0 if float(np.mean(joints0[7:9])) > GRIPPER_OPEN_THRESHOLD else -1.0
-    hold = torch.tensor([[0, 0, 0, 0, 0, 0, grip0]], dtype=torch.float32,
-                        device=device)
+    pos_init, quat_init = actual_ee()
     for _ in range(args.settle_steps):
-        env.step(hold)
+        pos_now, quat_now = actual_ee()
+        action0 = adapter.target_pose_to_action(
+            pos_now, quat_now, pos_init, quat_init, grip0)
+        env.step(torch.tensor([list(action0)], dtype=torch.float32,
+                              device=device))
 
     # ---- closed-loop contract execution
     executed = {"actions": [], "deltas": [], "targets": [], "actuals": [],
@@ -166,17 +270,26 @@ def main():
         row = []
         for i in (1, 2, 3):
             cube = scene[f"cube_{i}"]
+            cube_pos = torch.as_tensor(
+                np.array(cube.data.root_pos_w[0].cpu()
+                         if hasattr(cube.data.root_pos_w[0], "cpu")
+                         else cube.data.root_pos_w[0]),
+                dtype=torch.float32, device=device)
+            cube_quat = torch.as_tensor(
+                np.array(cube.data.root_quat_w[0].cpu()
+                         if hasattr(cube.data.root_quat_w[0], "cpu")
+                         else cube.data.root_quat_w[0]),
+                dtype=torch.float32, device=device)
             cp, cq = subtract_frame_transforms(
-                robot.data.root_pos_w[0], robot.data.root_quat_w[0],
-                cube.data.root_pos_w[0], cube.data.root_quat_w[0])
+                root_pos_c, root_quat_c, cube_pos, cube_quat)
             row.append([float(v) for v in cp] + [float(v) for v in cq])
         executed["cubes"].append(row)
 
-    # ---- success judgement on final cube world poses (any-order tower)
-    cube_pos_w = [scene[f"cube_{i}"].data.root_pos_w[0].cpu().numpy().tolist()
-                  for i in (1, 2, 3)]
-    finger_pos = robot.data.joint_pos[0, 7:9].cpu().numpy().tolist()
-    status = tower_status(cube_pos_w, finger_pos)
+    # ---- success judgement on final cube poses (tower_status only uses
+    # relative geometry, so the base-frame row we just recorded suffices)
+    final_cubes = [executed["cubes"][-1][c][:3] for c in range(3)]
+    finger_pos = executed["grips"][-1]
+    status = tower_status(final_cubes, finger_pos)
     success = bool(status["ok"])
 
     with h5py.File(args.output, "w") as out:

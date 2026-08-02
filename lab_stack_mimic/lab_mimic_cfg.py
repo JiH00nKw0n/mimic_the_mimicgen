@@ -133,11 +133,29 @@ def _cube_cfg(name, color, xy):
 
 def _apply_lab_overrides(self):
     """Retarget the Franka stack scene to the lab FR3 + desk (same as lab_teleop.py)."""
-    self.scene.table = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Table",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=(0, 0, 0), rot=(1, 0, 0, 0)),
-        spawn=sim_utils.UsdFileCfg(usd_path=LAB_TABLE_USD),
-    )
+    if os.path.isfile(LAB_TABLE_USD):
+        self.scene.table = AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/Table",
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(0, 0, 0), rot=(1, 0, 0, 0)),
+            spawn=sim_utils.UsdFileCfg(usd_path=LAB_TABLE_USD),
+        )
+    else:
+        # servers without the lab desk asset (aidas): stand-in slab with the top
+        # at DESK_Z, same fallback as render/lab_env.py — replayed cube states
+        # and the placement plane stay valid.
+        print(f"[lab_mimic_cfg] WARNING: table USD not found ({LAB_TABLE_USD}); "
+              "using a stand-in desk slab")
+        self.scene.table = AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/Table",
+            init_state=AssetBaseCfg.InitialStateCfg(
+                pos=(0.35, BASE_XY[1], DESK_Z - 0.015)),
+            spawn=sim_utils.CuboidCfg(
+                size=(1.4, 1.2, 0.03),
+                collision_props=sim_utils.CollisionPropertiesCfg(),
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=(0.48, 0.45, 0.42)),
+            ),
+        )
     self.scene.work_surface = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/WorkSurface",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.20, BASE_XY[1], DESK_Z - 0.01)),
