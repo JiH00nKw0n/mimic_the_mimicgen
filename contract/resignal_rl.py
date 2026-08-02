@@ -16,6 +16,16 @@ cube lifted > 1 cm from its resting height, fingers inside the physically
 consistent hold window [18, 33] mm, TCP within 8 cm. stack_1 keeps the
 verified stacked-predicate (identity run: 10/137 vs human 10/122).
 
+Second fix (gripper schedule): the RL policy pumps the gripper — the action
+sign flips ~10 times per 60 steps and the finger state itself oscillates
+40->6->40 mm during approach. The demos succeed because the policy is
+closed-loop and catches the cube on a lucky cycle; replayed open-loop by the
+generator the pump lands off-schedule and every attempt closes empty (min
+finger width 0.0 mm across all sampled failures). We therefore REPLACE the
+actions' gripper channel with a clean pick-place square wave derived from
+the recomputed signals: close CLOSE_RAMP frames before each grasp onset,
+open at the actual release frame observed in the finger state.
+
 Pure h5py/numpy — runs on the host:
   python3 resignal_rl.py <ann.hdf5> <out_srcOK.hdf5> [min_gap=4]
 Writes only demos passing the annotation gate (all signals fire, ordered,
@@ -31,6 +41,9 @@ import numpy as np
 LIFT_M = 0.01
 HOLD_LO, HOLD_HI = 0.018, 0.033
 NEAR_M = 0.08
+OPEN_M = 0.036       # fingers wider than this = cube released
+CLOSE_RAMP = 6       # frames (20 Hz) to command close before a grasp onset
+FINAL_OPEN_TAIL = 12  # fallback: open this many last frames if no release seen
 
 
 def main():
@@ -96,6 +109,27 @@ def main():
                          ("grasp_2", grasp_2)):
             del sig_group[key]
             sig_group.create_dataset(key, data=arr)
+
+        # clean pick-place gripper schedule replacing the pumped channel
+        def first_after(t0, mask):
+            hits = np.flatnonzero(mask & (np.arange(T) > t0))
+            return int(hits[0]) if len(hits) else -1
+
+        release_1 = first_after(o1, fingers > OPEN_M)
+        if release_1 < 0 or release_1 >= o3:
+            release_1 = max(o1 + 1, o2 - 2)
+        release_2 = first_after(o3, fingers > OPEN_M)
+        if release_2 < 0:
+            release_2 = T - FINAL_OPEN_TAIL
+        sched = np.ones(T, dtype=np.float32)
+        sched[max(0, o1 - CLOSE_RAMP):release_1] = -1.0
+        sched[max(release_1 + 2, o3 - CLOSE_RAMP):release_2] = -1.0
+        acts = ep["actions"][()]
+        acts[:, 6] = sched[:len(acts)]
+        del ep["actions"]
+        ep.create_dataset("actions", data=acts)
+        print(f"  grip: close1 [{max(0, o1 - CLOSE_RAMP)},{release_1}) "
+              f"close2 [{max(release_1 + 2, o3 - CLOSE_RAMP)},{release_2})")
         kept += 1
         total += int(ep.attrs["num_samples"])
 
