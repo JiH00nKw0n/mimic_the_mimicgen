@@ -168,7 +168,7 @@ def main():
                        + rot_root @ np.array([float(v) for v in pos_b])
                        + rot_hand_w @ np.asarray(HAND_T_TCP))
                 tcp_world.append(tcp.tolist())
-                grip.append(1.0 if float(joints[t, 7:9].mean())
+                grip.append(1.0 if float(np.abs(joints[t, 7:9]).mean())
                             > GRIPPER_OPEN_THRESHOLD else -1.0)
                 # cube poses: recorded world states -> demo's own base frame
                 root_pos_rec = torch.tensor(root[t, :3], dtype=torch.float32)
