@@ -33,6 +33,10 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--table_usd", default=os.environ.get(
     "LAB_TABLE_USD", "/nonexistent.usdc"))  # desk-slab fallback (lab_env)
 parser.add_argument("--settle_steps", type=int, default=5)
+parser.add_argument("--bundle", default=None,
+                    help="fr3_cube_system_calibration_bundle_v1 dir: apply the "
+                         "dynamics module's joint armature/friction/viscous "
+                         "nominal values to the arm actuators")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.headless = True
@@ -137,6 +141,24 @@ def make_contract_env_cfg():
     cfg.scene.robot.actuators["a1"].damping = 0.0
     cfg.scene.robot.actuators["a2"].stiffness = 0.0
     cfg.scene.robot.actuators["a2"].damping = 0.0
+    if args.bundle:
+        # calibrated joint dynamics from the system bundle (identified on the
+        # real FR3 under the same frozen OSC): armature + friction + viscous
+        # damping — the quantities absent from the nucleus USD scene.
+        import bundle_integration
+        dyn = bundle_integration.load_dynamics(args.bundle)
+        arm = dyn["armature_kg_m2"]["nominal"]
+        fric = dyn["static_friction"]["nominal"]
+        visc = dyn.get("viscous_friction", {}).get("nominal", [0.0] * 7)
+        # a1 = fr3_joint1-4, a2 = fr3_joint5-7 (lab_env actuator grouping)
+        cfg.scene.robot.actuators["a1"].armature = float(np.mean(arm[:4]))
+        cfg.scene.robot.actuators["a2"].armature = float(np.mean(arm[4:]))
+        cfg.scene.robot.actuators["a1"].friction = float(np.mean(fric[:4]))
+        cfg.scene.robot.actuators["a2"].friction = float(np.mean(fric[4:]))
+        cfg.scene.robot.actuators["a1"].damping = float(np.mean(visc[:4]))
+        cfg.scene.robot.actuators["a2"].damping = float(np.mean(visc[4:]))
+        print(f"[warmstart] bundle dynamics applied: armature={arm} "
+              f"friction={fric} viscous={visc}", flush=True)
     arm = RelCartesianOSCActionCfg(
         asset_name="robot",
         joint_names=["fr3_joint.*"],

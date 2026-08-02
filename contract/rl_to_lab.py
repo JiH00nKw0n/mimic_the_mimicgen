@@ -35,6 +35,11 @@ parser.add_argument("--dataset", required=True)
 parser.add_argument("--output", required=True)
 parser.add_argument("--count", type=int, default=50)
 parser.add_argument("--source_hz", type=float, default=10.0)
+parser.add_argument("--time_stretch", type=float, default=1.0,
+                    help="optional demo slow-down before resampling (stretched "
+                         "sources make generated rollouts proportionally "
+                         "longer and can hit the episode cap — prefer the "
+                         "LAB_SUBTASK_OFFSETS generation knob instead)")
 parser.add_argument("--table_usd", default="/nonexistent.usdc")
 parser.add_argument("--lab_desk_top_z", type=float, default=0.720)
 parser.add_argument("--cube_half_m", type=float, default=0.0254)
@@ -108,7 +113,7 @@ def main():
                  for i in (1, 2, 3)], axis=1)
             rl_actions = group["actions"][()]
             T = len(joints)
-            times = np.arange(T) / args.source_hz
+            times = np.arange(T) / args.source_hz * args.time_stretch
 
             # ---- FK pass: EE track in base frame (spawn-invariant)
             ee_pos, ee_quat = [], []
@@ -157,11 +162,23 @@ def main():
                 dr = quat_to_axis_angle(
                     quat_multiply(rq[k + 1], quat_conjugate(rq[k])))
                 lab_actions.append(list(dp) + list(dr) + [rg[k + 1]])
+            # stationary tail: RL demos end right after the last grasp, which
+            # violates isaaclab_mimic's subtask-boundary sanity (last boundary
+            # + max offset must fit inside the demo). Padding with hold frames
+            # is datagen-neutral and keeps the task cfg identical to the human
+            # comparison arm.
+            PAD = 30
+            lab_actions += [[0.0] * 6 + [rg[-1]]] * PAD
+            rp = list(rp) + [rp[-1]] * PAD
+            rq = list(rq) + [rq[-1]] * PAD
+            rg = list(rg) + [rg[-1]] * PAD
 
             # ---- lab-world states for initial_state/states groups
             steps = len(lab_actions)
             index = np.minimum(np.round(np.asarray(rt) * args.source_hz)
-                               .astype(int), T - 1)[: steps + 1]
+                               .astype(int), T - 1)
+            index = np.concatenate(
+                [index, np.repeat(index[-1], steps + 1 - len(index))])[: steps + 1]
             episode = out_data.create_group(name)
             episode.attrs["num_samples"] = steps
             episode.attrs["success"] = bool(group.attrs.get("success", True))
@@ -286,8 +303,14 @@ def main():
             signals = {"grasp_1": first_true(grasp_1),
                        "stack_1": first_true(stack_1),
                        "grasp_2": first_true(grasp_2)}
+            MIN_GAP = 7  # boundary sanity with LAB_SUBTASK_OFFSETS=0,5 (max
+            #              offset 5 + margin); tail covered by the PAD frames
+            gaps_ok = (signals["stack_1"] - signals["grasp_1"] >= MIN_GAP
+                       and signals["grasp_2"] - signals["stack_1"] >= MIN_GAP
+                       and (steps - 1) - signals["grasp_2"] >= MIN_GAP + 5)
             annotation_ok = all(v >= 0 for v in signals.values()) and (
-                signals["grasp_1"] < signals["stack_1"] < signals["grasp_2"])
+                signals["grasp_1"] < signals["stack_1"] < signals["grasp_2"]
+            ) and gaps_ok
             report["demos"][name] = {
                 "T_rl": T, "T_lab": steps, "z_shift_m": z_shift,
                 "signal_first_true": signals, "annotation_ok": annotation_ok,
