@@ -23,6 +23,7 @@ docker run --rm --gpus all --network host \
   -e LAB_TABLE_USD=/nonexistent.usdc \
   -e LAB_KEEP_FAILED="${LAB_KEEP_FAILED:-1}" \
   -e LAB_SUBTASK_OFFSETS="${LAB_SUBTASK_OFFSETS:-}" \
+  -e LAB_EPISODE_LENGTH_S="${LAB_EPISODE_LENGTH_S:-}" \
   -v "$REPO":/repo \
   -v /home/ubuntu/rl_demos:/rl_demos \
   -v /home/ubuntu/contract_out:/out \
