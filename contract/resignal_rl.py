@@ -51,6 +51,27 @@ import h5py
 import numpy as np
 
 
+def vertical_hand_track(mats):
+    """Project (T,4,4) hand poses to yaw-preserving vertical top-grasp.
+
+    Residual orientation error under IK tracking of the RL wrist dynamics
+    (achieved tilt 39-83 deg vs the plan's 19-33) displaces the TCP by
+    ~10.34 cm x sin(err) = 4-7 cm — exactly the observed miss floor. Cubes
+    are symmetric, so a vertical grasp at the same TCP position is
+    physically equivalent and matches what the (working) human demos do.
+    """
+    out = mats.copy()
+    for t in range(len(mats)):
+        x = mats[t, :3, 0].astype(np.float64)
+        xh = np.array([x[0], x[1], 0.0])
+        n = np.linalg.norm(xh)
+        xh = xh / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
+        z = np.array([0.0, 0.0, -1.0])
+        y = np.cross(z, xh)
+        out[t, :3, :3] = np.column_stack([xh, y, z]).astype(mats.dtype)
+    return out
+
+
 def yaw_only_track(mats):
     """Project (T,4,4) object poses to yaw-only rotations (cube symmetry)."""
     out = mats.copy()
@@ -190,7 +211,7 @@ def main():
             obs.create_dataset(key, data=obs_in[key][()][idx])
         info_in = obs_in["datagen_info"]
         info = obs.create_group("datagen_info")
-        eef44 = info_in["eef_pose/franka"][()][idx]
+        eef44 = vertical_hand_track(info_in["eef_pose/franka"][()][idx])
         info.create_dataset("eef_pose/franka", data=eef44)
         info.create_dataset("target_eef_pose/franka",
                             data=np.concatenate([eef44[1:], eef44[-1:]]))
