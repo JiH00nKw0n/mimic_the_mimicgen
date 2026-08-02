@@ -26,6 +26,17 @@ actions' gripper channel with a clean pick-place square wave derived from
 the recomputed signals: close CLOSE_RAMP frames before each grasp onset,
 open at the actual release frame observed in the finger state.
 
+Third fix (cube orientation normalization): the RL scene's cube_2 asset
+frame is modeled 90 deg rotated (recorded R[2,2] = 0.0 while the cube sits
+flat on the table; cube_1/cube_3 and all human cubes read 1.0). A cube is
+visually symmetric so nothing looks wrong, but MimicGen composes the
+subtask transform as new_obj_pose o inv(src_obj_pose) — the spurious 90 deg
+rotates the whole grasp segment about the cube (generated hand tilts of
+70-130 deg vs the plan's 19-33 deg, 5 cm hover, 0/3117 .. 0/306 across five
+runs). Since any of a cube's 24 symmetric orientations is physically
+equivalent, we project every object rotation to its nearest yaw-only
+rotation (yaw from the most-horizontal column, mod 90 deg).
+
 Pure h5py/numpy — runs on the host:
   python3 resignal_rl.py <ann.hdf5> <out_srcOK.hdf5> [min_gap=4]
 Writes only demos passing the annotation gate (all signals fire, ordered,
@@ -33,10 +44,28 @@ onset gaps >= min_gap) and prints per-demo onsets + grasp-moment geometry.
 """
 from __future__ import annotations
 
+import math
 import sys
 
 import h5py
 import numpy as np
+
+
+def yaw_only_track(mats):
+    """Project (T,4,4) object poses to yaw-only rotations (cube symmetry)."""
+    out = mats.copy()
+    for t in range(len(mats)):
+        R = mats[t, :3, :3]
+        for c in (0, 1, 2):
+            if abs(R[2, c]) < 0.7:
+                theta = math.atan2(R[1, c], R[0, c]) % (math.pi / 2)
+                break
+        else:
+            theta = 0.0
+        cs, sn = math.cos(theta), math.sin(theta)
+        out[t, :3, :3] = np.array([[cs, -sn, 0.0], [sn, cs, 0.0],
+                                   [0.0, 0.0, 1.0]], dtype=mats.dtype)
+    return out
 
 LIFT_M = 0.01
 HOLD_LO, HOLD_HI = 0.018, 0.033
@@ -142,7 +171,7 @@ def main():
         for c in (1, 2, 3):
             info.create_dataset(
                 f"object_pose/cube_{c}",
-                data=info_in[f"object_pose/cube_{c}"][()][idx])
+                data=yaw_only_track(info_in[f"object_pose/cube_{c}"][()][idx]))
         for key, arr in (("grasp_1", grasp_1), ("stack_1", stack_1),
                          ("grasp_2", grasp_2)):
             info.create_dataset(f"subtask_term_signals/{key}", data=arr[idx])
