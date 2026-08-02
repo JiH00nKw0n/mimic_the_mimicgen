@@ -235,6 +235,14 @@ def _apply_lab_overrides(self):
                 _sub.subtask_term_offset_range = (_lo, _hi)
         print(f"[lab_mimic_cfg] subtask_term_offset_range override: ({_lo},{_hi})")
 
+    # Optional episode-length knob: densified + dwell-augmented RL sources
+    # produce plans past the stock cap; a plan longer than the episode limit
+    # is an automatic failure regardless of quality.
+    _eplen = os.environ.get("LAB_EPISODE_LENGTH_S")
+    if _eplen:
+        self.episode_length_s = float(_eplen)
+        print(f"[lab_mimic_cfg] episode_length_s override: {_eplen}")
+
 
 def _apply_threshold_fixes(self):
     """Loosen the Panda-tuned grasp/gripper thresholds for the FR3."""

@@ -165,14 +165,29 @@ def main():
         # the generator closes the gripper while STATIONARY at the cube. The
         # RL close-on-the-fly has zero timing margin under open-loop replay
         # (v4: fingers sealed 5-45 cm short of the cube, min approach 4.6 cm).
+        def first_orig(t0, mask):
+            hits = np.flatnonzero(mask & (np.arange(T) > t0))
+            return int(hits[0]) if len(hits) else -1
+
+        # four dwell points: grasp 1, place 1, grasp 2, place 2. Grasps need
+        # a stationary close (v4-v11 forensics); places need a stationary
+        # release for the same reason — v11 released the grasped cube 5-9 cm
+        # above the tower mid-flight and it bounced off.
         d1 = max(1, o1 - 2)
-        d2r = max(o2 + 1, o3 - 2)
+        rel1o = first_orig(o1, fingers > OPEN_M)
+        if rel1o < 0 or rel1o >= o3:
+            rel1o = max(o1 + 1, o2 - 2)
+        p1 = min(max(d1 + 3, rel1o - 2), o3 - 5)
+        d2r = max(p1 + 3, o3 - 2)
+        rel2o = first_orig(o3, fingers > OPEN_M)
+        if rel2o < 0:
+            rel2o = T - FINAL_OPEN_TAIL
+        p2 = min(max(d2r + 3, rel2o - 2), T - 2)
+        DW = [d1, p1, d2r, p2]
         # head-trim: RL demos start with the arm fully extended overhead (all
         # joints ~0) — a differential-IK singularity. FK ground truth showed
-        # the generated robot thrashing 0.5-1 m from every cube while chasing
-        # waypoints through that region (the recorded eef obs tracks the
-        # TARGET, which is why numeric probes looked "close"). Cut the prefix
-        # and start at the approach entry, low and near the first cube.
+        # the generated robot thrashing while chasing waypoints through that
+        # region. Cut the prefix; start at the approach entry.
         descend = ((ee[:, 2] - cp[0, 1, 2] < 0.30)
                    & (np.linalg.norm(ee - cp[0, 1], axis=1) < 0.45))
         cand = np.flatnonzero(descend[:max(1, d1 - 4)])
@@ -180,16 +195,19 @@ def main():
         idx = [t_trim] * (HEAD + 1)
         for t in range(t_trim + 1, T):
             idx.append(t)
-            if t == d1 or t == d2r:
+            if t in DW:
                 idx.extend([t] * DWELL)
         idx = np.asarray(idx)
         newT = len(idx)
-        ins1 = HEAD + (d1 - t_trim) + 1     # first inserted row of dwell 1
-        ins2 = HEAD + (d2r - t_trim) + DWELL + 1  # first row of dwell 2
+
+        def pos(t):
+            return (t - t_trim) + HEAD + DWELL * sum(1 for p in DW if p < t)
+
+        ins = {p: pos(p) + 1 for p in DW}   # first inserted row after p
         dwelled = np.zeros(newT, dtype=bool)
         dwelled[1:HEAD + 1] = True
-        dwelled[ins1:ins1 + DWELL] = True
-        dwelled[ins2:ins2 + DWELL] = True
+        for p in DW:
+            dwelled[ins[p]:ins[p] + DWELL] = True
 
         ep = data.create_group(name)
         for key, value in g.attrs.items():
@@ -216,12 +234,17 @@ def main():
         info_in = obs_in["datagen_info"]
         info = obs.create_group("datagen_info")
         eef44 = vertical_hand_track(info_in["eef_pose/franka"][()][idx])
-        # lower each grasp dwell to the RESTING cube height: the dwell frame
-        # (lift onset - 2) has the source cube already ~1 cm off the table,
-        # so relative to a resting cube the waypoint sits 2-2.5 cm high —
-        # v9 executed grasps closed at a constant z +3.4 cm with xy < 1 cm.
-        eef44[ins1 - 1:ins1 + DWELL, 2, 3] = cp[0, 1, 2] + 0.005
-        eef44[ins2 - 1:ins2 + DWELL, 2, 3] = cp[0, 2, 2] + 0.005
+        # pin each dwell to its task-correct height (source frames near the
+        # boundary have the cube already lifted / still descending, leaving a
+        # constant 2-3 cm bias): grasps at the resting cube center + 5 mm,
+        # places one (two) cube heights above cube_1.
+        CUBE = 0.0507
+        z_pin = {d1: cp[0, 1, 2] + 0.005,
+                 p1: cp[0, 0, 2] + CUBE + 0.005,
+                 d2r: cp[0, 2, 2] + 0.005,
+                 p2: cp[0, 0, 2] + 2 * CUBE + 0.005}
+        for p, z in z_pin.items():
+            eef44[ins[p] - 1:ins[p] + DWELL, 2, 3] = z
         info.create_dataset("eef_pose/franka", data=eef44)
         info.create_dataset("target_eef_pose/franka",
                             data=np.concatenate([eef44[1:], eef44[-1:]]))
@@ -248,32 +271,19 @@ def main():
                         gout.create_dataset(key, data=full)
             walk(g["states"], st)
 
-        # gripper schedule on the NEW timeline: approach open, close during
-        # the stationary dwell, hold through transport, open at the observed
-        # release frame
-        fingers_n = np.abs(obs["gripper_pos"][()]).mean(axis=1)
-
-        def first_after(t0, mask):
-            hits = np.flatnonzero(mask & (np.arange(newT) > t0))
-            return int(hits[0]) if len(hits) else -1
-
-        o1n = o1 - t_trim + HEAD + DWELL
-        o3n = o3 - t_trim + HEAD + 2 * DWELL
-        release_1 = first_after(o1n, fingers_n > OPEN_M)
-        if release_1 < 0 or release_1 >= o3n:
-            release_1 = max(o1n + 1, o2 - t_trim + HEAD + DWELL - 2)
-        release_2 = first_after(o3n, fingers_n > OPEN_M)
-        if release_2 < 0:
-            release_2 = newT - FINAL_OPEN_TAIL
+        # gripper schedule anchored to the dwells: approach open, close
+        # mid-grasp-dwell (hand converges first), hold through transport,
+        # open mid-place-dwell (stationary release onto the tower)
         sched = np.ones(newT, dtype=np.float32)
-        sched[ins1 + CLOSE_AT:release_1] = -1.0
-        sched[ins2 + CLOSE_AT:release_2] = -1.0
+        sched[ins[d1] + CLOSE_AT:ins[p1] + CLOSE_AT] = -1.0
+        sched[ins[d2r] + CLOSE_AT:ins[p2] + CLOSE_AT] = -1.0
         acts = g["actions"][()][np.minimum(idx, len(g["actions"]) - 1)]
         acts[dwelled[:len(acts)], :6] = 0.0
         acts[:, 6] = sched[:len(acts)]
         ep.create_dataset("actions", data=acts)
-        print(f"  dwell@{d1}/{d2r} grip: close1 [{ins1 + 1},{release_1}) "
-              f"close2 [{ins2 + 1},{release_2}) T {T}->{newT}")
+        print(f"  dwell@{DW} close1 [{ins[d1] + CLOSE_AT},{ins[p1] + CLOSE_AT}) "
+              f"close2 [{ins[d2r] + CLOSE_AT},{ins[p2] + CLOSE_AT}) "
+              f"T {T}->{newT}")
         kept += 1
         total += newT
 
