@@ -42,7 +42,7 @@ LIFT_M = 0.01
 HOLD_LO, HOLD_HI = 0.018, 0.033
 NEAR_M = 0.08
 OPEN_M = 0.036       # fingers wider than this = cube released
-CLOSE_RAMP = 6       # frames (20 Hz) to command close before a grasp onset
+DWELL = 8            # frames (20 Hz, pre-densify) frozen at each grasp pose
 FINAL_OPEN_TAIL = 12  # fallback: open this many last frames if no release seen
 
 
@@ -102,36 +102,93 @@ def main():
             dropped.append(name)
             continue
 
-        src.copy(g, data, name=name)
-        ep = data[name]
-        sig_group = ep["obs/datagen_info/subtask_term_signals"]
+        # ---- dwell insertion: freeze the grasp waypoint for DWELL frames so
+        # the generator closes the gripper while STATIONARY at the cube. The
+        # RL close-on-the-fly has zero timing margin under open-loop replay
+        # (v4: fingers sealed 5-45 cm short of the cube, min approach 4.6 cm).
+        d1 = max(0, o1 - 2)
+        d2r = max(o2 + 1, o3 - 2)
+        idx = []
+        for t in range(T):
+            idx.append(t)
+            if t == d1 or t == d2r:
+                idx.extend([t] * DWELL)
+        idx = np.asarray(idx)
+        newT = len(idx)
+        ins1 = d1 + 1                       # first inserted row of dwell 1
+        ins2 = d2r + DWELL + 1              # first inserted row of dwell 2
+        dwelled = np.zeros(newT, dtype=bool)
+        dwelled[ins1:ins1 + DWELL] = True
+        dwelled[ins2:ins2 + DWELL] = True
+
+        ep = data.create_group(name)
+        for key, value in g.attrs.items():
+            ep.attrs[key] = value
+        ep.attrs["num_samples"] = newT
+        ep.attrs["dwell_frames"] = DWELL
+        src.copy(g["initial_state"], ep, name="initial_state")
+
+        obs_in, obs = g["obs"], ep.create_group("obs")
+        for key in obs_in:
+            if key == "datagen_info":
+                continue
+            obs.create_dataset(key, data=obs_in[key][()][idx])
+        info_in = obs_in["datagen_info"]
+        info = obs.create_group("datagen_info")
+        eef44 = info_in["eef_pose/franka"][()][idx]
+        info.create_dataset("eef_pose/franka", data=eef44)
+        info.create_dataset("target_eef_pose/franka",
+                            data=np.concatenate([eef44[1:], eef44[-1:]]))
+        for c in (1, 2, 3):
+            info.create_dataset(
+                f"object_pose/cube_{c}",
+                data=info_in[f"object_pose/cube_{c}"][()][idx])
         for key, arr in (("grasp_1", grasp_1), ("stack_1", stack_1),
                          ("grasp_2", grasp_2)):
-            del sig_group[key]
-            sig_group.create_dataset(key, data=arr)
+            info.create_dataset(f"subtask_term_signals/{key}", data=arr[idx])
 
-        # clean pick-place gripper schedule replacing the pumped channel
+        if "states" in g:
+            st = ep.create_group("states")
+
+            def walk(gin, gout):
+                for key in gin:
+                    if isinstance(gin[key], h5py.Group):
+                        walk(gin[key], gout.create_group(key))
+                    else:
+                        arr = gin[key][()]
+                        sidx = np.minimum(idx, len(arr) - 1)
+                        full = np.concatenate([arr[sidx], arr[-1:]]) \
+                            if len(arr) == T + 1 else arr[sidx]
+                        gout.create_dataset(key, data=full)
+            walk(g["states"], st)
+
+        # gripper schedule on the NEW timeline: approach open, close during
+        # the stationary dwell, hold through transport, open at the observed
+        # release frame
+        fingers_n = np.abs(obs["gripper_pos"][()]).mean(axis=1)
+
         def first_after(t0, mask):
-            hits = np.flatnonzero(mask & (np.arange(T) > t0))
+            hits = np.flatnonzero(mask & (np.arange(newT) > t0))
             return int(hits[0]) if len(hits) else -1
 
-        release_1 = first_after(o1, fingers > OPEN_M)
-        if release_1 < 0 or release_1 >= o3:
-            release_1 = max(o1 + 1, o2 - 2)
-        release_2 = first_after(o3, fingers > OPEN_M)
+        o1n, o3n = o1 + DWELL, o3 + 2 * DWELL
+        release_1 = first_after(o1n, fingers_n > OPEN_M)
+        if release_1 < 0 or release_1 >= o3n:
+            release_1 = max(o1n + 1, o2 + DWELL - 2)
+        release_2 = first_after(o3n, fingers_n > OPEN_M)
         if release_2 < 0:
-            release_2 = T - FINAL_OPEN_TAIL
-        sched = np.ones(T, dtype=np.float32)
-        sched[max(0, o1 - CLOSE_RAMP):release_1] = -1.0
-        sched[max(release_1 + 2, o3 - CLOSE_RAMP):release_2] = -1.0
-        acts = ep["actions"][()]
+            release_2 = newT - FINAL_OPEN_TAIL
+        sched = np.ones(newT, dtype=np.float32)
+        sched[ins1 + 1:release_1] = -1.0
+        sched[ins2 + 1:release_2] = -1.0
+        acts = g["actions"][()][np.minimum(idx, len(g["actions"]) - 1)]
+        acts[dwelled[:len(acts)], :6] = 0.0
         acts[:, 6] = sched[:len(acts)]
-        del ep["actions"]
         ep.create_dataset("actions", data=acts)
-        print(f"  grip: close1 [{max(0, o1 - CLOSE_RAMP)},{release_1}) "
-              f"close2 [{max(release_1 + 2, o3 - CLOSE_RAMP)},{release_2})")
+        print(f"  dwell@{d1}/{d2r} grip: close1 [{ins1 + 1},{release_1}) "
+              f"close2 [{ins2 + 1},{release_2}) T {T}->{newT}")
         kept += 1
-        total += int(ep.attrs["num_samples"])
+        total += newT
 
     data.attrs["total"] = total
     src.close()
