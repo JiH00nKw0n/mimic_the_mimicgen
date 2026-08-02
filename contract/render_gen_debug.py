@@ -89,14 +89,28 @@ def main():
 
             joints = g["obs/joint_pos"][()]
             grip = np.abs(g["obs/gripper_pos"][()]).mean(1)
+            cube_state = {}
+            for c in (1, 2, 3):
+                pose = init[f"rigid_object/cube_{c}/root_pose"][0].copy()
+                pose[:3] += origin
+                cube_state[c] = torch.tensor(pose, dtype=torch.float32,
+                                             device=dev).unsqueeze(0)
             for t in range(0, len(joints), args.every):
+                jq = torch.tensor(joints[t], dtype=torch.float32,
+                                  device=dev).unsqueeze(0)
                 robot.write_joint_state_to_sim(
-                    torch.tensor(joints[t], dtype=torch.float32,
-                                 device=dev).unsqueeze(0),
-                    torch.zeros(1, joints.shape[1], device=dev))
+                    jq, torch.zeros(1, joints.shape[1], device=dev))
+                robot.set_joint_position_target(jq)
+                for c in (1, 2, 3):
+                    scene[f"cube_{c}"].write_root_pose_to_sim(cube_state[c])
+                    scene[f"cube_{c}"].write_root_velocity_to_sim(
+                        torch.zeros(1, 6, device=dev))
                 scene.write_data_to_sim()
-                env.sim.forward()
-                scene.update(dt=0.0)
+                # a real physics step is required to push link transforms to
+                # the render hierarchy on Isaac Lab 3.0 (render-only loops
+                # leave the robot frozen at its spawn pose)
+                env.sim.step(render=False)
+                scene.update(dt=env.physics_dt)
                 for _ in range(3 if t == 0 else 2):
                     env.sim.render()
                 img = cam.data.output["rgb"][0].cpu().numpy()
