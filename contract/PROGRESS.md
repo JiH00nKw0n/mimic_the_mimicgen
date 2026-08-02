@@ -1,186 +1,218 @@
 # FR3 Control-Contract 통합 작업 기록 (PROGRESS)
 
-작성 2026-08-03. 이 문서는 `contract/` 폴더에서 진행한 FR3 3-cube sim2real 통합 작업을,
-이 프로젝트를 처음 보는 사람도 따라올 수 있게 처음부터 기록한 것이다. 어떤 배경에서 무엇을
-받았고, 무엇을 만들었고, 어떤 검증을 통과했고, 무엇이 아직 안 되는지를 순서대로 담는다.
+작성 2026-08-03. 이 폴더(`contract/`)에서 한 작업을, 이 프로젝트를 전혀 모르는 사람이
+처음부터 따라올 수 있게 기록한 문서다. 배경 → 받은 것 → 만든 것 → 검증 결과 → 문제 해결
+과정 → 남은 일 순서로 읽으면 된다.
+
+## 0. 이 문서를 읽는 데 필요한 개념
+
+- **FR3**: Franka Research 3. 7관절 로봇 팔이며, 끝에 두 손가락 그리퍼(집게)가 달려 있다.
+  로봇 손끝 부위를 EE(end-effector)라 부르는데, 이 프로젝트에서는 두 위치를 구분해야 한다.
+  `fr3_hand`는 그리퍼 몸통(손등)에 해당하는 링크이고, TCP(tool center point)는 거기서
+  손가락 끝 방향으로 10.34 cm 떨어진 실제 작업 지점이다. 이 둘의 혼동이 뒤에 나올 버그
+  여러 개의 원인이었다.
+- **시연(demonstration)과 모방학습**: 사람이 로봇을 원격조종(teleop)해 작업을 성공시킨
+  기록(관절 각도, 물체 위치, 매 순간의 명령)을 시연이라 한다. 시연 여러 개로 정책(로봇을
+  움직이는 신경망)을 학습시키는 것이 모방학습이다.
+- **MimicGen**: 소수의 시연을 수백~수천 개로 증폭하는 방법. 시연을 "물체에 접근 → 잡기 →
+  옮겨 놓기" 같은 구간(서브태스크)으로 자르고, 새로운 물체 배치에 맞게 각 구간을 기하학적으로
+  변형해 이어붙인 뒤 시뮬레이터에서 실행해 성공한 것만 남긴다. 이때 (시도 수 대비 성공 수)를
+  생성 수율이라 부른다. 증폭하려면 각 시연에 서브태스크 경계 정보가 붙어 있어야 하는데,
+  이 경계 신호와 매 순간의 EE·물체 자세를 묶어 datagen_info라 부르고, 그것을 붙이는 과정을
+  annotation이라 한다.
+- **Isaac Sim / Isaac Lab / UWLab**: Isaac Sim은 NVIDIA의 로봇 시뮬레이터, Isaac Lab은 그
+  위의 로봇 학습 프레임워크다. UWLab은 워싱턴대가 Isaac Lab을 확장한 코드베이스로, 협력팀
+  (RL팀)이 쓴다. MimicGen의 Isaac Lab 이식판(isaaclab_mimic)이 Isaac Lab에 들어 있다.
+- **제어기 두 종류**: IK-rel은 "EE를 이만큼 움직여라"는 위치 명령을 역기구학으로 관절 위치
+  목표로 바꾸고 위치 서보(스프링처럼 목표를 따라가는 제어)로 실행하는 방식이다. OSC
+  (operational space controller)는 같은 명령을 관절 토크(힘)로 직접 변환해 실행하는
+  방식이다. 우리 기존 파이프라인은 IK-rel을, RL팀은 OSC를 쓴다.
+- **HDF5**: 대용량 배열을 계층 구조로 담는 파일 형식. 시연 데이터셋이 전부 이 형식이다.
 
 ## 1. 배경: 왜 이 작업을 하는가
 
-연구실의 sim 합성 데이터 프로젝트는 세 팀이 나눠 진행한다. RL팀(김재익)은 Isaac 시뮬레이터에서
-FR3 로봇(Franka Research 3)의 3-큐브 쌓기 정책을 강화학습으로 이미 학습했다. MimicGen팀(권지훈,
-이 문서의 작업)은 소수의 시연(demonstration)을 MimicGen 계열 방법으로 증폭해 학습 데이터를
-만든다. System Identification팀은 실물 FR3와 시뮬레이터의 동역학 차이를 식별한다.
+연구실의 시뮬레이션 합성 데이터 프로젝트는 세 팀이 나눠 진행한다. RL팀(김재익)은 Isaac
+시뮬레이터에서 FR3의 3-큐브 쌓기 정책을 강화학습으로 이미 학습해 두었다. MimicGen팀(권지훈,
+이 문서의 작업)은 시연 증폭으로 학습 데이터를 만든다. System Identification팀은 실물 FR3와
+시뮬레이터의 물리 차이를 측정해 맞춘다.
 
-2026년 8월부터 세 팀의 결과물을 실기 이전(sim2real)에 쓰기 위해 로봇 제어 스택을 하나로
-통일하기로 했고, 그 기준은 "RL 학습 당시의 제어 방식"이다. RL 정책은 재학습하지 않기로 확정돼
-있어서, 다른 팀이 그 방식에 맞춰야 한다. 이 "방식"을 명문화한 것이 control contract다:
+2026년 8월부터 세 팀 결과물을 실기 이전(sim2real: 시뮬레이션에서 만든 것을 실제 로봇에
+옮기는 일)에 쓰기 위해 로봇 제어 방식을 하나로 통일하기로 했다. 기준은 "RL 학습 당시의
+제어 방식"이다. RL 정책은 재학습하지 않기로 확정돼 있어서 나머지 팀이 거기에 맞춰야 한다.
+이 방식을 명문화한 문서가 control contract(제어 계약)이고, 핵심 내용은 다음과 같다.
 
-- 행동(action)은 7개 숫자 `[dx, dy, dz, drx, dry, drz, gripper]`. 현재 실제
-  엔드이펙터(EE, 손끝) 위치 기준의 상대 이동이며, 숫자 1이 xyz는 2 cm, 회전은 0.02/0.02/0.2
-  라디안을 뜻한다. 클리핑은 없다.
-- 정책은 10 Hz로 명령하고, 120 Hz 토크 제어기가 명령 하나를 12 물리스텝 동안 실행한다.
-- 제어기는 `RelCartesianOSCAction`이라는 UWLab(워싱턴대 Isaac Lab 포크) 구현의
-  Operational Space Controller다. 강성 (200,200,200,3,3,3), 감쇠비 (3,3,3,1,1,1),
-  질량행렬 미사용, 널스페이스 목표는 리셋 직후 관절값. 게인·주기·좌표 규약 변경은 금지 항목이다.
-- 쿼터니언은 wxyz 순서, 좌표계는 로봇 베이스, 회전 합성은 왼쪽 곱(`q_delta ⊗ q_current`)이다.
+- 행동은 7개 숫자 `[dx, dy, dz, drx, dry, drz, gripper]`. 현재 실제 EE 위치를 기준으로 한
+  상대 이동이며(직전 목표 기준이 아님), 숫자 1이 xyz는 2 cm, 회전은 0.02/0.02/0.2 라디안을
+  뜻한다. 값을 자르는 클리핑은 없다.
+- 정책은 초당 10번(10 Hz) 명령하고, 명령 하나를 120 Hz 토크 제어기가 12 물리스텝 동안
+  실행한다.
+- 제어기는 UWLab의 `RelCartesianOSCAction`이라는 OSC 구현이다. 위치 강성 200, 회전 강성 3,
+  감쇠비 3(매우 과감쇠 — 뒤에 중요해진다), 널스페이스(남는 관절 자유도) 목표는 리셋 직후
+  관절값. 게인·주기·좌표 규약 변경은 금지 목록에 있다.
+- 쿼터니언(회전 표현)은 wxyz 순서, 좌표계는 로봇 베이스(받침대) 기준, 회전 합성은 왼쪽 곱.
 
-MimicGen팀에 떨어진 요구는 두 가지다. 첫째, 우리가 생성한 시연 데이터를 이 계약의 action
-규약으로 변환하고, 계약 제어기로 시뮬레이터에서 재실행해 여전히 성공하는지 검증할 것("계약
-정합"). 둘째, 사람 시연 대신 RL 정책이 만든 시연(RL-teacher demo)을 소스로 썼을 때 생성
-수율이 어떤지 사람 시연과 비교할 것.
+MimicGen팀의 숙제는 두 가지다. (1) 계약 정합: 우리가 만든 시연 데이터를 계약의 행동 규약으로
+변환하고, 계약 제어기로 시뮬레이터에서 재실행해 여전히 성공하는지 검증한다. 핸드오프 문서는
+이 검증의 첫 단계(시연 1개 변환 → 재실행 → 지정 형식 저장)를 warm-start라 부른다.
+(2) 소스 비교: 사람 시연 대신 RL 정책이 생성한 시연(RL-teacher demo)을 증폭 소스로 썼을 때
+생성 수율이 사람 시연 대비 어떤지 비교한다.
 
 ## 2. 받은 입력물 세 가지
 
-**(a) `fr3_cube_stage1_handoff_20260801.tar.gz`** — RL팀의 계약 패키지.
-`common/control_contract.yaml`(위 계약 명세), `common/controller_adapter.py`(의존성 없는
-pose↔action 변환기, self-test 포함), `common/cube_legacy_profile.py`(환경 설정에 계약 게인을
-주입하는 함수), `mimicgen/dataset_schema.yaml`(최종 HDF5 형식: contract_id, 10 Hz 타임스탬프,
-actions [T,7] 등), `mimicgen/ACCEPTANCE_CRITERIA.md`(합격 체크리스트),
-`frozen_payload/historical_09f7e5b/`(학습 당시 제어기 소스 동결본 — "authoritative execution
-contract"라고 명시됨)를 담는다. RL 체크포인트 자체는 배포하지 않는다.
-주의사항으로, 원래 학습 런의 `env.yaml`이 유실돼 계약은 "높은 신뢰도의 재구성"이며, 로봇
-URDF/USD는 공칭값(실기 시리얼 보정 아님)이라는 한계를 패키지 스스로 명시한다.
+**(a) 계약 패키지** `fr3_cube_stage1_handoff_20260801.tar.gz` (RL팀).
+계약 명세(`control_contract.yaml`), 자세↔행동 변환기(`controller_adapter.py`, 외부 의존성
+없음, 자체 테스트 포함), 환경 설정에 계약 게인을 넣는 함수(`cube_legacy_profile.py`), 최종
+납품 HDF5 형식 정의(`dataset_schema.yaml`), 합격 체크리스트, 그리고 학습 당시 제어기 소스의
+동결본(`frozen_payload/historical_09f7e5b/` — 패키지가 "권위 있는 실행 계약"으로 지정)을
+담는다. RL 정책 가중치는 배포되지 않는다. 패키지 스스로 밝히는 한계 두 가지가 나중에
+중요해진다: 원래 학습 런의 설정 파일이 유실돼 계약은 "높은 신뢰도의 재구성"이라는 점, 그리고
+로봇 모델 파일(URDF/USD)은 공칭값이라는 점.
 
-**(b) `full_success_hdf5_bundle_20260801.zip`** — RL-teacher 성공 시연.
-3-cube 쌓기, peg-in-hole, multi-gear 각 50개. Isaac Lab 에피소드 형식(`states/`에 관절·큐브
-상태, `actions [T,7]`, 10 Hz)이고 3-cube의 환경 id는
-`OmniReset-Fr3PandaCube-FullStack-RelCartesianOSC-State-Play-v0`이다. 3-cube 50개를 검사한
-결과 모두 세 큐브가 테이블 위에서 시작하고, 항상 cube_2를 cube_1 위에, cube_3를 cube_2 위에
-쌓는 canonical 순서였다(60~137스텝).
+**(b) RL-teacher 시연 묶음** `full_success_hdf5_bundle_20260801.zip`.
+3-큐브 쌓기, 못 끼우기(peg-in-hole), 기어 조립 각 50개의 성공 시연. Isaac Lab 에피소드
+형식이고 10 Hz다. 3-큐브 50개를 검사한 결과 모두 세 큐브가 테이블 위에서 시작하고, 항상
+cube_2를 cube_1 위에, 다음 cube_3를 cube_2 위에 쌓는 고정 순서였다(길이 60~137스텝 —
+사람 시연의 절반 이하로 짧고 빠르다는 점도 뒤에 문제가 된다).
 
-**(c) `fr3_cube_system_calibration_bundle_v1.tar.gz`** — 시스템 캘리브레이션 통합본(공지환).
-세 모듈로 구성된다. contact(테이블-큐브·큐브-큐브·핑거-큐브 유효 접촉계수의 nominal/범위/사후
-분포 — 앞서 별도 배포된 stage2 v2와 동일 스키마), dynamics_controller(D405 손목 카메라 payload
-94.6 g, 관절 armature 0.1 kg·m² 등 관절 동역학 nominal/범위, 동결 OSC 계약 재수록),
-camera(D435 3대 + 손목 D405의 실측 extrinsic/intrinsic과 불확실성 범위, 에피소드 단위 샘플러
-도구 동봉). 무결성 검증 도구(`validate_bundle.py`)가 통과함을 확인했다.
+**(c) 시스템 캘리브레이션 통합본** `fr3_cube_system_calibration_bundle_v1.tar.gz` (공지환).
+실물 FR3에서 측정한 값들을 세 모듈로 정리했다. contact(테이블-큐브, 큐브-큐브, 손가락-큐브
+접촉 마찰 등의 공칭값/범위/사후분포), dynamics_controller(손목 카메라 마운트 무게 94.6 g,
+관절 armature·마찰 등 관절 동역학, 계약 재수록), camera(고정 D435 3대 + 손목 D405의 실측
+장착 위치/내부 파라미터와 불확실성 범위, 에피소드 단위 랜덤 샘플러 도구). 무결성 검증
+도구까지 동봉돼 있고 통과를 확인했다.
 
-## 3. 우리가 이미 갖고 있던 것
+## 3. 우리가 이미 갖고 있던 것, 그리고 서버 사정
 
-- **lab_stack_mimic 파이프라인** (`../lab_stack_mimic/`): 실험실 FR3 + 책상 + 3큐브 씬을 Isaac
-  Lab Mimic 위에 재현한 기존 자산. 사람 teleop 시연을 annotation(서브태스크 경계 신호 부착) →
-  MimicGen 생성 → 재생 판정하는 스크립트 일체가 있다. 제어는 계약과 다른 IK-rel(위치 PD,
-  20 Hz)이다. FR3로 annotation을 마친 사람 시연 13개가 `../datasets/fwd_annotated.hdf5`에 있다.
-- **서버**: 원래 UWLab 체크아웃과 사람 teleop 원본(29개), 실험실 책상 USD가 있던 arpa 서버는
-  더 이상 없다. 현재 쓰는 aidas 서버(L40S GPU)에는 Isaac이 Docker 이미지
-  (`nvcr.io/nvidia/isaac-lab:3.0.0-beta2-post1`, isaaclab_mimic 포함)로만 있고 UWLab은 없다.
-  공개 GitHub UWLab을 받아 보니 omnireset 태스크는 있지만 FR3 설정 파일들은 비공개 추가분이라
-  없었다. 책상 USD가 없는 문제는 씬 빌더의 대체 슬랩(fallback slab)으로 해결했다.
+기존 자산은 `../lab_stack_mimic/`의 실험실 재현 파이프라인이다. 실험실 FR3 + 책상 + 5 cm
+큐브 3개 씬을 Isaac Lab 위에 재현했고, 사람 teleop 시연을 annotation하고 MimicGen으로
+증폭하고 재생 판정하는 스크립트 일체가 있다. 제어는 계약과 다른 IK-rel(20 Hz)이다.
+annotation이 끝난 사람 시연 13개가 `../datasets/fwd_annotated.hdf5`로 남아 있다.
 
-## 4. 만든 것 (`contract/` 파일별)
+서버 사정이 제약이다. UWLab 체크아웃, 사람 시연 원본 29개, 실험실 책상 3D 모델(USD)이
+있던 arpa 서버는 더 이상 없다. 지금 쓰는 aidas 서버(L40S GPU)에는 Isaac이 Docker 이미지
+(`nvcr.io/nvidia/isaac-lab:3.0.0-beta2-post1`, isaaclab_mimic 포함)로만 있고 UWLab이 없다.
+공개 GitHub의 UWLab을 받아 봤지만 FR3 관련 설정은 비공개 추가분이라 들어 있지 않았다.
+책상 USD 부재는 씬 빌더의 대체 슬랩(같은 높이의 판)으로 해결했다.
 
-- `adapter.py` — 핸드오프의 controller_adapter.py를 바이트 그대로 복사(vendored). self-test 통과.
-- `control_contract.yaml`, `cube_legacy_profile.py`, `dataset_schema.yaml` — 핸드오프 원본 사본.
-- `uwlab_frozen/` — 동결 제어기(`RelCartesianOSCAction`) 소스 2파일을 핸드오프의
-  frozen_payload에서 그대로 가져온 패키지. 의존성이 torch와 Isaac Lab 코어뿐이라 UWLab 없이
-  Docker에서 돈다. arpa가 사라진 상황에서 계약 실행을 가능하게 만든 핵심 우회로다.
-- `traj_tools.py` — 순수 파이썬 궤적 도구: 10 Hz 리샘플(위치 선형, 회전 slerp), "현재 실제
-  pose 기준" 계약 action 유도, 왕복(pose→action→pose) 오차 계산, action 분포 통계.
-- `schema_io.py` — 계약 HDF5 writer와 검증기.
-- `convert_demo.py` — 오프라인 변환기. 시연의 관절 궤적을 씬에 기구학적으로 재생(물리 스텝
-  없이 관절값만 써넣고 fr3_hand 바디 pose를 읽음)해 베이스 좌표 EE 궤적을 얻고, 10 Hz로
-  리샘플해 계약 action과 스키마 HDF5, 검증 리포트를 낸다. `--time_stretch`로 시연을 느리게
-  변환할 수 있다.
-- `warmstart_replay.py` — 계약 실행기. 변환된 목표 궤적을 매 10 Hz 스텝마다 "현재 실제 EE
-  기준 action"으로 온라인 계산해 동결 OSC로 실행하고, 추적오차·성공 여부·스키마 검증을
-  리포트한다. `--bundle`로 캘리브레이션 번들의 관절 동역학(armature·마찰)을 적용할 수 있다.
-  Isaac Lab 3.0-beta2의 세 가지 런타임 문제(첫 리셋 시 fabric 프록시 배열, warp 형식 자코비안,
-  root pose 읽기)를 동결 파일 무수정 원칙 하에 실행기 쪽 패치로 해결했다. 고정 베이스 로봇이라
-  root pose를 스폰 상수로 치환하는 것이 수학적으로 동일하다는 점을 이용했다.
-- `rl_to_lab.py` — RL 시연을 lab_stack_mimic 생성 파이프라인의 입력 형식으로 바꾸는 변환기.
-  기구학 재생으로 EE 궤적을 복원하고, 큐브 좌표를 실험실 씬으로 옮기고(테이블 높이 차이가
-  +0.4 mm에 불과해 사실상 동일), 20 Hz IK-rel action을 합성하고, **annotation을 오프라인으로
-  합성**한다(상태 술어로 grasp_1/stack_1/grasp_2 신호 생성 — 사람 시연의 annotation 스키마를
-  그대로 따름). MimicGen 생성은 소스의 action 재생 품질이 아니라 이 datagen_info만 소비하므로,
-  개루프 action 재생의 누적 오차 문제를 우회한다.
-- `replay_lab.py` — 대체 슬랩 씬에서 lab 형식 시연을 재생하고 탑 성공을 판정하는 도구.
-- `bundle_integration.py` — 캘리브레이션 번들 로더(contact 모듈은 기존 stage2 로더와 호환,
-  dynamics는 관절별 nominal/범위 파싱).
-- 실행 래퍼: `run_convert_aidas.sh`, `run_warmstart_aidas.sh`(Docker),
-  `run_lab_generate_docker.sh`(기존 run_generate.sh의 Docker 이식; `LAB_SUBTASK_OFFSETS`
-  환경변수로 서브태스크 경계 오프셋을 모든 비교군에 동일하게 조정 가능),
-  `run_warmstart_arpa.sh`(arpa 소멸로 사실상 폐기).
-- `../lab_stack_mimic/lab_mimic_cfg.py`에 책상 USD 부재 시 슬랩 fallback을 추가했다(우리 파일).
+## 4. 만든 것 (파일별)
+
+- `adapter.py`, `control_contract.yaml`, `cube_legacy_profile.py`, `dataset_schema.yaml` —
+  계약 패키지 원본의 그대로 사본(vendored). adapter 자체 테스트 통과.
+- `uwlab_frozen/` — 동결 제어기 소스 2파일의 그대로 사본. 의존성이 torch와 Isaac Lab
+  코어뿐이라 UWLab 없이 Docker에서 돌릴 수 있다. arpa 소멸 후 계약 실행을 가능하게 만든
+  핵심 우회로다.
+- `traj_tools.py` — 순수 파이썬 궤적 도구. 10 Hz 리샘플(위치는 선형 보간, 회전은 slerp),
+  "현재 실제 자세 기준" 계약 행동 유도, 왕복(자세→행동→자세) 오차 계산, 행동 분포 통계.
+- `schema_io.py` — 계약 HDF5 쓰기와 검증.
+- `convert_demo.py` — 오프라인 변환기. 시연의 관절 궤적을 씬에 기구학적으로 재생(물리 계산
+  없이 관절값만 써넣고 fr3_hand 자세를 읽음)해 베이스 좌표 EE 궤적을 얻고, 10 Hz로 리샘플해
+  계약 행동·계약 HDF5·검증 리포트를 만든다.
+- `warmstart_replay.py` — 계약 실행기. 변환된 목표 궤적을 매 10 Hz 스텝마다 현재 실제 EE
+  기준 행동으로 다시 계산해 동결 OSC로 실행하고, 추적오차·성공 여부·형식 검증을 리포트한다.
+  `--bundle`로 캘리브레이션 통합본의 관절 동역학을 적용할 수 있다. Isaac Lab 베타의 런타임
+  문제 세 가지(첫 리셋 때 데이터 버퍼가 다른 형식의 배열로 나옴, 자코비안이 warp 형식으로
+  반환, 로봇 받침 자세 읽기 실패)를 동결 파일은 건드리지 않고 실행기 쪽 패치로 해결했다.
+  로봇 받침이 고정돼 있어 스폰 상수로 치환해도 수학적으로 동일하다는 점을 이용했다.
+- `rl_to_lab.py` — RL 시연을 기존 증폭 파이프라인 입력 형식으로 바꾸는 변환기. EE 궤적을
+  기구학 재생으로 복원하고, 큐브 좌표를 실험실 씬으로 옮기고(테이블 높이 차이가 0.4 mm라
+  사실상 동일), 20 Hz IK-rel 행동을 합성하고, annotation을 오프라인으로 합성한다(아래 6절).
+- `identity_test.py` — 검증용 대조 실험 도구. 사람 시연의 내용은 그대로 두고 annotation만
+  내 합성 코드로 재작성한다. 이 파일로 증폭이 잘 되면 합성 코드가 옳다는 뜻이 된다.
+- `replay_lab.py` — 대체 슬랩 씬에서 시연을 재생하고 탑 완성 여부를 판정하는 도구.
+- `bundle_integration.py` — 캘리브레이션 통합본 로더.
+- 실행 래퍼 셸스크립트들(`run_*_aidas.sh`, `run_lab_generate_docker.sh`). 생성 래퍼에는
+  서브태스크 경계 오프셋을 비교군 전체에 동일하게 바꾸는 `LAB_SUBTASK_OFFSETS` 환경변수를
+  추가했다. `../lab_stack_mimic/lab_mimic_cfg.py`에도 책상 USD 부재 시 슬랩 대체를 넣었다.
 
 ## 5. 검증된 결과 (숫자)
 
-**변환 정확도.** 사람 시연 demo_0(349스텝 20 Hz)을 174 action(10 Hz)으로 변환했을 때
-pose↔action 왕복 오차는 최대 7e-18 m / 4e-17 rad(부동소수 정밀도)이고 스키마 검증을 통과했다.
-독립 검증으로, 복원한 EE 궤적을 기록 당시 월드 좌표로 되돌려 시연에 기록된 obs와 대조하면
-평균 1.0 cm(최대 2.2 cm)에서 일치한다. 이 1 cm는 기록 obs가 손이 아니라 TCP(공구 중심점)
-좌표라는 사실, 기록 쿼터니언이 wxyz(yaw 180° 베이스)라는 사실을 확정하고서야 얻은 숫자다.
-RL 시연 변환도 같은 방식으로 통과했다(60스텝→59 action, 오차 0).
+**변환 정확도.** 사람 시연 demo_0(349스텝, 20 Hz)을 174개 행동(10 Hz)으로 변환했을 때
+자세↔행동 왕복 오차는 최대 7e-18 m / 4e-17 rad로 부동소수점 정밀도 수준이고, 계약 HDF5
+검증을 통과했다. 독립 검증으로 복원 EE 궤적을 기록 당시 월드 좌표로 되돌려 시연에 기록된
+값과 대조하면 평균 1.0 cm(최대 2.2 cm)에서 일치한다. RL 시연 변환도 같은 기준을 통과했다
+(60스텝→59행동, 오차 0).
 
-**계약 실행(warm-start).** 동결 OSC로 사람 시연 1개(2배 감속판, 348스텝)를 closed-loop 완주
-시켰고 실행 산출물이 계약 스키마를 통과했다. 다만 태스크 성공은 실패다: 추적오차 평균
-4.8 cm가 남는데, 분해해 보면 속도 비례 지연(계약 제어기 자체가 감쇠비 3의 과감쇠 특성으로
-시정수 약 0.4초)과 베이스 -x 방향 약 4 cm의 정적 편차로 나뉜다. 관절 동역학(번들 armature
-0.1, 마찰 0.25/0.5)을 적용해도 편차가 그대로였으므로(4.76→4.97 cm), 남은 원인은 로봇 자산
-차이로 좁혀진다: 우리는 NVIDIA 공식 fr3.usd를 쓰는데(링크 하나의 관성이 무효라는 PhysX 경고가
-남), RL팀은 이를 감싼 자체 래퍼 `fr3_research3.usda`를 쓰며 이 파일은 핸드오프에 없다.
-핸드오프의 자체 감사도 "URDF/USD는 공칭"을 외부 한계로 명시하므로, 이 파일을 받아 재실행하는
-것이 종결 조건이다. 계약 문서의 지침("이상치는 숨기지 말고 보고하라")에 따라 이 상태로 보고한다.
+**계약 실행(warm-start).** 동결 OSC로 사람 시연 1개(2배 감속판, 348스텝)를 끝까지
+실행시켰고 실행 기록이 계약 형식 검증을 통과했다. 다만 쌓기 성공은 실패다. 추적오차 평균
+4.8 cm가 남는데, 절반은 속도 비례 지연(계약 제어기 자체가 감쇠비 3의 과감쇠라 시정수 약
+0.4초 — RL 정책은 이 느린 반응 위에서 학습했지만, 사람 시연을 원속도로 재생하면 손이
+계속 뒤처진다), 나머지는 베이스 -x 방향 약 4 cm의 정적 편차다. 캘리브레이션 통합본의
+관절 동역학을 적용해도 편차가 그대로였으므로(4.76→4.97 cm), 남은 원인은 로봇 모델 파일
+차이로 좁혀진다. 우리는 NVIDIA 공식 fr3.usd를 쓰는데(한 링크의 관성이 무효라는 물리엔진
+경고가 뜬다), RL팀은 이를 감싼 자체 수정본 `fr3_research3.usda`를 쓰며 이 파일은 계약
+패키지에 없다. 패키지의 자체 감사도 "URDF/USD는 공칭"을 한계로 명시한다. 결론: 이 파일을
+받아 재실행하는 것이 종결 조건이며, 계약 문서의 지침("이상치는 숨기지 말고 보고하고 RL
+오너가 판단")대로 현 상태를 보고한다.
 
-**생성 수율 비교(진행 중).** 사람 시연 13개를 소스로 한 생성은 Docker 체인에서 정상 동작했다:
-10 성공 / 62 시도 = 수율 16.1%(구 오프셋 프로토콜 기준). RL 시연 소스는 46/50이 annotation
-합성을 통과했지만, 생성은 현재 0%로 미해결이다(아래 6절).
+**생성(증폭) 동작 확인.** 사람 시연 13개를 소스로 한 MimicGen 증폭이 Docker 체인에서
+동작함을 확인했다: 원래 경계 오프셋에서 10 성공/62 시도(수율 16.1%), 경계 오프셋을 줄인
+공정 프로토콜(아래 6-4)에서 10 성공/122 시도(8.2%). 사람과 RL 비교는 후자의 동일
+프로토콜에서 한다. RL 소스는 TCP 수정본 기준으로도 1시간 캡까지 0/3117로 0%다(아래 6-5, 6-6).
 
-## 6. 밟은 지뢰들과 현재 미해결 문제
+## 6. 문제 해결 기록 (시간순)
 
-이 작업의 대부분은 세 코드베이스(robosuite MimicGen의 관례, Isaac Lab의 관례, RL팀 계약의
-관례) 사이의 좌표·시간·스키마 규약을 맞추는 일이었다. 실제로 밟은 것들:
+이 작업의 대부분은 세 코드베이스(우리 IK-rel 파이프라인, Isaac Lab, RL팀 계약)의 좌표·
+시간·형식 규약을 맞추는 일이었다. 각 문제를 증상 → 원인 → 조치로 기록한다.
 
-1. 기록 obs의 EE는 월드 TCP, 계약의 EE는 베이스 좌표 fr3_hand 바디 — 둘을 혼동하면 정확히
-   10.34 cm(hand→TCP 오프셋)씩 어긋난다. 이 오프셋의 부호조차 계산 경로에 따라 달라서, 두
-   곳에서 각각 실데이터로 검증해 반대 부호를 확정했다.
-2. Isaac Lab 3.0-beta2에서 첫 리셋 중 관절·바디 데이터가 fabric/warp 프록시로 나오는 문제 —
-   동결 제어기의 리셋 latch를 미루고(의미 보존 확인), 고정 베이스의 root pose를 상수로 치환.
-3. 개루프로 합성한 IK-rel action 재생은 추적오차가 누적돼 3/3 실패 — 생성은 datagen_info만
-   쓰므로 annotation을 오프라인 합성하는 쪽으로 설계 변경.
-4. RL 시연은 전환이 빨라(잡기→쌓기 0.5초) MimicGen의 서브태스크 경계 검사에 걸림 — 시연을
-   2배 감속하는 방법은 생성 궤적도 2배 길어져 에피소드 상한에 걸려 전멸(0/130)했고, 대신
-   경계 오프셋을 (10,20)→(0,5)로 줄이는 환경변수 노브를 만들어 사람/RL 양쪽에 동일 적용했다.
-   이때 마지막 서브태스크의 오프셋은 (0,0)이어야 한다는 규약도 밟았다.
-5. 합성 annotation의 eef_pose를 fr3_hand 바디로 넣었더니 생성이 0/2717 — 사람 시연의
-   annotation을 확인해 보니 datagen_info의 eef_pose도 TCP 좌표였다(1번의 재발). TCP로
-   고쳤는데도 0%가 계속돼, 사람 시연의 원본은 그대로 두고 datagen_info만 내 합성 코드로
-   재작성하는 대조 실험(`identity_test.py`)을 만들었다. 이 실험이 남은 결함 둘을 더 찾아냈다:
-   쌓임 판정의 z-갭 상한(0.052 m)이 실측 안착 갭(0.050~0.053 m)을 경계에서 탈락시키는 문제
-   (창을 0.035~0.065로 완화), 그리고 사람 시연의 obs `gripper_pos`가 두 손가락을
-   (+0.04, −0.04) 부호 대칭으로 기록해 평균 기반 열림/닫힘 술어가 항상 0이 되는 문제(절대값
-   평균으로 통일). 수정 후 합성 신호가 원본 annotation과 같은 시점(stack_1 121~136 vs 원본
-   123)에 발화함을 확인했고, 이 상태의 identity 생성 실험이 진행 중이다. RL 소스 생성도 이
-   수정들이 반영된 재실행으로 판정한다.
+1. **월드 복원 검증이 1 m씩 어긋남 → 좌표 규약 3중 확정.** 시연에 기록된 EE 값은 월드
+   좌표의 TCP이고, 기록 쿼터니언은 wxyz(로봇 받침은 yaw 180°로 설치), TCP는 fr3_hand에서
+   +10.34 cm(부호는 계산 경로마다 실데이터로 검증해야 안전)임을 순차적으로 확정했다.
+   최종 검증 오차 1.0 cm.
+2. **동결 제어기가 Isaac Lab 베타에서 즉사.** 위 4절의 실행기 패치 3종으로 해결. 검증
+   포인트는 "고정 베이스의 받침 자세는 스폰 상수와 동일"이라는 성질이다.
+3. **변환한 RL 시연을 행동 재생으로 검증하니 3/3 실패.** 내가 합성한 IK-rel 행동은
+   피드백 없이 이어붙인 개루프 명령이라 추적오차가 누적된다(사람 시연의 행동은 사람이
+   실시간으로 보정하며 만든 기록이라 재생이 된다). 조치: 증폭은 행동이 아니라 datagen_info만
+   소비한다는 점을 이용해, 행동 재생 검증을 버리고 annotation을 상태 데이터에서 직접
+   합성하는 설계로 바꿨다.
+4. **RL 시연이 증폭기의 경계 검사에 걸림.** RL 시연은 잡기→쌓기 전환이 0.5초로 빨라,
+   서브태스크 경계 사이 간격이 경계 오프셋 랜덤화 폭(10~20스텝)보다 좁다. 시연을 2배
+   느리게 만드는 우회는 증폭된 궤적도 2배 길어져 에피소드 시간 상한에 걸려 전멸(0/130)
+   했다. 대신 오프셋을 (10,20)→(0,5)로 줄이는 환경변수를 만들어 사람·RL 비교군에 동일
+   적용했다(마지막 서브태스크는 (0,0) 고정이라는 규약도 이때 확인). 프로토콜이 바뀌므로
+   사람 기준 수율도 같은 조건으로 다시 측정한다.
+5. **그래도 RL 소스 증폭이 0%(0/2717).** 원인 후보를 분리하기 위해 identity 대조 실험
+   (사람 내용 + 내 annotation 합성)을 만들었고, 이것이 남은 결함 둘을 드러냈다.
+   첫째, 쌓임 판정의 높이 차 상한을 0.052 m로 잡았는데 실측 안착 높이 차가 0.050~0.053 m라
+   경계에서 탈락했다(창을 0.035~0.065로 완화). 둘째, 사람 시연의 그리퍼 기록은 두 손가락이
+   (+0.04, −0.04)로 부호 대칭이라 평균 기반 열림/닫힘 판정이 항상 0이 됐다(절대값 평균으로
+   전 스크립트 통일). 수정 후 합성 신호가 원본 annotation과 같은 시점(예: stack_1이
+   121~136스텝, 원본 123)에 발화함을 확인했다.
+6. **현재 진행.** 공정 프로토콜의 사람 기준 수율은 10 성공/122 시도(8.2%)로 확정됐고,
+   같은 조건의 RL 소스 증폭은 1시간 캡까지 0/3117(0%)이었다. 수정본 annotation을 쓴
+   identity 증폭 실험이 서버에서 돌고 있다(첫 시도는 비교 체인의 컨테이너 정리 단계에
+   같이 종료돼 재시작함). identity가 사람 기준 수율과 비슷하게 나오면 합성 코드는
+   무죄이고, RL 콘텐츠 고유의 원인을 더 판다. identity가 낮게 나오면 합성 코드에 남은
+   결함이 있다는 뜻이므로 그쪽을 더 판다.
 
 ## 7. 재현 방법
 
-모든 실행은 aidas 서버의 Isaac Lab Docker에서 한다. 예:
+모든 실행은 aidas 서버의 Isaac Docker에서 한다. 경로는 컨테이너 내부 기준이다
+(`/repo`=이 저장소, `/out`=/home/ubuntu/contract_out, `/rl_demos`, `/bundle`).
 
 ```bash
 cd ~/mimicgen_jihoonkwon/mimic_the_mimicgen/contract
-# 시연 -> 계약 형식 변환 + 리포트
+# 1) 시연 -> 계약 형식 변환 + 리포트
 ./run_convert_aidas.sh --dataset /repo/datasets/fwd_annotated.hdf5 \
-    --output /out/human_demo0_contract.hdf5 --count 1 \
-    --reference /rl_demos/fr3_three_cube_fullstack_success_50.hdf5
-# 계약 제어기 closed-loop 재실행 (번들 동역학 적용)
+    --output /out/human_demo0_contract.hdf5 --count 1
+# 2) 계약 제어기로 재실행 (통합본 동역학 적용)
 ./run_warmstart_aidas.sh --device cuda:0 --bundle /bundle \
     --contract /out/human_demo0_contract_s2.hdf5 \
     --source /repo/datasets/fwd_annotated.hdf5 --demo demo_0 \
     --output /out/human_demo0_executed.hdf5
-# RL 시연 -> 생성 소스 변환(annotation 합성 포함)
-./run_convert_aidas.sh  # 대신 rl_to_lab.py를 같은 docker 패턴으로 실행
-# 사람 vs RL 동일 조건 생성
+# 3) RL 시연 -> 증폭 소스 변환 (annotation 합성 포함; 같은 docker 패턴으로 rl_to_lab.py)
+# 4) 사람 vs RL 동일 조건 증폭
 LAB_SUBTASK_OFFSETS=0,5 ./run_lab_generate_docker.sh fwd <소스.hdf5> <출력.hdf5> cpu 10 4
 ```
 
-산출물은 서버 `/home/ubuntu/contract_out/`과 로컬 `robot_data/contract_outputs/`에 있고,
-각 단계가 `*.report.json`을 남긴다.
+각 단계가 `*.report.json`을 남기고, 산출물은 서버 `/home/ubuntu/contract_out/`과 로컬
+`robot_data/contract_outputs/`에 있다.
 
 ## 8. 남은 일
 
-1. RL 소스 생성 0% 원인 규명(실패 attempt 부검 + 사람 시연 identity-변환 대조 실험).
-2. RL팀에 `fr3_research3.usda` 요청 → warm-start 태스크 성공 재검증으로 계약 정합 종결.
-3. 수율 비교를 의미 있는 규모(성공 50개 또는 고정 시도수)로 확장해 다음 주 미팅 보고.
-4. 캘리브레이션 번들의 camera 모듈을 렌더 파이프라인(`../render/`)에 연결해 물리+시각
-   랜덤화가 걸린 RGB-Action 증강 데이터 생산(번들의 deterministic→ensemble→robust 프로파일
-   순서를 따름).
+1. identity 실험 판정 → RL 소스 증폭 재실행 → 사람 vs RL 수율 비교를 의미 있는 규모로
+   확장(다음 주 미팅 보고).
+2. RL팀에 `fr3_research3.usda` 요청 → warm-start 쌓기 성공 재검증으로 계약 정합 종결.
+3. 캘리브레이션 통합본의 camera 모듈을 렌더 파이프라인(`../render/`)에 연결해, 물리+시각
+   랜덤화를 걸고 카메라 영상까지 포함한 학습 데이터(RGB-Action)를 생산한다. 통합본이
+   정한 순서(공칭 고정 → 보정 분포 → 넓은 범위)를 따른다.

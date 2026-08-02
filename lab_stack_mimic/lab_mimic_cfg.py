@@ -230,7 +230,8 @@ def _apply_lab_overrides(self):
     if _offsets:
         _lo, _hi = (int(v) for v in _offsets.split(","))
         for _arm_key in self.subtask_configs:
-            for _sub in self.subtask_configs[_arm_key]:
+            # mimicgen requires the FINAL subtask's offset range to stay (0,0)
+            for _sub in self.subtask_configs[_arm_key][:-1]:
                 _sub.subtask_term_offset_range = (_lo, _hi)
         print(f"[lab_mimic_cfg] subtask_term_offset_range override: ({_lo},{_hi})")
 
