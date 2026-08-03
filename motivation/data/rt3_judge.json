@@ -1,0 +1,109 @@
+{
+ "confirmed_harms": [
+  {
+   "name": "Ancestry balancing on stack (only demonstrated live harm; anti-filter direction)",
+   "status": "confirmed live harm",
+   "numbers": "-7.5pp, per-seed deltas [-7.5,-8.5,-7.0,-10.5,-9.5,-2.0], 6/6 negative, t=-6.16, p=0.0016, 95% CI [-10.63,-4.37]; reproduced in two independent seed cohorts (-8.0 vs -7.25)",
+   "attribution": "Genuinely data-composition-borne, not optimization artifact: train NLL identical between arms (trailing-100-epoch mean -24.27 vs -24.27, p=0.985; no run diverged >0.23 nats), distance matched (mean d_pos diff 0.0032), only source composition differs. Proves the apparatus CAN detect composition effects above ~5pp — the benign pattern is not blanket insensitivity."
+  },
+  {
+   "name": "Coffee far-coverage: the filter's own thinning direction is the causally harmful direction",
+   "status": "confirmed harm-direction, dose-response unmeasured",
+   "numbers": "Filter thins far mass in all 8 tasks (retained far share 28-37% vs 40% neutral; coffee 31.5%, far/near DGR 0.69). Removing far coverage on coffee costs -9.7pp overall (run-level p=0.032), concentrated in far evals (+15.4~16.7pp). No arm exists between the 31.5% operating point and the 0% anchor.",
+   "attribution": "The summary files this as 'task-dependent threshold' (L131); the adversarial reading is correct: on coffee the filter distorts toward a demonstrated hazard, connected to safety only by an untested linear-margin assumption on an axis where the program itself demonstrated threshold nonlinearity."
+  },
+  {
+   "name": "Coffee per-object reallocation: depletion axis and policy-weakness axis COINCIDE (benign verdict reversed)",
+   "status": "confirmed co-location; causation untested — P1 un-rejected (open, leaning harmful)",
+   "numbers": "Machine(receiving)-only-far scenes: -24.1pp vs both-near (t=-5.51, 6/6 seeds, scene-bootstrap CI [-44.7,-3.6]); pod(pick)-only-far: +1.4pp ns; distance-matched machine-vs-pod pairs -19.4~-21.1pp (t=-3.1~-3.4, matching-dependent); joint-far corner 0.28 SR. The filter depletes exactly machine-moved training scenes (top-20% hard-displacement survivor share 20%->14-16%, within-cell sd -42%). The reported +17.7pp 'policy better on hard scenes' is a split-definition artifact: same tercile split by raw machine displacement gives -7.6pp (6/6 seeds negative); OLS beta_machine=-1.042 > beta_pod=-0.592.",
+   "attribution": "Summary L170's sentence and the P1 rejection are inverted for coffee (threading -17.1pp t=-6.2 and stack_three -9.9pp t=-3.7 also show hard-axis weakness; hammer/mug follow the original story). This is the FAQ-8 alignment case the paper warns about implicitly: replay fragility and policy fragility landing on the same object. Machine-far intrinsic difficulty remains a live alternative — only the never-run interventional arm separates them."
+  },
+  {
+   "name": "Density: among non-null tasks the anti-filter (far-heavy) direction wins 2:1 while the filter always pushes near-ward",
+   "status": "borderline harm-direction",
+   "numbers": "coffee far-heavy +6.3pp (0.622 vs 0.558, run p=0.063), threading far-heavy +7.7pp (p=0.082) vs square near-heavy +6.7pp (p=0.008); filter near-shift universal (far/near DGR 0.69-0.87 on all pools checked). 'Direction unpredictable, don't touch' hides that a fixed distortion direction plus unpredictable harm direction equals unquantified expected harm on a task subset."
+  },
+  {
+   "name": "Missed-opportunity costs booked as neutral",
+   "status": "confirmed pattern, not filter-caused cost",
+   "numbers": "Source survivor-share predicts deployment failure location (hammer +16.3pp, p=0.0008, Bonferroni-surviving) — the filter starves data precisely where policies fail. Mug: filter ENRICHES pick-object scenes yet policy collapses along exactly that axis (SR by mug-displacement quartile 0.350->0.153; beta_easy=-1.016 t=-3.9 vs beta_hard=-0.105 ns) — abundant mass bought nothing. Hard-task ceilings (three_piece best-curation 0.127, mug baseline 0.272) are consistent with an impoverished filter-passing pool but indistinguishable from BC-unlearnability at 500 demos."
+  }
+ ],
+ "method_biases": [
+  {
+   "bias": "Detection floor: every 'benign' verdict means 'harm < 5-12pp per task, ~2pp aggregate'",
+   "detail": "Run-level MDE (6 seeds, 80% power): transform 3.4-9.7pp, ancestry 2.5-12.1pp per task; pooled 8-task 95% CI [-2.15,+2.50]pp. Every effect the program ever registered is >=4.7pp; the filter's expected residual distortions (~1-3pp) are below MDE everywhere — 'all benign' is exactly what this apparatus outputs even if a 1-3pp harm existed on all 8 tasks. Corollary: 'ancestry harmful only on stack' is partly a power artifact (stack-sized -7.5pp sits inside square MDE 11.7pp and three_piece MDE 12.1pp).",
+   "artifact_share": "high — turns nulls into bounded certificates, not exonerations"
+  },
+  {
+   "bias": "Eval-distribution circularity",
+   "detail": "200 frozen resets per task drawn from the same N2 sampler as generation; 0.0% of eval resets exceed the attempt or survivor envelope; the null-returning tasks assign 0-2% eval mass to the far tail where the filter thins most (stack 4/200, three_piece 0/200, mug 0/200) vs coffee/hammer/square 17-26/200 — precisely where far signals DID register. Same 200 scenes served hypothesis generation and confirmation for the whole program; scene-cluster bootstrap kills several objslice headlines (coffee pooled +4.7pp -> CI [-6.0,+14.6] ns; hammer far, mug far ns). The eval can only exonerate the filter inside the distribution the filter shaped.",
+   "artifact_share": "high for tail/OOD harm classes — structurally invisible"
+  },
+  {
+   "bias": "Position-only, initial-state-only audit",
+   "detail": "max |d_rot|=0.0000 and per-object dyaw=0.0000 in all 8 tasks' attempts; within-cell ep_len sd=0.00 makes trajectory/grasp quality of survivors vs kills uncomparable. Every audited axis (d_pos, per-object displacement, ancestry, DGR) is an initial-state or lineage statistic; the paper's own Appendix H shows motion-space artifacts (interpolation length) cost 30-40pp image SR — a whole harm channel with no instrument pointed at it. Rotation is the axis where SE(3) transplant is weakest and the filter would plausibly bite hardest; shipped D2 variants randomize it.",
+   "artifact_share": "unknown but the paper proves the channel is large"
+  },
+  {
+   "bias": "Survivorship-gated task selection (meta-level replication of the bias under study)",
+   "detail": "The highest-skew tasks were removed from the policy layer by the exposure itself: coffee_prep (skew 0.28, max observed) never entered policy arms; mug too thin for ancestry. All policy nulls measured at TV 0.04-0.15 while shipped directional D2 is expected 0.10-0.30. Partly protocol-manufactured: fixed-500-attempt pools thin out exactly where bias is worst, whereas the paper's generate-to-1000-successes protocol would not.",
+   "artifact_share": "high for generalization of the benign verdict to shipped/high-skew regimes"
+  },
+  {
+   "bias": "Pooling cancellation + asymmetric evidential standards",
+   "detail": "The 9,600-pair pooled null averages tasks with demonstrated sign-flipping density responses (square near-heavy + vs coffee/threading far-heavy +), guaranteeing cancellation; per-task CIs (coffee [-5.9,+8.4]) cannot exclude EXP-A-sized effects. Standards asymmetry is real: Bonferroni was applied exactly once — to the only significant anti-filter pair-level result (hammer -2.2pp p=0.0073 -> killed); meanwhile three_piece C2 +6.8pp at run p=0.071 was counted inside '5/5 tasks confirmed', and the filter-constant logic ('all arms are filter-passing') disqualifies harm evidence but not benefit conclusions ('hi-DGR bias is beneficial'). P1 was rejected from an observational re-slice on the reused resets, skipping its own protocol's interventional arm — the third consecutive 'coincidentally beneficial' resolution.",
+   "artifact_share": "medium — biases framing and headline promotion more than the underlying numbers"
+  },
+  {
+   "bias": "Protocol leakage and definition artifacts (specific corrections)",
+   "detail": "(a) threading ancestry -3.3pp partly a single diverged run (seed104 ~4-nat late-training divergence; -3.33 -> -2.50 without it); no validation loss anywhere, so arm-wise overfitting untestable. (b) coffee objslice +17.7pp is a share-median split artifact that relabels the joint-far interaction collapse as pick-axis weakness. (c) Seed-level t on frozen scenes overstates certainty program-wide (effective n = scenes, not episode-seed pairs).",
+   "artifact_share": "targeted — three specific numbers change, plus a global CI-width correction"
+  },
+  {
+   "bias": "COUNTERWEIGHT — the strongest 'artifact' attack FAILED: transform_uniform was NOT zero-dose",
+   "detail": "Ground-truth recomputation (arms_manifest -> train.hdf5 provenance -> attempts.jsonl, fixed 60th-pctile scale): the arm delivered exactly 40.0% far in all 8 tasks x 6 seeds vs baseline 27.2-37.3% — a real +2.7~+12.8pp dose (+8.6pp on coffee). The R8 'zero-dose' entry in harm_redteam_judge.json conflated retained-pool share (31.5%) with the stratified arm's delivered share and must be corrected. Consequence: the flagship 8-task rebalancing null WAS an at-dose test of restoring the filter's thinned far mass; the '1-3pp excluded' bound does not rest solely on stack extrapolation; 'naive rebalancing is ineffective' survives. The all-benign pattern is therefore NOT wholly artifactual — its core pillar held under the hardest attack.",
+   "artifact_share": "negative — this one pushes back toward 'real'"
+  }
+ ],
+ "paper_insights": [
+  {
+   "insight": "Sec 6.3 pre-reports the survivor-filter ancestry skew and pre-marks intelligent source curation as future work",
+   "implication": "E1's direction claim is replication/quantification, not discovery (Gear D1: 850/1000 episodes from 3 sources; Threading D0: >170 vs <10; 'attempted episodes per source roughly uniform'). Verbatim-confirmed; our own logs reproduce the pattern exactly (attempts TV 0.011-0.017 vs survivor TV up to 0.371, mug source 5 at 0/643). Residual novelty: 9-task small-sample-corrected quantification, causal C2 isolation (+6.8~+21.5pp), attempt-vs-survivor audit framework. Any writeup MUST cite this paragraph; currently zero acknowledgment in the four reports."
+  },
+  {
+   "insight": "Appendix I Table I.2: operator-quality swap with filter ON moves low-dim policy only 0-6pp",
+   "implication": "Scopes our source-quality headline: their intervention swaps HUMAN sources pre-generation and regenerates 1000 with the filter laundering quality; our +7~22pp is WITHIN-survivor-pool composition at matched distance. Also the authors' own 2023 near-statement of 'the filter's quality bias points the beneficial way' — independent support for the benign core, though confounded with data scale, so not mechanism-level proof."
+  },
+  {
+   "insight": "Appendix R + Appendix H: the authors suspect four filter harms; two are motion-space and we never audited them",
+   "implication": "Repetitive motions and successful-but-undesirable behaviors (collisions, interpolation artifacts) are invisible to our initial-state audit; Appendix H proves the channel is large (interpolation length alone: Stack D1 image 99.3->68.7%, Pick Place 50.7->11.3%). Their bin-count coverage audit flags exactly our missing tasks (TPA D1 43.5% support coverage, Threading D2 61.2%, Mug D1 64%) while certifying Coffee/Square-D1 clean (89-99%) — the paper's own bias map says our benign verdicts were measured where bias is mild, and our only rebalancing-benefit hint (three_piece +2.7pp) sits on their worst-coverage task."
+  },
+  {
+   "insight": "DGR-policy decoupling runs in BOTH directions across pipeline changes",
+   "implication": "Sec 6.3: low DGR / high SR (Gear 8.2%->76.0%); Table N.1: removing action noise RAISES DGR +33pp and DROPS policy 30-40pp; TPA: flat DGR with image SR 82->13. Bounds our 'DGR is mostly a good proxy' to per-source-within-fixed-pipeline; any audit scoring health via DGR-shaped statistics can be inverted by config changes. Also paper-scale corroboration that generation difficulty and policy difficulty live on different axes (our objslice conclusion) — and FAQ 8's kinematics-centric failure taxonomy explains why, while implicitly predicting the danger case (replay fragility and policy fragility on the SAME axis) that our reversed coffee finding may instantiate."
+  },
+  {
+   "insight": "Our fork measures a HARSHER filter than shipped MimicGen on square/stack-family",
+   "implication": "Shipped NN/per-subtask selection pre-shapes attempts to survive (removing it halves DGR; our Square 21.0% matches their no-NN 22.4%); our benign verdicts there over-cover the shipped system, but our skew magnitudes are not the shipped system's, and shipped NN carries an uncharacterized spatially-structured ancestry bias worth 11-12pp (Nut Assembly, Stack Three D1)."
+  },
+  {
+   "insight": "Appendix U + Appendix H: the clean-sim certificate does not cover the deployment regime",
+   "implication": "Pose-estimation noise (the real-robot path) crushes DGR (Coffee D0 78.2->5.6%) with 10-21pp policy loss at fixed dataset size — the low-DGR survivor regime co-occurs with real loss when the attempt generator degrades (confounded, but outside our certificate). Policy-class gap on identical real data is 40pp (BC-RNN 36% vs Diffusion 76%) — larger than every effect in our program; both our nulls and our positives are unverified outside low-dim BC-RNN."
+  },
+  {
+   "insight": "Appendix S is an in-paper natural experiment SUPPORTING our benign core",
+   "implication": "src-D2 sources give a naturally distance-debiased pipeline: Square policy unchanged (58.7 vs 60.7) — independent replication of our rebalancing null; TPA gets WORSE under more-varied sources — rhymes with our ancestry-stack harm. The user's 'everything benign is weird' suspicion runs against the paper's own internal controls too. Also Sec 6.3's k=1 source failure (Square 'much worse') bounds the 'concentrate on good sources' prescription from below — no experiment exists between our k=2-good and k=1."
+  },
+  {
+   "insight": "Protocol deltas forbid absolute comparisons",
+   "implication": "Our 500-demo point sits on the steep region of their size curve (composition effects amplified vs 1000-demo shipped results — our +7~22pp and -9.7pp likely compress at scale; our nulls are a fortiori); their numbers are best-of-training max-over-checkpoints vs our last-checkpoint — never compare absolutes side-by-side."
+  }
+ ],
+ "bottom_line": "\"Benign\" must be downgraded to a bounded certificate with one active reversal: the correct statement is \"within a narrow certificate — position-only variants, shallow skew (TV 0.04-0.15), low-dim BC-RNN at 500 demos, in-distribution frozen evals, and tasks that survived pool-thinning — survivor reweighting cannot beat the filter's default composition (the at-dose 8-task null survived the zero-dose attack and is independently echoed by the paper's Appendix S and Table I.2), source quality dominates (+6.8~+21.5pp causal, 5/5 tasks), and no harm above a 5-12pp per-task / ~2pp aggregate detection floor was found.\" The all-benign pattern is therefore roughly one-third real (the pillars held under three red-teams and the apparatus provably detects >=5pp composition effects, e.g. ancestry-stack -7.5pp), one-third measurement-scoped (floor, eval circularity, rotation/motion-space blindness, and survivorship-gated task selection make sub-floor, tail, motion-axis, and high-skew harms invisible by construction — including two harm channels the authors themselves flagged in Appendix R that we never instrumented), and one part actively wrong: on coffee the benign per-object verdict inverts — the filter depletes machine-moved scenes and the policy is weakest exactly there (-24.1pp, 6/6 seeds; the +17.7pp counter-headline is a split-definition artifact), so P1 reverts from rejected to open-leaning-harmful, and coffee is now the one task where both filter-thinning directions (far coverage -9.7pp causal, machine axis correlational) point at demonstrated policy weakness with unmeasured dose-response. The honest external framing is not \"filter benign, filter beneficial\" but \"filter distortions are real and pre-reported by the authors (Sec 6.3/App R — must be cited); their policy cost is bounded small in the tested regime, source-quality curation is the demonstrated lever, and the coffee coverage/per-object case is the one demonstrated hazard direction awaiting its interventional test.\" Required edits: fix R8's zero-dose entry in harm_redteam_judge.json, un-reject P1 at Summary L170, scope L129/L131/L133/L147 per the deliverable-(c) list, and recompute E1 skew magnitudes with the small-sample correction before any external release.",
+ "next_experiments": [
+  "Coffee machine-mass restoration arm (settles the reversed P1 causally): 2-arm x 6-seed, baseline random-500 vs 500 resampled within d_pos quintiles so per-object machine-displacement matches the ATTEMPT distribution from attempts.jsonl (targeted regeneration in the machine-far region if the pool is depleted); primary endpoint = paired SR on machine-far eval cells (n~66 scenes, -24pp headroom), secondary overall SR; ~12 runs (~2h at 5.8 run/h). Zero-cost pre-screen first: re-slice ALL existing arm evals (transform/ancestry/near_only/hidgr, same 200 resets) by the 2D object grid and correlate each arm's training machine-mass with machine-far SR.",
+  "Coffee far-coverage dose-response sweep (closes the unmeasured gap between the -9.7pp anchor at 0% far and the filter's 31.5% operating point): arms at ~0/15/31.5(baseline)/40% far share, same 500-demo size and sources, 6 seeds, endpoints overall + far-tercile SR; determines whether the filter's universal thinning sits on a safe margin or a threshold cliff, and replaces linear-extrapolation reasoning in the '1-3pp excluded' bound. Fold in the stranded threading EXP-B evaluation to complete the coverage picture.",
+  "High-skew, rotation-bearing certificate extension (P2, the regime where every current null is silent): generate directional-D2-grade pools with rotation randomization ON and a generate-to-N protocol (so high-bias tasks cannot drop out via pool thinness — the survivorship gate), targeting mug/coffee_prep-class skew (TV 0.2+); run baseline vs transform_uniform vs ancestry arms and add a d_rot-stratified eval slice. If resources allow one more lens, train image-policy (or Diffusion Policy) replicates of the two headline results (C2 stack, ancestry stack) — the paper's 40pp policy-class gap is the single largest threat to external validity of both our nulls and our positives (P3)."
+ ]
+}
