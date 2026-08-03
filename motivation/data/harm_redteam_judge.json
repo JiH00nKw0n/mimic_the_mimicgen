@@ -1,0 +1,126 @@
+{
+ "demonstrated": [
+  {
+   "id": "D1",
+   "harm": "Per-object displacement reallocation: within matched (source x d_pos-quintile) cells, the success filter systematically keeps transforms where the tolerance-critical object moved LESS and the easy object moved MORE, under-covering 'hard-object moved far' configurations on an axis every program experiment (all conditioned on scalar d_pos) was blind to.",
+   "magnitude": "Survivor-minus-failure hard-object displacement at matched source and distance: coffee machine -0.020 m (-42% of within-cell sd, 49/50 cells, p=0.001), threading tripod -0.011 m (-25%), hammer -0.009 m (-22%), stack_three cubeB -0.014 m (-21%), stack cubeA -0.007 m (-13%), mug -0.006 m (p=0.007). Easy-object complement shifts up (coffee pod +0.011 m, needle +0.007 m); hard-object share of total displacement -5.7pp (p=0.001). Tail depletion: survivor occupancy of the top-20% hard-object-displacement region 13.7-16.2% vs ~20% attempt-level; variance contraction significant in 4 tasks (sd-ratios 0.86-0.96).",
+   "conditions": "Robust in 6/8 tasks after within-cell d_pos residualization (square p=0.055 and three_piece p=0.079-0.204 attenuate and are partly distance confounding). Attribution is definitional: survivors vs failures at matched source and distance stratum IS the filter's selection. Skeptic verdict: not refuted, high confidence, independently recomputed from raw attempts.jsonl.",
+   "caveat": "This is a demonstrated sampling-distribution distortion of the released dataset, NOT yet a measured policy cost — the downstream question is the top untested item (P1).",
+   "hunter": 3
+  },
+  {
+   "id": "D2",
+   "harm": "Far-mass thinning with a demonstrated harm anchor: the filter mechanically thins far-distance training mass in every task, and zero far coverage is causally harmful — but at every composition the filter actually produces, the cost is latent, not live.",
+   "magnitude": "Retained far share (top-40% of attempt distance) 28.2-36.8% vs 40% neutral across all 8 tasks (DGR far/near ratio 0.59-0.87); actual 500-demo baselines sit at 28.4-34.0% far. Harm anchor reproduced twice: controlled coffee B_nearpad (0% far) -9.7pp overall (p=0.032, far-slice -16.7pp) and E2 near_only arms far-tercile -7.5 to -13.9pp on 4 tasks (p<0.03 where tested).",
+   "conditions": "Live cost at observed compositions is excluded down to ~1-3pp: restoring the thinned mass (transform_uniform, exactly flat 40% far, 6 paired seeds, all 8 tasks) buys nothing (largest delta +2.7pp p=0.104; pooled 9,600-pair McNemar p=0.766); the only significant transform effect is negative (hammer -2.25pp, filter's own shape wins). The latent zone (far share <20%, requiring far/near DGR ratio <0.375; minimum observed 0.59) is entirely unmeasured — see P2.",
+   "caveat": "Skeptic verdict: not refuted, high confidence. Correctly framed as 'the filter does touch the coverage axis, with wide but finite safety margin', not as live harm.",
+   "hunter": 2
+  }
+ ],
+ "plausible_untested": [
+  {
+   "id": "P1",
+   "harm": "Downstream policy cost of the demonstrated per-object coverage hole (D1): a baseline policy could be failing precisely on far-moved-hard-object eval resets and no existing analysis could see it, because every eval stratification used scalar d_pos / min-distance, never per-object displacement.",
+   "support_from_own_data": "The depletion is real and skeptic-confirmed (tail occupancy ~14-16% vs 20% in coffee/mug/hammer/threading), and the program's own precedent shows coverage holes on an unmeasured axis cost 8-14pp when finally sliced correctly (near_only mid/far collapses on square/coffee/threading). deval_matrix files store only one scalar per (reset, source) pair — the per-object decomposition of the frozen 200 resets has never been computed, though the reset states exist.",
+   "why_untested": "No per-object displacement field in eval assets; requires decomposing frozen reset states.",
+   "priority": 1
+  },
+  {
+   "id": "P2",
+   "harm": "Regime transfer of the exoneration: every policy null was measured at shallow survivor skew (TV 0.040-0.153) while shipped directional D2 variants sit at expected TV 0.10-0.30, and the two highest-skew tasks (coffee_prep 0.28, mug 0.22) structurally dropped out of the policy layer because the filter thinned their pools — the estimator of filter harm is itself survivor-filtered.",
+   "support_from_own_data": "E2 Appendix C and the summary's own limitations concede this verbatim ('null at shallow skew capacity — the treatment had little to move'; 'high-skew tasks structurally missing from the policy layer'). Compounding power gap: far-bin detection floors are 9-14pp (EXP-B bin3/bin4 n=111/78) while observed collapse magnitudes elsewhere are 8-14pp, and EXP-A bin4 CI [-7.0,+1.9] never cleared the +/-5pp equivalence band. Coverage-margin math (D2) shows live harm needs far/near DGR ratio <0.375 vs min observed 0.59 — harder task families or wider regions plausibly cross it. Extinction-under-thin-coverage (extinct nearest source + far from all survivors) is the same regime; its current nulls (square -1.3pp, stack_three +2.9pp n.s.) hold only where surviving lineages mutually cover the space, though note the one supporting live signal (mug far-band) was refuted via the d-to-rich-source confound.",
+   "why_untested": "No policy arm was ever trained on a high-skew directional D2 pool.",
+   "priority": 2
+  },
+  {
+   "id": "P3",
+   "harm": "Configuration transfer: the entire policy verdict lives in low-dim BC-RNN-GMM, 500 demos, last-checkpoint, rotation-free N2 variants, in-distribution frozen evals — while the shipped regime is image policies at ~1000-demo scale, where motion-style diversity (the thing the filter's source concentration and D1's variance contraction remove) plausibly matters most. Sub-case: mug's far region is position-covered but motion-monoculture — far survivors come from n_eff 5.0 of 10 sources (s5 0/300, s7 1/232, s0 2/233 at far), and no experiment ever sliced far performance by ancestry or trained a visual policy.",
+   "support_from_own_data": "Program's own limitations name low-dim/single-sim/last-checkpoint scope; E1 measured source n_eff collapse 10 to 6.9 (mug) and skew to 0.28 (coffee_prep). Image encoders must generalize across approach directions and arm configurations — exactly the diversity concentrated away.",
+   "why_untested": "Declared out-of-scope boundary of the program; happens to coincide with the shipped configuration.",
+   "priority": 3
+  },
+  {
+   "id": "P4",
+   "harm": "Instrumentation blind spots that make two whole harm channels unobservable: (a) trajectory-quality selection — attempts.jsonl logs only a deterministic per-source episode length and the binary success bit (within-cell ep_len sd = 0.00 on all 8 tasks), so grasp margin / contact quality of survivors vs failures cannot be compared; (b) rotation-axis skew — all N2 logs have d_rot=0 because N2 is rotation-free by design, so for shipped D2 variants (which DO randomize rotation) the filter's bias in rotation space is unlogged and every 'skew harmless' statement is silently position-only.",
+   "support_from_own_data": "Length degeneracy verified on all 8 tasks; E1 attributes the public three_piece D1-to-D2 generation drop to rotation widening (itself n.s. at n=500, z=1.38); coffee mirror lands 27.9pp below the pure-distance prediction, showing orientation is a real difficulty axis the d_pos bookkeeping cannot see.",
+   "why_untested": "Requires per-step state logging on surviving AND failed attempts, and per-object rotation displacement fields.",
+   "priority": 4
+  }
+ ],
+ "refuted": [
+  {
+   "id": "R1",
+   "harm_cluster": "Starved-source neighborhood costs as filter harm (stack +7.6pp, hammer_cleanup +16.3pp, pooled 8-task +4.6pp, mug far-band +15.9pp).",
+   "why_refuted": "Gaps replicate but attribution fails on direct controls: hammer has near-uniform retained shares (7.8-11.2%) yet the largest gap, and the zero-skew ancestry_balanced arm leaves it intact (+15.5pp p=0.0024) — the starved/rich split just ranks intrinsically hard neighborhoods; stack's entire effect is one neighborhood (src2, 58% SR) which transform_uniform recovers to 74% at identical bad-lineage dose, while hidgr_only is itself degraded there (85% vs 91-100%); mug's far-band signal sign-flips to -5.3pp when matched on distance-to-rich-sources; pooled +4.6pp collapses to +2.8pp n.s. without hammer. The filter actually MITIGATES the contaminant (starved lineage 29.7% of attempts to 10.7% of retained). Salvage: retained-share per source is still a validated failure-location PREDICTOR (hammer +16.3pp, p=0.0008, survives Bonferroni, distance confound pointing the wrong way for an artifact) — diagnostic gold for the attempt-vs-survivor audit framework, just not filter-caused harm.",
+   "hunters": [
+    1
+   ]
+  },
+  {
+   "id": "R2",
+   "harm_cluster": "'The filter certifies/retains toxic data' family: hidgr_only beats baseline by 11-17pp, lodgr_only collapses, threading s1 over-retained 1.49x despite being harmful in the D_2 swap (-13pp).",
+   "why_refuted": "Every cited comparison holds the filter constant (all arms are 100% filter-passing, distance-matched), so the deltas measure pre-filter source-pool quality — the program's already-established causal axis. The direct test of the filter's compositional bias points the other way: undoing it (ancestry_balanced) is the ONLY significantly harmful arm (stack -7.5pp p<0.001, threading -3.3pp), and the filter amplifies good s2 (1.55x) and s8 (1.50x) MORE than s1 while suppressing genuinely bad s3 (0.11x). s1's filter-attributable dose is +4.3-4.7pp of dataset share, scaling to ~1.1pp — an order of magnitude below the +10pp benefit of the same bias in the same task. hidgr_only carried ~2x baseline's hi-DGR count, so neutral dilution explains its win; no deletion counterfactual was ever run. What survives is only the known caveat: DGR is an imperfect per-source proxy (s1 exception), worth a better per-source metric.",
+   "hunters": [
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "id": "R3",
+   "harm_cluster": "The filter's near-ward density shift is the measured-harmful direction on coffee/threading (~6-8pp).",
+   "why_refuted": "Dose mismatch of 6-24x: the filter's real shift is TV 0.04-0.09 vs the EXP-A arm contrast of TV 0.50 (3:1 vs 1:3 with mid quintile deleted); the at-dose experiment exists and is null (transform_uniform removes the skew entirely: coffee +1.2pp p=0.46, threading +0.5pp p=0.83, matching the ~0.5-1.4pp linear dose-transfer prediction); EXP-A p-values (0.063/0.082, df=2) come from a family where square is significant the OPPOSITE way; slice structure contradicts the mechanism (threading's deficit is in NEAR evals). Same logic kills the EXP-A far-decile tail claim (-4.2pp, p=0.302, 15 discordant pairs from 5 resets; filter-attributable ~-0.2pp).",
+   "hunters": [
+    2,
+    4,
+    5
+   ]
+  },
+  {
+   "id": "R4",
+   "harm_cluster": "Pool exhaustion / 8.8x compute overhead on mug_cleanup as filter harm.",
+   "why_refuted": "Identical filter and identical 6250-attempt budget yield 707-3472 survivors across the 8 tasks — exhaustion tracks task difficulty, not the filter; 1/DGR overhead is definitional to any success-conditioned pipeline; the 'no headroom' pinch is an artifact of the fixed-budget experimental design (stock MimicGen generates to N successes); the measured policy consequence is null.",
+   "hunters": [
+    2
+   ]
+  },
+  {
+   "id": "R5",
+   "harm_cluster": "Ancestry collapse (n_eff ~5 of 10 on 3 tasks, full source extinction) as filter-inflicted loss.",
+   "why_refuted": "Zero-descendant sources fail at 0% even in the nearest distance quartile with uniform attempts (square s2 0/160, s9 0/155; stack_three s2/s3/s4 all 0; mug s5 0/151) — the incompatibility is source-intrinsic and pre-filter; without the filter those strategies would exist only as failed executions. All measured evidence points opposite: restoring the deleted sources' weight was the only significantly harmful intervention. The phenomenon (collapse) is confirmed; the harm attribution is not.",
+   "hunters": [
+    3
+   ]
+  },
+  {
+   "id": "R6",
+   "harm_cluster": "Shipped-regime mechanisms as stated: (a) mirrored/flipped D2 variants starve the far band exactly where extrapolation is brutal; (b) shipped per-subtask NN source selection concentrates toxic sources into Voronoi cells.",
+   "why_refuted": "(a) Measured inside the shipped mirror pools the premise is false: coffee D2 DGR is flat across distance quintiles (corr -0.034) with positive expansion slope, threading D2's farthest quintile has the MOST survivors (27% of mass), all 10 sources alive in both; rotation-induced yield loss costs compute, never coverage, under generate-to-N. (b) Factually wrong premise: generate_core_configs.py ships RANDOM selection for 5/8 studied tasks including threading (the flagship s1 example), and NN samples uniformly among top-3 neighbors (~1/3 share, not ~100%); on the NN-shipped tasks (stack/stack_three/square) the filter's bias is the causally helpful direction.",
+   "hunters": [
+    4
+   ]
+  },
+  {
+   "id": "R7",
+   "harm_cluster": "three_piece family: rotation-loss ceiling no curation undoes; near/far tercile trade-off; >=5/6 seed-consistent loss enumeration.",
+   "why_refuted": "Ceiling: structurally impossible mechanism — E2/C2 ran on ThreePieceAssembly_N2, a rotation-FREE variant (all 6250 attempts d_rot=0, all dyaw=0, verified in env code); a capability the eval never demands cannot explain the deficit; residual ceiling is task difficulty plus BC capacity. Tercile trade: the filter shifts the mixture TOWARD near (survivor near-share 46.3% vs 33.3% attempted), so the 'bought far coverage' is pre-filter; both arms are same-pool curation choices; single worst of 15+ searched cells, +0.6pp net on equal-mass terciles. Seed enumeration: 5 loss-cells found vs ~6.6 expected by chance across 60 searched cells, while 11 win-cells exist including the only significant ones (both favoring the filter's own distribution); pooled anchor (n=9600, p=0.766) bounds any average effect below ~1.5pp.",
+   "hunters": [
+    5
+   ]
+  },
+  {
+   "id": "R8",
+   "harm_cluster": "Coffee/threading small live coverage cost (<=2-3pp) vs a far-enriched composition.",
+   "why_refuted": "The cited 'direct bound' treatment (transform_uniform) is a zero-dose arm — its delivered far mass equals baseline's on a fixed scale (coffee 32.0% vs 31.1%, threading 36.1% vs 36.6%) — so the +2.5/+2.2pp deltas are noise; applying EXP-A's own slope to the filter's actual thinning gives ~1.4pp (coffee) and ~0.5pp (threading), below claimed range and below design resolution; the gap vs a hypothetical 75%-far set is a curation opportunity, not filter harm. Residual unexcluded kernel ~1pp coffee-only (skeptic confidence medium) folds into D2's latent-margin framing.",
+   "hunters": [
+    2
+   ]
+  }
+ ],
+ "bottom_line": "The \"survivor-filter bias is benign\" narrative survives the adversarial hunt at the policy level: all fourteen claimed live harms failed verification, every real SR gap traced back to pre-filter source quality or intrinsic region difficulty, and the filter's compositional bias remains net beneficial — the only significantly harmful intervention anywhere was the one that undid it (ancestry_balanced, stack -7.5pp). It survives with two mandatory corrections: the filter demonstrably distorts the released data on an axis every prior experiment was blind to — at matched scene distance it reallocates displacement from the tolerance-critical object to the easy object (6/8 tasks robust, up to -42% of within-cell sd in coffee, hard-object tail occupancy ~14-16% vs 20% attempted) with downstream cost untested — and it thins far mass in all 8 tasks (28-37% vs 40%) above a demonstrated -9.7pp harm anchor at zero far coverage, i.e., a latent risk with finite margin, not an absence of mechanism. So the honest answer to \"정말 해로운 게 하나도 없나?\" is: no LIVE harm at the tested dose and configuration, one demonstrated distributional distortion whose policy cost is the top open question, and an exoneration that is a bounded certificate (shallow skew TV 0.04-0.15, rotation-free position-only variants, low-dim BC at 500 demos, 9-14pp far-bin detection floors) rather than a universal acquittal — plus one useful inversion: per-source retained share is a validated predictor of WHERE the deployed policy fails, which strengthens the attempt-vs-survivor audit framework's case.",
+ "next_experiments": [
+  "Per-object eval slicing (converts P1, the strongest untested harm): decompose the frozen 200-reset eval states per object displacement for coffee/threading/hammer, bin existing 6-seed baseline SR by tolerance-critical-object displacement, and test whether failure rate rises exactly where survivor tail occupancy fell to ~14-16%; if yes, train one 500-demo arm reweighted to restore hard-object far mass and compare on the same resets. Cheap: reuses all existing evals plus 1-3 training runs.",
+  "High-skew shipped-regime policy test (converts P2): generate a survivor pool on one directional high-skew variant (coffee_prep-class TV~0.28 or mug D2), adding per-object rotation displacement to attempts.jsonl logging, then train baseline vs transform_uniform/rebalanced arms at 6 seeds — directly tests whether the shallow-skew nulls transfer to the TV 0.10-0.30 regime the filter actually ships, and makes the rotation axis observable for the first time.",
+  "Diversity/configuration transfer (converts P3): train image-observation policies on stack and threading for baseline vs hidgr_only vs a maximally source-diverse composition (matched n and distance), plus a far-slice-by-ancestry analysis on mug — tests whether the filter's motion-style concentration, null for low-dim BC, becomes costly for visual encoders at shipped scale."
+ ]
+}
