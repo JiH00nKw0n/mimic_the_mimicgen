@@ -1,0 +1,18 @@
+schema_version: fr3.cube.mimicgen.external_inputs.v1
+must_be_supplied_by_mimicgen_team:
+  human_demo_paths: []
+  source_robot_or_human_representation: null
+  source_base_frame_definition: null
+  source_ee_or_hand_frame_definition: null
+  source_quaternion_order: null
+  source_timestamp_clock: null
+  source_sample_rate_hz: null
+  gripper_annotation_semantics: null
+  cube_identity_mapping: null
+  subtask_segmentation_or_rules: null
+  camera_extrinsics_if_vision_derived: null
+agent_policy:
+  missing_transforms_must_not_be_inferred: true
+  adapter_and_schema_work_may_start_before_demo_arrival: true
+  augmented_data_export_may_not_start_before_required_inputs: true
+

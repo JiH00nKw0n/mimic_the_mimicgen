@@ -1,0 +1,45 @@
+# Reply to rl_handoff_20260803/contracts/mimicgen_inputs_required.yaml —
+# the source-data conventions of the MimicGen side, as actually implemented
+# and validated in this repo (contract/PROGRESS.md has the full audit trail).
+schema_version: fr3.cube.mimicgen.external_inputs.v1
+supplied_by_mimicgen_team:
+  human_demo_paths:
+    - mimic_the_mimicgen/datasets/fwd_annotated.hdf5   # 13 annotated FR3 demos
+  source_robot_or_human_representation: >
+    Isaac Lab episode states (robot joint position/velocity + rigid-object
+    root poses per step) plus recorded obs (eef_pos/eef_quat = world TCP,
+    gripper_pos, cube poses). Human teleop on the lab FR3 scene; RL-teacher
+    episodes from OmniReset-Fr3PandaCube-FullStack-RelCartesianOSC-State-Play-v0.
+  source_base_frame_definition: >
+    Robot base fixed at lab-world (0.72, 0.138, 0.722), yaw 180 deg
+    (root quat wxyz = (0,0,0,1)). Contract exports are in the robot base
+    frame via spawn-invariant base-frame FK.
+  source_ee_or_hand_frame_definition: >
+    fr3_hand body frame; TCP = hand + (0, 0, +0.1034 m) expressed in the
+    hand frame (matches the IK action body_offset). Recorded obs/eef_pos is
+    the WORLD-frame TCP.
+  source_quaternion_order: wxyz
+  source_timestamp_clock: Isaac sim time, uniform env steps (no wall clock)
+  source_sample_rate_hz: 20  # env step rate; contract export resampled to 10
+  gripper_annotation_semantics: >
+    Two finger joints; human recordings use a signed convention
+    (+0.04, -0.04) so all predicates use abs-mean. Open if abs-mean > 0.02 m;
+    hold window on a 50.7 mm cube reads 18-33 mm. Contract gripper action is
+    binary +-1 (+1 open).
+  cube_identity_mapping: >
+    cube_1 = stack base, cube_2 = first grasped (stacked on cube_1),
+    cube_3 = second grasped (stacked on cube_2). Caution: the RL scene's
+    cube_2 asset frame is recorded 90 deg rotated (R[2,2]=0 while flat on
+    the table); our converter normalizes all cube rotations to yaw-only
+    (cube symmetry) before MimicGen consumes them.
+  subtask_segmentation_or_rules: >
+    Boolean term signals grasp_1 / stack_1 / grasp_2 in
+    obs/datagen_info/subtask_term_signals. Human demos: recorded env
+    predicates. RL demos: lift-based re-annotation (cube risen > 1 cm from
+    rest + fingers in hold window + TCP within 8 cm), plus the source
+    rewrite pipeline (resignal_rl.py) documented in PROGRESS.md.
+  camera_extrinsics_if_vision_derived: >
+    Not vision-derived (state-based pipeline). Calibrated real-camera
+    extrinsics for RGB export live in the separate system-calibration
+    bundle (fr3_cube_system_calibration_bundle_v1) and the
+    fr3_camera_overlay_v1 package.

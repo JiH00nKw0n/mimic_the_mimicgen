@@ -1,0 +1,50 @@
+gripper_offset:
+  pos:
+  - 0.0
+  - 0.0
+  - 0.1034
+  quat:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+finger_offset: 0.1034
+finger_clearance: 0.05
+maximum_aperture: 0.08
+gripper_approach_direction:
+- 0
+- 0
+- 1
+grasp_align_axis:
+- 0
+- 1
+- 0
+orientation_sample_axis:
+- 0
+- 0
+- 1
+finger_open_joint_angle: 0.04
+
+# FR3 3-cube Stage-1 controller-system identification handoff (2026-08-02).
+# These values are consumed by OmniReset's ADR post-training event.  The
+# controller remains task-local and is not described by this plant metadata.
+sysid:
+  contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+  source: /home/ubuntu/jake/aidas/3cube_stack/fr3_cube_system_calibration_bundle_v1/modules/dynamics_controller/nominal_and_ranges.yaml
+  status: provisional_partial_identification
+  joint_order:
+  - fr3_joint1
+  - fr3_joint2
+  - fr3_joint3
+  - fr3_joint4
+  - fr3_joint5
+  - fr3_joint6
+  - fr3_joint7
+  armature: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+  static_friction: [0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5]
+  dynamic_ratio: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+  viscous_friction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  motor_delay_steps_120hz:
+    nominal: 0
+    range: [0, 3]
+    status: unresolved_prior

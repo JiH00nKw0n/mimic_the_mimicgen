@@ -33,6 +33,12 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--table_usd", default=os.environ.get(
     "LAB_TABLE_USD", "/nonexistent.usdc"))  # desk-slab fallback (lab_env)
 parser.add_argument("--settle_steps", type=int, default=5)
+parser.add_argument("--robot_usd",
+                    default="/repo/contract/rl_handoff_20260803/assets/"
+                            "fr3_research3.usda",
+                    help="robot USD; default = the RL team's wrapper around "
+                         "NVIDIA's Isaac 5.1 FR3 (pass '' to keep the lab "
+                         "asset)")
 parser.add_argument("--bundle", default=None,
                     help="fr3_cube_system_calibration_bundle_v1 dir: apply the "
                          "dynamics module's joint armature/friction/viscous "
@@ -141,6 +147,32 @@ def make_contract_env_cfg():
     cfg.scene.robot.actuators["a1"].damping = 0.0
     cfg.scene.robot.actuators["a2"].stiffness = 0.0
     cfg.scene.robot.actuators["a2"].damping = 0.0
+    # ---- RL runtime identity (rl_handoff_20260803/runtime/fr3_panda_gripper
+    # .py). fr3_research3.usda turned out to be a thin wrapper around
+    # NVIDIA's Isaac 5.1 FR3 — the real setup deltas are these spawn and
+    # actuator settings. Our previous replay ran gravity-ON with 8 solver
+    # iterations; a zero-PD effort arm under uncompensated gravity droops,
+    # which is the prime suspect for the 4.8 cm tracking residual.
+    import isaaclab.sim as _sim_utils
+    spawn = cfg.scene.robot.spawn
+    if args.robot_usd:
+        spawn.usd_path = args.robot_usd
+    if getattr(spawn, "rigid_props", None) is None:
+        spawn.rigid_props = _sim_utils.RigidBodyPropertiesCfg()
+    spawn.rigid_props.disable_gravity = True
+    spawn.rigid_props.max_depenetration_velocity = 5.0
+    spawn.articulation_props.solver_position_iteration_count = 36
+    spawn.articulation_props.solver_velocity_iteration_count = 0
+    cfg.scene.robot.actuators["a1"].effort_limit_sim = 87.0
+    cfg.scene.robot.actuators["a2"].effort_limit_sim = 12.0
+    cfg.scene.robot.actuators["a1"].velocity_limit_sim = 2.175
+    cfg.scene.robot.actuators["a2"].velocity_limit_sim = 2.61
+    cfg.scene.robot.actuators["h"].stiffness = 1.0e4
+    cfg.scene.robot.actuators["h"].damping = 5.0e2
+    cfg.scene.robot.actuators["h"].effort_limit_sim = 500.0
+    print(f"[warmstart] RL runtime identity applied: usd="
+          f"{spawn.usd_path} gravity_off solver 36/0 "
+          f"effort 87/12 vel 2.175/2.61 gripper 1e4/5e2/500", flush=True)
     if args.bundle:
         # calibrated joint dynamics from the system bundle (identified on the
         # real FR3 under the same frozen OSC): armature + friction + viscous

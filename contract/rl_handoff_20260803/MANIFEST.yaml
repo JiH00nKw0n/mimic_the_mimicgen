@@ -1,0 +1,46 @@
+schema_version: fr3.mimicgen_control_handoff.v1
+package_id: fr3_mimicgen_control_handoff_20260803
+created_at_utc: '2026-08-03'
+source_repository: /home/ubuntu/jake/UWLab
+source_git_head: 35bb9a0b9343aef0121e8da9bcd76dccdc7b0dda
+snapshot_note: current working-tree snapshot; SHA256SUMS is authoritative
+
+robot_asset:
+  canonical_wrapper: assets/fr3_research3.usda
+  wrapper_sha256: 6d5a3026a150b2c18a7cdbdefb31135319f005e563b9ce42e01090eabfac13ad
+  upstream_owner: NVIDIA
+  upstream_product: Isaac 5.1 Franka Research 3
+  upstream_url: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/FrankaRobotics/FrankaFR3/fr3.usd
+  wrapper_custom_properties: none
+  upstream_binary_included: false
+
+control:
+  contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+  contract: contracts/control_contract.yaml
+  adapter: tools/controller_adapter.py
+  env_profile_helper: tools/cube_legacy_profile.py
+  authoritative_action_config: runtime/cube_actions.py:FR3_CUBE_STAGE1_RELATIVE_OSC
+  implementation: runtime/task_space_actions.py:RelCartesianOSCAction
+
+runtime_sources:
+  articulation_and_actuators: runtime/fr3_panda_gripper.py
+  gripper_action: runtime/fr3_gripper_actions.py
+  action_config: runtime/actions_cfg.py
+  cube_profiles: runtime/cube_actions.py
+  cube_environment: runtime/rl_state_cfg.py
+  sysid_application: runtime/calibrated_sysid.py
+
+sysid:
+  contract: sysid/SYSTEM_CALIBRATION_CONTRACT.yaml
+  nominal_and_ranges: sysid/nominal_and_ranges.yaml
+  sampled_ensemble: sysid/domain_randomization_samples.csv
+  rule: apply plant/delay uncertainty without modifying the frozen OSC/action contract
+
+mimicgen:
+  required_external_inputs: contracts/mimicgen_inputs_required.yaml
+  output_schema: contracts/dataset_schema.yaml
+
+excluded_noncanonical_assets:
+  - fr3_panda.usd
+  - fr3_research3_massfix.usda
+
