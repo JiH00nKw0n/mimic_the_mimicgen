@@ -1,0 +1,252 @@
+schema_version: stage2.fr3_cube_osc_partial_calibration.v1
+status: provisional_partial_identification
+campaign_id: fr3_cube_osc_sysid_rigid_d405_v1
+contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+joint_order:
+- fr3_joint1
+- fr3_joint2
+- fr3_joint3
+- fr3_joint4
+- fr3_joint5
+- fr3_joint6
+- fr3_joint7
+ee_body: fr3_hand
+payload:
+  mass_kg: 0.0946
+  com_parent_m:
+  - 0.06950868376890977
+  - -0.06303487630849892
+  - -0.07140333280330395
+parameters:
+  interpretation: simulator_nominal_and_randomization_range_not_posterior_interval
+  armature_kg_m2:
+    nominal:
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    range:
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    - - 0.05
+      - 1.0
+    status: prior_only
+  static_friction:
+    nominal:
+    - 0.25
+    - 0.25
+    - 0.25
+    - 0.25
+    - 0.5
+    - 0.5
+    - 0.5
+    range:
+    - - 0.1
+      - 0.4
+    - - 0.1
+      - 0.4
+    - - 0.1
+      - 0.4
+    - - 0.1
+      - 0.4
+    - - 0.35
+      - 0.65
+    - - 0.35
+      - 0.65
+    - - 0.35
+      - 0.65
+    status:
+    - regularized_fit
+    - fit
+    - regularized_fit
+    - fit
+    - deadband_interval
+    - deadband_interval
+    - deadband_interval
+  dynamic_friction:
+    nominal:
+    - 0.2
+    - 0.2
+    - 0.2
+    - 0.2
+    - 0.4
+    - 0.4
+    - 0.4
+    range:
+    - - 0.05
+      - 0.35
+    - - 0.05
+      - 0.35
+    - - 0.05
+      - 0.35
+    - - 0.05
+      - 0.35
+    - - 0.25
+      - 0.55
+    - - 0.25
+      - 0.55
+    - - 0.25
+      - 0.55
+    status: correlated_with_static
+    sampling_constraint: dynamic_friction_must_not_exceed_static_friction
+  dynamic_to_static_friction_ratio:
+    nominal: 0.8
+    range:
+    - 0.65
+    - 0.95
+    status: regularized_shared_parameter
+  viscous_friction:
+    nominal:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    range:
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    - - 0.0
+      - 0.2
+    status: prior_only
+  motor_delay_simulation_steps:
+    nominal: 0
+    range:
+    - 0
+    - 3
+    status: unresolved_prior
+observability:
+  source: evidence/observability.yaml
+  strong_fit_joints:
+  - fr3_joint2
+  - fr3_joint4
+  regularized_fit_joints:
+  - fr3_joint1
+  - fr3_joint3
+  prior_only_joints:
+  - fr3_joint5
+  - fr3_joint6
+  - fr3_joint7
+  wrist_interpretation: effective_static_deadband_interval_only
+  note: 'J5-J7 remained nearly stationary under both accepted postures. Their armature,
+    dynamic friction, and viscous friction are not independently identifiable. The
+    no-motion torque envelope supports only an effective static-friction/deadband
+    interval.
+
+    '
+frozen_controller:
+  action:
+    order:
+    - dx
+    - dy
+    - dz
+    - drx
+    - dry
+    - drz
+    - gripper
+    scale_xyz_axisangle:
+    - 0.02
+    - 0.02
+    - 0.02
+    - 0.02
+    - 0.02
+    - 0.2
+    frame: robot_base
+    quaternion_order: wxyz
+    target_position: current_actual_ee_position_plus_scaled_delta
+    target_orientation: q_delta_left_multiply_q_current
+    reference_pose: current_actual_ee_pose_at_each_policy_step
+    accumulates_previous_target: false
+    clipping: null
+  timing:
+    policy_hz: 10.0
+    physics_hz: 120.0
+    osc_hz: 120.0
+    physics_dt_s: 0.008333333333333333
+    decimation: 12
+  osc:
+    implementation: RelCartesianOSCAction
+    equation: tau=J^T*(Kp*pose_error-Kd*J*qdot)+nullspace_torque
+    inertial_decoupling: false
+    mass_matrix: false
+    explicit_gravity_compensation: false
+    motion_stiffness:
+    - 200.0
+    - 200.0
+    - 200.0
+    - 3.0
+    - 3.0
+    - 3.0
+    motion_damping_ratio:
+    - 3.0
+    - 3.0
+    - 3.0
+    - 1.0
+    - 1.0
+    - 1.0
+    motion_damping_kd:
+    - 84.8528137424
+    - 84.8528137424
+    - 84.8528137424
+    - 3.4641016151
+    - 3.4641016151
+    - 3.4641016151
+    torque_limit_nm:
+    - 87.0
+    - 87.0
+    - 87.0
+    - 87.0
+    - 12.0
+    - 12.0
+    - 12.0
+    jacobian_damping: 0.01
+    nullspace_stiffness: 10.0
+    nullspace_damping_ratio: 1.0
+    nullspace_damping_kd: 6.3245553203
+    nullspace_target: arm_configuration_captured_after_environment_reset
+  effort_limit_nm:
+  - 87.0
+  - 87.0
+  - 87.0
+  - 87.0
+  - 12.0
+  - 12.0
+  - 12.0
+geometry:
+  robot_variant: FR3 FACELIFT with Franka Hand and rigid D405 assembly
+  nominal_urdf_sha256: caf1b09148cb146025ff647febbd20742ad10bc863ea25f2fa54f8b0b07f618f
+  nominal_usd_sha256: 60e1f191736d2adc221288bcd4903d1eca7ff54582f2b66aea65664e33928127
+  serial_calibrated: false
+evidence:
+  observability: evidence/observability.yaml
+  sensitivity: evidence/sensitivity.yaml
+  best_tested_common_candidate: proximal_0p25_wrist_0p5
+limitations:
+- URDF/USD is nominal, not serial-calibrated.
+- J2 has unresolved posture-dependent residual.
+- Ranges are recommended simulator ranges, not posterior credible intervals.
+- No independent task-like holdout was collected under this exact effort OSC.

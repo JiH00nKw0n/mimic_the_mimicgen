@@ -1,0 +1,81 @@
+schema_version: fr3.cube_system_calibration_contract.v1
+bundle_id: fr3_cube_system_calibration_bundle_v1
+status: team_handoff
+scope:
+  robot: FR3 FACELIFT with stock Franka Hand
+  task: three taped approximately 50.7 mm cubes on the measured table
+  wrist_payload: rigid D405 mount assembly
+  intended_consumers:
+  - reinforcement_learning
+  - MimicGen_and_imitation
+  - trajectory_optimization
+  - planning_and_MPC
+  - synthetic_data_generation
+  - deterministic_validation
+  - system_identification
+frozen_control_contract:
+  source: modules/dynamics_controller/nominal_and_ranges.yaml
+  contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+  warning: Do not retune or replace OSC while applying dynamics/contact calibration.
+modules:
+  camera:
+    entrypoint: modules/camera/camera_nominal_measured_ranges.yaml
+    manifest: modules/camera/manifest.yaml
+    contains: four measured camera nominals and measured uncertainty ranges
+  dynamics_controller:
+    entrypoint: modules/dynamics_controller/nominal_and_ranges.yaml
+    manifest: modules/dynamics_controller/manifest.yaml
+    contains: payload, frozen OSC contract, joint dynamics nominal values and ranges
+  contact:
+    entrypoint: modules/contact/contact_parameter_contract.yaml
+    manifest: modules/contact/manifest.json
+    contains: cube masses, effective contact parameters, posterior samples and ranges
+frame_contract:
+  robot_base: fr3v2_link0
+  wrist_camera_parent: fr3v2_hand_tcp
+  controller_ee_body: fr3_hand
+  rule: Map these semantic frames to existing scene prims; do not assume equal TCP
+    and controller EE frames.
+  fixed_camera_rule: Fixed cameras and table/task registration must share one coherent
+    external-scene transform.
+application_order:
+- Validate this archive and fill SCENE_MAPPING_TEMPLATE.yaml.
+- Freeze the action, frame, timing, OSC, effort-limit and reset contracts.
+- Apply payload and robot-joint dynamics nominal values.
+- Apply effective contact-pair nominal values with the documented combine modes.
+- Attach the four cameras to their mapped parent frames and apply measured intrinsics/extrinsics.
+- Run deterministic nominal smoke tests before enabling any randomization.
+- Enable one module at a time, then use the measured/recommended ranges jointly while
+  logging every sampled value and seed.
+profiles:
+  deterministic_nominal:
+    camera: nominal
+    dynamics_controller: all nominal values; frozen OSC
+    contact: deterministic_nominal
+    purpose: integration and regression
+  calibrated_ensemble:
+    camera: measured_camera_local
+    dynamics_controller: domain_randomization_samples.csv or listed ranges
+    contact: posterior_ensemble
+    purpose: uncertainty evaluation
+  robust_bounded:
+    camera: measured_camera_plus_registration when table registration is uncertain
+    dynamics_controller: listed ranges with dynamic <= static constraint
+    contact: robust_stochastic
+    purpose: robust training, generation and stress tests
+critical_separation_rules:
+- Robot joint friction is not finger-cube or table-cube contact friction.
+- Camera uncertainty is sampled once per environment or episode, never as per-frame
+  jitter.
+- Effective contact-pair values must not be assigned to both materials under multiply
+  combine mode.
+- The pick-transport-place holdout must not be reused for fitting.
+- Nominal results must always be reported separately from randomized results.
+known_limitations:
+- Robot URDF/USD is nominal and not serial-calibrated.
+- 'Dynamics identification is partial: J2/J4 are strongest, J1/J3 are regularized,
+  and J5-J7 retain priors/deadband bounds.'
+- Contact coefficients are effective task-pair parameters rather than intrinsic material
+  constants.
+- The fixed-camera nominal requires refreshed full-scene overlay if physical stands
+  move.

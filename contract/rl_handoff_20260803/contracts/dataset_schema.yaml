@@ -1,0 +1,67 @@
+schema_version: fr3.cube.mimicgen.hdf5.v1
+contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+root_group: data
+root_attributes:
+  env_args: json_string
+  total: total_action_samples
+  contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+required_demo_attributes:
+  num_samples: integer
+  success: boolean
+  source_human_demo_id: string
+  retarget_version: string
+required_demo_datasets:
+  actions:
+    dtype: float32
+    shape: [T, 7]
+    semantics: raw_unclipped_policy_action
+  processed_cartesian_delta:
+    dtype: float32
+    shape: [T, 6]
+    unit: [m, m, m, rad, rad, rad]
+  commanded_target_pose:
+    dtype: float32
+    shape: [T, 7]
+    order: [x, y, z, qw, qx, qy, qz]
+    frame: robot_base
+  actual_ee_pose:
+    dtype: float32
+    shape: [T, 7]
+    order: [x, y, z, qw, qx, qy, qz]
+    frame: robot_base
+  joint_position:
+    dtype: float32
+    shape: [T, 9]
+  joint_velocity:
+    dtype: float32
+    shape: [T, 9]
+  gripper_state:
+    dtype: float32
+    shape: [T, 2]
+  cube_pose:
+    dtype: float32
+    shape: [T, 3, 7]
+    frame: robot_base
+  timestamps:
+    dtype: float64
+    shape: [T]
+    clock: monotonic
+recommended_demo_datasets:
+  source_target_pose: [T, 7]
+  stack_stage: [T]
+  stage_success: [T, 2]
+  commanded_joint_torque: [T, 7]
+validation:
+  sample_frequency_hz: 10.0
+  timestamps_strictly_increasing: true
+  quaternion_order: wxyz
+  quaternion_norm_tolerance: 0.0001
+  equal_T_for_required_datasets: true
+  hidden_action_clip_forbidden: true
+  successful_training_exports_only: true
+reference_action_dataset:
+  path: /home/ubuntu/jake/aidas/3cube_stack/datasets/full_success_hdf5_20260801/fr3_three_cube_fullstack_success_50.hdf5
+  sha256: c75ff5827af7004cafe1aaf9e0cc2db0071f73967cb643c3ad12b53780ef9c3c
+  num_demos: 50
+  caveat: action_mapping_reference_only_collected_under_later_controller_profile
+

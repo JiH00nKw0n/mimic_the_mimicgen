@@ -1,0 +1,80 @@
+schema_version: fr3.cube.stage1.control_contract.v1
+created_at: '2026-08-01'
+contract_id: fr3_cube_stage1_model4500_legacyosc_v1
+stage1_retraining_allowed: false
+
+checkpoint:
+  id: cube_onetwo_sequential_model_4500
+  iteration: 4500
+  selection: latest_retained_and_explicit_handoff_best
+  action_dim: 7
+  actor_observation_dim: 260
+  critic_observation_dim: 180
+
+action:
+  order: [dx, dy, dz, drx, dry, drz, gripper]
+  raw_range: unbounded
+  wrapper_clip: null
+  arm_input_clip: null
+  scale_xyz_axisangle: [0.02, 0.02, 0.02, 0.02, 0.02, 0.2]
+  position_unit: metre_per_raw_unit
+  rotation_unit: axis_angle_radian_per_raw_unit
+  frame: robot_base
+  target_position: current_actual_ee_position_plus_scaled_delta
+  target_orientation: q_delta_left_multiply_q_current
+  quaternion_order: wxyz
+  reference_pose: current_actual_ee_pose_at_each_policy_step
+  accumulates_previous_target: false
+  gripper:
+    positive: open
+    non_positive: close
+    threshold: 0.0
+    open_joint_position_m: 0.04
+    close_joint_position_m: 0.0
+
+timing:
+  policy_hz: 10.0
+  physics_hz: 120.0
+  osc_hz: 120.0
+  physics_dt_s: 0.008333333333333333
+  decimation: 12
+  target_hold_physics_steps: 12
+
+robot:
+  embodiment: Franka Research 3 with Franka Hand
+  arm_joint_order: [fr3_joint1, fr3_joint2, fr3_joint3, fr3_joint4, fr3_joint5, fr3_joint6, fr3_joint7]
+  finger_joint_order: [fr3_finger_joint1, fr3_finger_joint2]
+  ee_body: fr3_hand
+  jacobian_source: PhysX_geometric_Jacobian_in_robot_base_frame
+  arm_command: joint_effort
+  robot_gravity_in_sim: disabled
+  arm_actuator_stiffness: 0.0
+  arm_actuator_damping: 0.0
+  effort_limit_nm: [87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0]
+  velocity_limit_rad_s: [2.175, 2.175, 2.175, 2.175, 2.61, 2.61, 2.61]
+
+osc:
+  implementation: RelCartesianOSCAction
+  equation: tau=J^T*(Kp*pose_error-Kd*J*qdot)+nullspace_torque
+  inertial_decoupling: false
+  mass_matrix: false
+  explicit_gravity_compensation: false
+  motion_stiffness: [200.0, 200.0, 200.0, 3.0, 3.0, 3.0]
+  motion_damping_ratio: [3.0, 3.0, 3.0, 1.0, 1.0, 1.0]
+  motion_damping_kd: [84.8528137424, 84.8528137424, 84.8528137424, 3.4641016151, 3.4641016151, 3.4641016151]
+  torque_limit_nm: [87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0]
+  jacobian_damping: 0.01
+  nullspace_stiffness: 10.0
+  nullspace_damping_ratio: 1.0
+  nullspace_damping_kd: 6.3245553203
+  nullspace_target: arm_configuration_captured_after_environment_reset
+
+forbidden_without_RL_owner_approval:
+  - changing_action_scale
+  - adding_action_clipping
+  - changing_osc_gain
+  - changing_nullspace_gain_or_target
+  - changing_policy_or_osc_frequency
+  - changing_quaternion_order_or_multiplication
+  - replacing_RelCartesianOSCAction
+
