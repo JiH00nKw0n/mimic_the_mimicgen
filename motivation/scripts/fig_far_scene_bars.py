@@ -16,12 +16,12 @@ D = Path(sys.argv[1])
 OUT = sys.argv[2]
 SEEDS = [101, 102, 103, 104, 105, 106]
 TASKS = [
-    ("coffee", "커피"),
-    ("threading", "바늘 꿰기"),
-    ("three_piece_assembly", "세 조각 조립"),
-    ("stack_three", "세 블록 쌓기"),
-    ("mug_cleanup", "머그 정리"),
     ("stack", "블록 쌓기"),
+    ("stack_three", "세 블록 쌓기"),
+    ("threading", "바늘 꿰기"),
+    ("coffee", "커피"),
+    ("mug_cleanup", "머그 정리"),
+    ("three_piece_assembly", "세 조각 조립"),
 ]
 strata = json.loads((D / "strata.json").read_text())
 
