@@ -1,11 +1,11 @@
 # FR3 sim2real 데이터 작업 보고 — 1번·2번 완료, 3번 착수 전
 
-작성 2026-08-05, 권지훈. 이 보고서는 김재익 님이 2026-08-01 슬랙에서 정리해 준 작업
+작성 2026-08-05, MimicGen팀. 이 보고서는 RL팀이 2026-08-01 슬랙에서 정리해 준 작업
 목록 중 1번(control contract 정합), 2번(물리 파라미터 수율 테스트)의 완료 내용과, 3번
 (RGB-Action 데이터 증강)의 배경 및 준비 상태를 기록한다. 이 프로젝트를 처음 보는
 사람도 따라올 수 있도록, 모든 용어는 처음 나올 때 풀어서 정의하고, 어떤 파일에 적힌
-요구를 따랐는지 파일 이름을 그때그때 명시한다. 더 깊은 세부(문제 해결 과정 전체)는
-`contract/PROGRESS.md`에, 항목별 진행 현황은 `STATUS_FR3_SIM2REAL.md`에 있다.
+요구를 따랐는지 파일 이름을 그때그때 명시한다. 이 보고서만 읽어도 내용 전체가
+이해되도록 필요한 사실은 모두 본문에 담았다.
 
 ## 1. 배경
 
@@ -17,10 +17,10 @@
 학습된 정책을 실물 로봇으로 옮긴다. 시뮬레이션에서 배운 것이 실물에서도 통하게 만드는
 문제를 sim2real이라 부른다.
 
-세 팀이 나눠 일한다. RL팀(김재익)은 시뮬레이션 안에서 강화학습으로 큐브 쌓기 정책을
-이미 학습해 두었고, 실물 로봇의 제어 체계를 관리한다. SysID팀(공지환)은 실물 로봇과
+세 팀이 나눠 일한다. RL팀은 시뮬레이션 안에서 강화학습으로 큐브 쌓기 정책을
+이미 학습해 두었고, 실물 로봇의 제어 체계를 관리한다. SysID팀은 실물 로봇과
 실제 물체(테이프 감은 5.07 cm 큐브)의 물리 특성(마찰, 질량 등)을 측정해 시뮬레이션에
-맞춰 넣는 일을 한다. MimicGen팀(권지훈, 본 보고서)은 소수의 시연(demonstration:
+맞춰 넣는 일을 한다. MimicGen팀(본 보고서 작성 팀)은 소수의 시연(demonstration:
 작업을 성공시킨 기록)을 증폭해 학습 데이터를 대량 생산한다.
 
 여기서 MimicGen은 데이터 증폭 방법의 이름이다. 시연 하나를 "물체에 접근한다 → 잡는다
@@ -31,13 +31,15 @@
 
 ### 1.2 작업 목록의 출처
 
-김재익 님의 2026-08-01 슬랙 메시지가 작업 목록의 원본이다. 요지는 여섯 항목이다:
-(1) MimicGen 산출물을 control contract에 맞출 것, (2) 지환 님이 준 물리 범위에서 데모
+RL팀의 2026-08-01 슬랙 메시지가 작업 목록의 원본이다. 요지는 여섯 항목이다:
+(1) MimicGen 산출물을 control contract에 맞출 것, (2) SysID팀이 준 물리 범위에서 데모
 수율을 확인할 것, (3) 최종 캘리브레이션이 오면 카메라 렌더링을 붙여 RGB-Action
 데이터를 증폭할 것, (4) 사람 시연 대 RL 시연의 수율 비교, (5) multi-gear는 급하지
-않음, (6) sim2real 요인 분석은 논문 단계에서. 이 보고서는 1·2·3번을 다룬다. 4번의
-결과는 `contract/PROGRESS.md` 5절에 따로 정리돼 있고, 이 보고서에서는 1번의 검증에
-필요한 범위만 인용한다.
+않음, (6) sim2real 요인 분석은 논문 단계에서. 이 보고서는 1·2·3번을 다룬다. 4번도
+완료됐으며 결과만 요약하면: 같은 조건에서 사람 시연의 수율은 6.5%, RL 시연은 원본
+그대로는 0%, 시연을 사람 스타일로 재작성하고 3배 감속하면 8.5%로 사람 수준에
+도달했다. 4번의 상세 과정은 별도 문서로 관리하고, 이 보고서에서는 1번의 검증에
+필요한 실험(RL 시연 재생)만 본문에서 직접 설명한다.
 
 ### 1.3 왜 1·2·3번인가: 학습 데이터의 세 구성 요소
 
@@ -75,19 +77,20 @@ RL팀의 1차 핸드오프 패키지 `fr3_cube_stage1_all_teams_handoff_20260801
 (압축 해제 시 최상위 폴더 `fr3_cube_stage1_handoff_20260801/`)가 요구사항의 원본이다.
 그 안에서 우리가 따른 파일은 다음과 같다.
 
-- `common/control_contract.yaml` — 행동 규격의 명세(아래 2.2).
-- `common/controller_adapter.py` — 자세↔행동 변환의 참조 구현. 자체 테스트가 들어
-  있고, 우리는 이 파일을 수정 없이 `contract/adapter.py`로 복사(vendored)해 썼다.
-- `common/cube_legacy_profile.py` — 시뮬레이션 환경에 계약의 제어 게인을 주입하는
-  함수. 역시 수정 없이 복사해 썼다.
-- `mimicgen/dataset_schema.yaml` — 납품 데이터 파일(HDF5)의 형식 정의.
-- `mimicgen/ACCEPTANCE_CRITERIA.md` — 합격 체크리스트 12항목(아래 2.6, 2.8).
-- `mimicgen/INPUTS_REQUIRED.yaml` — 반대로 우리가 RL팀에 알려줘야 하는 정보(우리
-  시연 데이터의 좌표계·시간·그리퍼 규약 등)의 질문지.
-- `frozen_payload/` — RL 학습 당시 제어기 소스 코드의 동결 사본. 패키지가 이것을
+- `fr3_cube_stage1_handoff_20260801/common/control_contract.yaml` — 행동 규격의 명세(아래 2.2).
+- `fr3_cube_stage1_handoff_20260801/common/controller_adapter.py` — 자세↔행동 변환의 참조 구현. 자체
+  테스트가 들어 있고, 우리는 이 파일을 수정 없이 우리 저장소
+  `mimic_the_mimicgen/contract/adapter.py`로 복사(vendored)해 썼다.
+- `fr3_cube_stage1_handoff_20260801/common/cube_legacy_profile.py` — 시뮬레이션 환경에 계약의 제어 게인을
+  주입하는 함수. 역시 수정 없이 `mimic_the_mimicgen/contract/cube_legacy_profile.py`로 복사해 썼다.
+- `fr3_cube_stage1_handoff_20260801/mimicgen/dataset_schema.yaml` — 납품 데이터 파일(HDF5)의 형식 정의.
+- `fr3_cube_stage1_handoff_20260801/mimicgen/ACCEPTANCE_CRITERIA.md` — 합격 체크리스트 12항목(아래 2.6, 2.8).
+- `fr3_cube_stage1_handoff_20260801/mimicgen/INPUTS_REQUIRED.yaml` — 반대로 우리가 RL팀에 알려줘야 하는
+  정보(우리 시연 데이터의 좌표계·시간·그리퍼 규약 등)의 질문지.
+- `fr3_cube_stage1_handoff_20260801/frozen_payload/` — RL 학습 당시 제어기 소스 코드의 동결 사본. 패키지가 이것을
   "권위 있는 실행 계약"으로 지정한다.
 
-### 2.2 계약의 내용 (`control_contract.yaml` 기준)
+### 2.2 계약의 내용 (`fr3_cube_stage1_handoff_20260801/common/control_contract.yaml` 기준)
 
 - 행동은 숫자 7개 `[dx, dy, dz, drx, dry, drz, gripper]`다. 앞 6개는 손끝의 상대
   이동·회전이고 마지막은 그리퍼 여닫기(±1)다.
@@ -107,7 +110,7 @@ RL팀의 1차 핸드오프 패키지 `fr3_cube_stage1_all_teams_handoff_20260801
 
 두 가지 길이 있었다. (a) 생성 파이프라인 전체를 실기용 계약 제어기 위에 다시 세운다.
 (b) 생성은 지금처럼 생성용 위치 제어기로 하고, 완성된 데이터의 행동 칸만 계약 규격으로
-번역하는 후처리 단계를 만든다. 우리는 (b)를 택했고, 김재익 님도 8/1 슬랙에서 "아마
+번역하는 후처리 단계를 만든다. 우리는 (b)를 택했고, RL팀도 8/1 슬랙에서 "아마
 후처리 파이프라인 정도일 것"이라고 같은 예상을 했다.
 
 (a)가 성립하지 않는 이유는 MimicGen의 동작 방식에 있다. MimicGen 생성은 변형된 궤적
@@ -125,23 +128,35 @@ RL팀의 1차 핸드오프 패키지 `fr3_cube_stage1_all_teams_handoff_20260801
 
 ### 2.4 구현한 파일
 
-전부 `mimic_the_mimicgen/contract/`에 있다.
+전부 우리 저장소 `mimic_the_mimicgen/contract/` 폴더에 있다. 아래 파일명은 모두 그 폴더 안의
+경로다.
 
 - `traj_tools.py` — 궤적을 10 Hz로 다시 샘플하고(위치는 선형 보간, 회전은 구면 보간),
   계약 행동을 역산하고, 역산의 정확성(왕복 오차)을 계산하는 순수 파이썬 도구.
-- `schema_io.py` — `dataset_schema.yaml` 형식의 HDF5를 쓰고 검증하는 코드.
+- `schema_io.py` — `fr3_cube_stage1_handoff_20260801/mimicgen/dataset_schema.yaml` 형식의 HDF5를 쓰고
+  검증하는 코드.
 - `convert_demo.py` — 변환기 본체. 시연의 관절 기록을 시뮬레이션에 재생해 손끝
   궤적을 복원하고, 10 Hz 계약 행동으로 변환해 계약 형식 HDF5와 검증 리포트를 만든다.
 - `warmstart_replay.py` — 재생 시험기. 변환된 행동을 실기용 계약 제어기(동결 사본)에
   넣어 시뮬레이션에서 처음부터 다시 실행하고, 추적 오차와 작업 성공 여부를 잰다.
-- `uwlab_frozen/` — `frozen_payload/`에서 가져온 동결 제어기 소스의 사본. 이 덕에
+- `uwlab_frozen/` — `fr3_cube_stage1_handoff_20260801/frozen_payload/`에서 가져온 동결 제어기 소스의 사본. 이 덕에
   RL팀 코드베이스(UWLab) 전체가 없는 우리 서버에서도 계약 제어기를 실행할 수 있었다.
-- `mimicgen_inputs_supplied.yaml` — `INPUTS_REQUIRED.yaml` 질문지에 대한 답변서.
+- `mimicgen_inputs_supplied.yaml` — `fr3_cube_stage1_handoff_20260801/mimicgen/INPUTS_REQUIRED.yaml` 질문지에
+  대한 답변서.
 - `REPORT_TO_RL_20260803.md` — 아래 2.6의 측정 결과를 RL팀에 보고하는 문서(전달 대기).
 
-### 2.5 검증 A: 번역이 정확한가 — 통과
+### 2.5 1번 작업의 검증 (1/2): 번역의 정확성 — 통과
 
-서로 독립적인 세 검사를 했고 셋 다 통과했다.
+1번 작업이 제대로 됐는지는 두 갈래로 검증한다. 이 구분은
+`fr3_cube_stage1_handoff_20260801/mimicgen/ACCEPTANCE_CRITERIA.md` 체크리스트의 구성을 따른 것이다.
+
+- 첫째 갈래(이 절): 번역기가 계약 규격을 정확히 구현했는가. 체크리스트의 "왕복 최대
+  오차 보고", "베이스 좌표 wxyz 표현", "매 10 Hz 스텝의 실제 손 위치 기준" 항목이
+  여기에 해당한다.
+- 둘째 갈래(다음 절 2.6): 번역된 데모를 실기용 계약 제어기로 재생하면 어떻게 되는가.
+  체크리스트의 "재생 성공 여부와 추적 오차 보고" 항목이 여기에 해당한다.
+
+첫째 갈래로 서로 독립적인 세 검사를 했고 셋 다 통과했다.
 
 1. 왕복 검사: 궤적 → 행동 → 궤적으로 되돌렸을 때 원본과의 차이. 사람 시연 demo_0
    (20 Hz 349스텝 → 10 Hz 행동 174개) 기준 최대 오차 7×10⁻¹⁸ m, 4×10⁻¹⁷ 라디안.
@@ -150,15 +165,17 @@ RL팀의 1차 핸드오프 패키지 `fr3_cube_stage1_all_teams_handoff_20260801
    변환 결과를 완전히 다른 경로(시연에 함께 기록돼 있던 손끝 위치 관측값)와 대조했다.
    평균 1.0 cm, 최대 2.2 cm에서 일치한다.
 3. 코드 동일성 검사: 2026-08-03 RL팀이 보낸 2차 패키지
-   `fr3_mimicgen_control_handoff_20260803.tar.gz`의 제어기 소스(`runtime/actions_cfg.py`,
-   `runtime/task_space_actions.py`)와 계약 yaml이, 우리가 쓰는 사본과 바이트 단위로
+   `fr3_mimicgen_control_handoff_20260803.tar.gz`의 제어기 소스
+   (`fr3_mimicgen_control_handoff_20260803/runtime/actions_cfg.py`,
+   `fr3_mimicgen_control_handoff_20260803/runtime/task_space_actions.py`)와 계약
+   yaml(`fr3_mimicgen_control_handoff_20260803/contracts/control_contract.yaml`)이, 우리가 쓰는 사본과 바이트 단위로
    동일함을 diff로 확인했다. 우리 쪽 코드가 어긋난(drift) 곳은 없다.
 
-### 2.6 검증 B: 재생 시험 — 측정 완료, 판정은 RL팀에 요청
+### 2.6 1번 작업의 검증 (2/2): 재생 시험 — 측정 완료, 판정은 RL팀에 요청
 
-`mimicgen/ACCEPTANCE_CRITERIA.md`의 12항목 중 하나가 재생 시험이다. 원문은 "One-demo
-replay success and EE tracking error reported"(데모 1개의 재생 성공 여부와 손끝 추적
-오차를 보고할 것)다. 시험 절차는: 시연 1개를 계약 형식으로 변환하고, 변환된 행동
+둘째 갈래인 재생 시험이다. `fr3_cube_stage1_handoff_20260801/mimicgen/ACCEPTANCE_CRITERIA.md`의 해당 항목
+원문은 "One-demo replay success and EE tracking error reported"(데모 1개의 재생 성공
+여부와 손끝 추적 오차를 보고할 것)다. 시험 절차는: 시연 1개를 계약 형식으로 변환하고, 변환된 행동
 목록을 실기용 계약 제어기에 넣어 시뮬레이션에서 처음부터 다시 실행한 뒤, 로봇 손이
 원래 시연 궤적에서 얼마나 벗어나는지(추적 오차)와 큐브 쌓기를 다시 성공하는지를 잰다.
 
@@ -198,14 +215,16 @@ replay success and EE tracking error reported"(데모 1개의 재생 성공 여�
 ### 2.7 2차 패키지로 해소된 의문: `fr3_research3.usda`
 
 첫 측정에서 오차 원인을 로봇 모델 파일 차이로 의심해 RL팀이 쓰는 모델 파일
-`fr3_research3.usda`를 요청했고, 8/3 2차 패키지로 받았다. 패키지의 `START_HERE.md`가
+`fr3_research3.usda`를 요청했고, 8/3 2차 패키지로 받았다. 패키지의
+`fr3_mimicgen_control_handoff_20260803/START_HERE.md`가
 의문을 정리해 준다: 이 파일은 커스텀 로봇 모델이 아니라 NVIDIA 공식 Isaac 5.1 FR3
 자산을 그대로 가리키는 얇은 래퍼(wrapper)이고, RL 환경의 실제 차이는 모델이 아니라
 스폰·구동 설정이다 — 로봇에 대한 중력 비활성화, 물리 솔버 반복 36회, 관절 토크 한계
-87/12 Nm, 속도 한계 2.175/2.61 rad/s, 그리퍼 강성 1×10⁴ 등(`runtime/fr3_panda_gripper.py`).
+87/12 Nm, 속도 한계 2.175/2.61 rad/s, 그리퍼 강성 1×10⁴ 등
+(`fr3_mimicgen_control_handoff_20260803/runtime/fr3_panda_gripper.py`).
 이 설정 전부를 `warmstart_replay.py`에 반영해 재측정한 것이 2.6의 표다. 설정을 맞춰도
 오차 구조가 유지되므로, 오차는 설정 누락이 아니라 제어기 고유 특성이라는 결론이
-확정됐다. 2차 패키지는 저장소에 `contract/rl_handoff_20260803/`으로 보존했다.
+확정됐다. 2차 패키지는 우리 저장소에 `mimic_the_mimicgen/contract/rl_handoff_20260803/`으로 보존했다.
 
 ### 2.8 체크리스트 대비 현재 상태
 
@@ -219,29 +238,29 @@ replay success and EE tracking error reported"(데모 1개의 재생 성공 여�
 | 목표 자세를 베이스 좌표 wxyz로 표현 | 충족 |
 | 변환이 매 10 Hz 스텝의 실제 손 위치 기준 | 충족 |
 | 숨은 클리핑·스무딩 없음 | 충족 |
-| 재실행에 계약 제어 프로파일 사용 | 충족 (`cube_legacy_profile.py` 원본 함수 사용) |
+| 재실행에 계약 제어 프로파일 사용 | 충족 (`fr3_cube_stage1_handoff_20260801/common/cube_legacy_profile.py` 원본 함수 사용) |
 | 왕복 최대 오차 보고 | 충족 (7e-18 m / 4e-17 rad) |
 | 재생 성공 여부와 추적 오차 보고 | 충족 (2.6의 표: 성공=실패, 오차 5.4~10.9 cm) |
-| HDF5가 `dataset_schema.yaml` 통과 | 충족 |
+| HDF5가 `fr3_cube_stage1_handoff_20260801/mimicgen/dataset_schema.yaml` 검증 통과 | 충족 |
 | 행동 백분위·기준 범위 밖 비율 보고 | 충족 (변환 리포트에 포함) |
 | 생성물에 소스 시연 출처 보존 | 충족 |
 
 문자 그대로 읽으면 12항목 전부 충족이다. 남은 것은 해석 확인 하나다: 재생 항목의
 "success"가 측정해서 적으라는 뜻인지(그렇다면 완료), 성공해야 한다는 뜻인지(그렇다면
 2.6에서 보였듯 누구도 통과할 수 없는 기준이므로 기준 수정이 필요). 이 질문과 측정치
-전체를 담은 `REPORT_TO_RL_20260803.md`를 김재익 님께 전달해 판정을 받으면 1번이
-공식적으로 끝난다. 전달은 권지훈이 한다.
+전체를 담은 `mimic_the_mimicgen/contract/REPORT_TO_RL_20260803.md`를 RL팀에 전달해 판정을 받으면 1번이
+공식적으로 끝난다. 전달은 MimicGen팀이 한다.
 
 ## 3. 2번 — 물리 캘리브레이션 범위에서 수율 확인
 
 ### 3.1 요구와 입력 파일
 
-SysID팀의 패키지 `stage2_contact_calibration_v2`(1차 핸드오프의 `reference_payload/`
-동봉본과 동일)가 입력이다. 실물 FR3 + 그리퍼 + 테이프 감은 큐브로 측정한 접촉 물리
+SysID팀의 패키지 `stage2_contact_calibration_v2.tar.gz`가 입력이다(1차 패키지 안
+`fr3_cube_stage1_handoff_20260801/reference_payload/stage2_contact_calibration_v2.tar.gz`로도 동봉돼 있으며 동일본이다). 실물 FR3 + 그리퍼 + 테이프 감은 큐브로 측정한 접촉 물리
 값들 — 테이블-큐브·큐브-큐브·손가락-큐브 마찰, 그리퍼 힘 스케일, 큐브 질량·크기 —
 을 공칭값(가장 그럴듯한 값), 90% 구간, 넓은 범위, 그리고 상관관계를 보존한 사후분포
 샘플 2048개로 제공한다. 계약서는 "PhysX가 아닌 시뮬레이터라면 물리적 의미를 유지해
-매핑하라"고 허용한다. 김재익 님의 8/1 지시는 "최종본이 나오기 전이니, 이 범위로
+매핑하라"고 허용한다. RL팀의 8/1 지시는 "최종본이 나오기 전이니, 이 범위로
 여전히 데모 증폭이 잘 되는지 수율 테스트 정도만"이었다.
 
 ### 3.2 실험 설계
@@ -261,7 +280,8 @@ SysID팀의 패키지 `stage2_contact_calibration_v2`(1차 핸드오프의 `refe
 
 시도 수를 고정해(stack 500/arm, square 900/arm, P4는 200/400 — 총 7,600 시도) 수율의
 분모를 확보했다. 계약값의 MuJoCo 매핑(마찰 결합 규칙 등)은
-`motivation/genaudit/physics/stage2.py`와 `motivation/genaudit/envs/physics_variants.py`에
+우리 저장소 `mimic_the_mimicgen/motivation/genaudit/physics/stage2.py`와
+`mimic_the_mimicgen/motivation/genaudit/envs/physics_variants.py`에
 구현했고, 생성된 데모마다 실제 적용된 물리값을 기록해 사후 검증했다.
 
 ### 3.3 결과
@@ -288,12 +308,13 @@ SysID팀의 패키지 `stage2_contact_calibration_v2`(1차 핸드오프의 `refe
 파이프라인이 잘 도는 것만 확인했다(결과 영상: 로컬 `stage2_ablation_data/render_dr/`).
 시각 랜덤화가 실제 데이터에 반영되는 것은 3번에서다.
 
-### 3.4 산출물
+### 3.4 결론과 산출물
 
-상세 리포트 `Stage2_Physics_DGR_Ablation.md`(그림은 `stage2_figs/`), 시도별 기록은
-로컬 `robot_data/stage2_ablation_data/`. 결론: 물리 캘리브레이션을 적용한 본격 데이터
-증강에 대한 green light. 단 못 끼우기류는 마찰 민감성을, 소스 선별은 적극 활용을
-권고.
+결론: 물리 캘리브레이션을 적용한 본격 데이터 증강을 진행해도 된다. 단 못 끼우기류
+태스크는 파지 마찰 하한에서 수율이 깎이므로 주의가 필요하고, 소스 선별(잘 되는 시연만
+사용)은 수율을 1.6~2.6배 올리므로 적극 활용을 권고한다. 이 실험이 만든 파일은 리포트
+`Stage2_Physics_DGR_Ablation.md`, 그림 `stage2_figs/`, 시도별 기록
+`robot_data/stage2_ablation_data/`다.
 
 ## 4. 3번 — RGB-Action 데이터 증폭 (배경과 준비 상태; 작업은 이 보고서 이후)
 
@@ -312,10 +333,11 @@ SysID팀의 패키지 `stage2_contact_calibration_v2`(1차 핸드오프의 `refe
   시각 랜덤화의 확정 규격. 에피소드의 50%는 실측 그대로, 40%는 연구실에서 있을 법한
   변동, 10%는 넓은 변동(스트레스)이라는 혼합 분포, 카메라 3대 320×180 10 Hz 캡처
   규격, 물체별 공칭 색·재질 범위, 연구실 HDRI 조명, 적용 코드와 검증 게이트를 담고
-  있다. 무결성 검사와 사전 점검(`tools/verify_bundle.py`, `tools/preflight_contract.py`)
-  통과를 확인했고, 경량부를 `render/fr3_visual_randomization_v1/`로 보존했다. 이
+  있다. 무결성 검사와 사전 점검(패키지 안 `tools/verify_bundle.py`와
+  `tools/preflight_contract.py`) 통과를 확인했고, 문서·설정·코드 부분을 우리 저장소
+  `mimic_the_mimicgen/render/fr3_visual_randomization_v1/`로 보존했다. 이
   패키지가 온 것으로 "어떤 범위로 흔들 것인가"라는 3번의 마지막 설계 결정이 확정됐다.
-- 우리 렌더 파이프라인 `render/` — 실물 카메라 배치로 시뮬 장면을 재현 렌더링하는
+- 우리 렌더 파이프라인 `mimic_the_mimicgen/render/` — 실물 카메라 배치로 시뮬 장면을 재현 렌더링하는
   코드. 이전 작업에서 검증 완료.
 
 ### 4.3 남은 단계
@@ -325,10 +347,14 @@ SysID팀의 패키지 `stage2_contact_calibration_v2`(1차 핸드오프의 `refe
 시각 랜덤화를 걸어, ④ 계약 형식 행동과 함께 RGB-Action 데이터로 내보낸다. 서버(aidas,
 GPU 렌더링 필요)가 켜져 있어야 진행할 수 있다.
 
-## 5. 참고 문서 지도
+## 5. 이 작업이 만든 산출물 파일 목록
 
-- `contract/PROGRESS.md` — 1번과 수율 비교(4번)의 전체 과정 기록 (문제 해결 이력 포함)
-- `contract/REPORT_TO_RL_20260803.md` — RL팀 전달용 재생 시험 보고서 (전달 대기)
-- `contract/mimicgen_inputs_supplied.yaml` — RL팀 질문지에 대한 답변
-- `Stage2_Physics_DGR_Ablation.md` — 2번 상세 리포트
-- `STATUS_FR3_SIM2REAL.md` — 항목별 진행 현황판 (1~6번 + 추가 약속 4-b)
+- `mimic_the_mimicgen/contract/` 아래의 변환·검증 코드 일체 (2.4에 열거)
+- `mimic_the_mimicgen/contract/REPORT_TO_RL_20260803.md` — RL팀 전달용 재생 시험 보고서. 내용은 본
+  보고서 2.6과 동일하며, 전달 대기 상태다.
+- `mimic_the_mimicgen/contract/mimicgen_inputs_supplied.yaml` — RL팀 질문지에
+  대한 답변서. 우리 시연 데이터의 좌표계·주기·그리퍼·큐브 규약을 담는다.
+- `mimic_the_mimicgen/Stage2_Physics_DGR_Ablation.md` + `mimic_the_mimicgen/stage2_figs/` — 2번 실험
+  리포트와 그림.
+  핵심 수치는 본 보고서 3.3에 그대로 실었다.
+- `mimic_the_mimicgen/render/fr3_visual_randomization_v1/` — 3번에 쓸 시각 랜덤화 규격의 보존본.
