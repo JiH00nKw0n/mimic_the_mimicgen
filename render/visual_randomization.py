@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 
 import numpy as np
 import yaml
@@ -256,11 +257,26 @@ class VisualRandomizer:
         self.applied["episode"] = out
         return out
 
+    @staticmethod
+    def _resolve_prim_path(cam, env_prefix: str = "/World/envs/env_0") -> str:
+        """Concrete prim path for a camera sensor.
+
+        cfg.prim_path is a REGEX ('/World/envs/env_.*/Robot/...') once Isaac Lab
+        expands {ENV_REGEX_NS}; the sensor's view carries the resolved paths, so
+        prefer those and fall back to substituting the regex tail.
+        """
+        view = getattr(cam, "_view", None)
+        paths = getattr(view, "prim_paths", None) if view is not None else None
+        if paths:
+            return str(paths[0])
+        path = cam.cfg.prim_path.replace("{ENV_REGEX_NS}", env_prefix)
+        return re.sub(r"/World/envs/env_[^/]*", env_prefix, path)
+
     def _jitter_camera(self, stage, cam, d_trans, d_rotvec):
         """Perturb the camera prim's LOCAL transform (parent stays the link)."""
         from pxr import Gf, UsdGeom
 
-        for path in cam.cfg.prim_path.replace("{ENV_REGEX_NS}", "/World/envs/env_0"), :
+        for path in (self._resolve_prim_path(cam),):
             prim = stage.GetPrimAtPath(path)
             if not prim or not prim.IsValid():
                 self.skipped.append(f"camera:{path}")
@@ -282,7 +298,7 @@ class VisualRandomizer:
         from pxr import UsdGeom
 
         s = float(self.rng.uniform(*scale_range))
-        path = cam.cfg.prim_path.replace("{ENV_REGEX_NS}", "/World/envs/env_0")
+        path = self._resolve_prim_path(cam)
         prim = stage.GetPrimAtPath(path)
         if prim and prim.IsValid():
             camera = UsdGeom.Camera(prim)
