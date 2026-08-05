@@ -308,9 +308,18 @@ class VisualRandomizer:
         return round(s, 6)
 
     def _bind_preview_surface(self, prim, diffuse, roughness, metallic, mat_path):
-        """Create and bind a UsdPreviewSurface (version-stable; no Replicator)."""
-        import isaaclab.sim as sim_utils
+        """Create and bind a UsdPreviewSurface (version-stable; no Replicator).
 
+        The spawner refuses to write over an existing prim, so the previous
+        episode's material is removed first — otherwise the second episode of a
+        run dies with "A prim already exists at path".
+        """
+        import isaaclab.sim as sim_utils
+        import omni.usd
+
+        stage = omni.usd.get_context().get_stage()
+        if stage.GetPrimAtPath(mat_path).IsValid():
+            stage.RemovePrim(mat_path)
         cfg = sim_utils.PreviewSurfaceCfg(diffuse_color=tuple(diffuse),
                                           roughness=roughness, metallic=metallic)
         cfg.func(mat_path, cfg)
