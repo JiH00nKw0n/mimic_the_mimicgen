@@ -74,7 +74,16 @@ LAB_TABLE_USD = os.environ.get("LAB_TABLE_USD", "/home/ubuntu/jake/aidas/3cube_s
 DESK_Z = 0.720
 CUBE = 0.05
 ROBOT_POS = (0.72, 0.138, 0.722)
-ROBOT_ROT = (0.0, 0.0, 0.0, 1.0)
+# Robot base yaw. Isaac Lab 3.0 reads InitialStateCfg.rot as xyzw, so the
+# historical (0,0,0,1) spawns the base UNROTATED even though it was authored as
+# a wxyz 180 deg yaw. The generated demos then place the cubes BEHIND the base
+# (base -x) and MimicGen solves the task by swinging joint 1 through ~125 deg,
+# which is valid in sim but 180 deg away from the real cell (where the workspace
+# is at base +x, as the calibrated cameras confirm). Set
+# LAB_ROBOT_SPAWN_ROT=0,0,1,0 to spawn the intended 180 deg yaw.
+ROBOT_ROT = tuple(
+    float(v) for v in os.environ.get("LAB_ROBOT_SPAWN_ROT", "0,0,0,1").split(",")
+)
 BASE_XY = (0.32, 0.138)
 
 # Threshold tweaks for FR3 (Panda defaults are slightly off for the FR3 hand geometry):
