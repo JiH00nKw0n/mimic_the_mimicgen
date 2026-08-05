@@ -40,6 +40,10 @@ def main():
                     help="camera roles to keep; the visual-randomization "
                          "contract stores exactly third_person_0/1 + wrist")
     ap.add_argument("--no_compress", action="store_true")
+    ap.add_argument("--max_samples", type=int, default=0,
+                    help="pilot cap: stop once this many samples are written "
+                         "(0 = no cap). Truncates the LAST episode mid-demo, so "
+                         "use it for format/pipeline checks, not for training.")
     args = ap.parse_args()
     roles = [r.strip() for r in args.cameras.split(",") if r.strip()]
 
@@ -57,7 +61,7 @@ def main():
 
     comp = {} if args.no_compress else {
         "compression": "gzip", "compression_opts": 4, "shuffle": True}
-    kept, report = 0, {}
+    kept, report, total_written = 0, {}, 0
     names = [n for n in con["data"].keys() if n in rgb["data"]]
     missing = [n for n in con["data"].keys() if n not in rgb["data"]]
     for name in names:
@@ -75,6 +79,13 @@ def main():
         con.copy(cg, data, name=name)
         ep = data[name]
         n_keep = len(idx)
+        if args.max_samples:
+            room = args.max_samples - total_written
+            if room <= 0:
+                del data[name]
+                break
+            n_keep = min(n_keep, room)
+            idx = idx[:n_keep]
         if n_keep < n_con:
             # trim every contract track so images and actions stay 1:1
             for key in list(ep.keys()):
@@ -98,6 +109,7 @@ def main():
             arr = rg[f"obs/{key}"][()][idx]
             obs.create_dataset(key, data=arr, chunks=(1,) + arr.shape[1:], **comp)
         ep.attrs["rgb_stride"] = factor
+        total_written += int(ep.attrs["num_samples"])
         kept += 1
         report[name] = report.get(name, "") or f"ok stride={factor} T={n_keep}"
 
