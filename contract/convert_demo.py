@@ -161,13 +161,24 @@ def main():
                 # yaw180 in the lab recordings), then add the hand->TCP offset
                 # along the hand frame. Explicit numpy math — frame-convention
                 # bugs here were only visible numerically, so keep it audited.
-                rot_root = _rot_wxyz(root[t, 3:7])
-                rot_hand_w = rot_root @ _rot_wxyz(
-                    [float(v) for v in quat_b])
-                tcp = (root[t, :3]
-                       + rot_root @ np.array([float(v) for v in pos_b])
-                       + rot_hand_w @ np.asarray(HAND_T_TCP))
-                tcp_world.append(tcp.tolist())
+                # The recorded root quaternion's convention is NOT the same in
+                # every dataset: the human teleop recordings carry a wxyz-encoded
+                # 180 deg yaw, while the MimicGen-generated episodes (Isaac Lab
+                # 3.0) live in a world whose base reads as identity. Measured on
+                # gen_human_25/demo_0: identity 3.0 cm vs yaw180 91.6 cm. So
+                # reconstruct under BOTH and let the check report the better one
+                # instead of hard-coding one dataset's convention.
+                row_tcp = {}
+                for _lbl, _rot_root in (
+                        ("wxyz", _rot_wxyz(root[t, 3:7])),
+                        ("identity", np.eye(3))):
+                    _rot_hand_w = _rot_root @ _rot_wxyz(
+                        [float(v) for v in quat_b])
+                    row_tcp[_lbl] = (
+                        root[t, :3]
+                        + _rot_root @ np.array([float(v) for v in pos_b])
+                        + _rot_hand_w @ np.asarray(HAND_T_TCP)).tolist()
+                tcp_world.append(row_tcp)
                 grip.append(1.0 if float(np.abs(joints[t, 7:9]).mean())
                             > GRIPPER_OPEN_THRESHOLD else -1.0)
                 # cube poses: recorded world states -> demo's own base frame
@@ -187,10 +198,21 @@ def main():
             fk_check = None
             if "obs" in group and "eef_pos" in group["obs"]:
                 rec = group["obs/eef_pos"][()]
-                fk = np.asarray(tcp_world)
+                variants = {}
+                for _lbl in ("wxyz", "identity"):
+                    _fk = np.asarray([row[_lbl] for row in tcp_world])
+                    _n = min(len(rec), len(_fk))
+                    variants[_lbl] = (
+                        float(np.mean(np.linalg.norm(rec[:_n] - _fk[:_n], axis=1))),
+                        _fk)
+                best = min(variants, key=lambda k: variants[k][0])
+                fk = variants[best][1]
                 n = min(len(rec), len(fk))
                 errs = np.linalg.norm(rec[:n] - fk[:n], axis=1)
                 fk_check = {
+                    "root_convention": best,
+                    "root_convention_mean_m": {
+                        k: round(v[0], 5) for k, v in variants.items()},
                     "mean_m": float(np.mean(errs)),
                     "p50_m": float(np.median(errs)),
                     "p95_m": float(np.percentile(errs, 95)),
