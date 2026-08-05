@@ -16,6 +16,7 @@ mkdir -p /home/ubuntu/contract_out
 docker run --rm --gpus all --network host \
   -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=Y -e OMNI_KIT_ACCEPT_EULA=YES \
   -e LAB_TABLE_USD="${LAB_TABLE_USD:-}" \
+  -e LAB_ROBOT_SPAWN_ROT="${LAB_ROBOT_SPAWN_ROT:-0,0,1,0}" \
   -e VRAND_PROFILE="${VRAND_PROFILE:-}" \
   -e VRAND_SEED="${VRAND_SEED:-}" \
   -v "$REPO":/repo \

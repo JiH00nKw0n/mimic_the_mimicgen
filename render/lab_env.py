@@ -85,6 +85,16 @@ def build_env_cfg(device: str, table_usd: str, cameras: dict | None = None, num_
     # writeback cost is irrelevant next to RTX rendering.
     if hasattr(cfg.sim, "use_fabric"):
         cfg.sim.use_fabric = False
+    # Camera prims parented to robot links inherit the SPAWN transform, not the
+    # per-frame write_root_pose_to_sim one. The demos need a 180 deg base yaw,
+    # but Isaac Lab 3.0 reads InitialStateCfg.rot as xyzw, so the authored
+    # (0,0,0,1) spawns UNROTATED while the written root pose yaws the
+    # articulation — the cameras then look 180 deg away from the workspace
+    # (measured: fixed-camera aim point 0.99 m off the cubes, 0.15 m once the
+    # spawn agrees). Opt in from the render path only: the offline-FK and
+    # warm-start entrypoints derive constants from the spawn pose and must not
+    # see it change.
+    _spawn_rot = os.environ.get("LAB_ROBOT_SPAWN_ROT")
     if os.path.isfile(table_usd):
         cfg.scene.table = AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Table",
             init_state=AssetBaseCfg.InitialStateCfg(pos=(0, 0, 0), rot=(1, 0, 0, 0)),
@@ -104,6 +114,12 @@ def build_env_cfg(device: str, table_usd: str, cameras: dict | None = None, num_
     cfg.scene.robot = FR3_CFG.replace(
         prim_path="{ENV_REGEX_NS}/Robot",
         init_state=FR3_CFG.init_state)
+    if _spawn_rot:
+        # MUST come after cfg.scene.robot is assigned — the assignment above
+        # replaces the whole articulation cfg and would discard an earlier write
+        cfg.scene.robot.init_state = cfg.scene.robot.init_state.replace(
+            rot=tuple(float(v) for v in _spawn_rot.split(",")))
+        print(f"[lab_env] robot spawn rot override: {cfg.scene.robot.init_state.rot}")
     cfg.scene.cube_1 = _cube_cfg("Cube_1", (1.0, 0.0, 0.0), (BASE_XY[0], BASE_XY[1] - 0.10))
     cfg.scene.cube_2 = _cube_cfg("Cube_2", (0.0, 0.0, 1.0), (BASE_XY[0], BASE_XY[1]))
     cfg.scene.cube_3 = _cube_cfg("Cube_3", (1.0, 1.0, 0.0), (BASE_XY[0], BASE_XY[1] + 0.10))
