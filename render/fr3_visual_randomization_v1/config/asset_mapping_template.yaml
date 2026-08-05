@@ -1,0 +1,27 @@
+schema_version: uwlab.visual_asset_mapping.v1
+target_repository: FILL_ME
+scene_mapping:
+  robot_articulation_prim: FILL_ME
+  robot_visual_layer: assets/fr3/facelift/fr3_facelift_visual.usda
+  table_prim: FILL_ME
+  table_visual_layer: assets/table/table_scene_rgb_lab.usda
+  floor_prim: FILL_ME
+camera_mapping:
+  third_person_0:
+    target_parent_prim: FILL_ME
+    calibration_parent_semantic: robot_base
+  third_person_1:
+    target_parent_prim: FILL_ME
+    calibration_parent_semantic: robot_base
+  wrist:
+    target_parent_prim: FILL_ME
+    calibration_parent_semantic: hand_tcp
+object_mapping:
+  cube_1: FILL_ME
+  cube_2: FILL_ME
+  cube_3: FILL_ME
+environment_variables:
+  UWLAB_FR3_CAMERA_CALIBRATION: config/camera_nominal_measured_ranges.yaml
+  UWLAB_FR3_RGB_VISUAL_USD: assets/fr3/facelift/fr3_facelift_visual.usda
+  UWLAB_FR3_RGB_TABLE_USD: assets/table/table_scene_rgb_lab.usda
+  UWLAB_FR3_LAB_CARPET_TEXTURE: resources/textures/Carpet_Gray_BaseColor.png

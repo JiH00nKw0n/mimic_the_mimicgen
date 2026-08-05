@@ -1,0 +1,861 @@
+schema_version: stage2.fr3_rigid_d405_overlay_refinement_result.v1
+condition_id: fr3_d405_rigid_mount_v1
+config_id: fr3_rigid_d405_overlay_refinement_v1
+fit_sessions:
+- candidate_pose_01
+- candidate_pose_04
+- candidate_pose_05
+- candidate_pose_08
+- candidate_pose_09
+- candidate_pose_10
+- candidate_pose_11
+- candidate_pose_12
+- candidate_pose_14
+- candidate_pose_16
+- candidate_pose_18
+- candidate_pose_20
+independent_holdout_sessions:
+- candidate_pose_06
+- candidate_pose_07
+- candidate_pose_13
+- candidate_pose_15
+- candidate_pose_19
+factory_camera_matrix:
+- - 658.275146484375
+  - 0.0
+  - 627.118408203125
+- - 0.0
+  - 659.4003295898438
+  - 357.9600830078125
+- - 0.0
+  - 0.0
+  - 1.0
+iterations:
+- iteration: 0
+  label: rigid_handeye_nominal
+  optimizer:
+    success: true
+    message: input hand-eye baseline
+    cost: 0.0
+    function_evaluations: 0
+    extrinsic_translation_delta_m: 0.0
+    extrinsic_rotation_delta_deg: 0.0
+  result:
+    EE_T_camera:
+    - - -0.7288743464167861
+      - 0.5570913452428177
+      - -0.3979841959061313
+      - 0.08247402106061835
+    - - -0.6846466247064462
+      - -0.5940023829607343
+      - 0.4223981158990164
+      - -0.07179364825654633
+    - - -0.0010892261347390242
+      - 0.5803536870672195
+      - 0.8143638078241875
+      - -0.08150171285370218
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    base_T_board:
+    - - -0.9999854830463942
+      - 0.005027854586007005
+      - 0.0019376208946060506
+      - 0.5670408297893039
+    - - 0.005034121917387708
+      - 0.9999820689489615
+      - 0.003243362001862284
+      - 0.16058794210857985
+    - - -0.001921278998511752
+      - 0.0032530691379397017
+      - -0.9999928630886291
+      - 0.019629821638154642
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_matrix:
+    - - 658.275146484375
+      - 0.0
+      - 627.118408203125
+    - - 0.0
+      - 659.4003295898438
+      - 357.9600830078125
+    - - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      fx: 658.275146484375
+      fy: 659.4003295898438
+      ppx: 627.118408203125
+      ppy: 357.9600830078125
+  fit_metrics:
+    session_count: 12
+    corner_count: 271
+    rmse_px: 1.252971393695534
+    mean_px: 1.1057770037982961
+    median_px: 1.0888223060925544
+    p95_px: 2.360612239293792
+    maximum_px: 3.34380802341337
+    per_session:
+    - session: candidate_pose_01
+      corner_count: 24
+      rmse_px: 1.646781124102167
+      mean_px: 1.510472030047354
+      median_px: 1.3121218324746917
+      p95_px: 2.611897317231174
+      maximum_px: 2.951936550448278
+    - session: candidate_pose_04
+      corner_count: 22
+      rmse_px: 0.8675466550048418
+      mean_px: 0.8516645611940435
+      median_px: 0.8380356855418309
+      p95_px: 1.1646001931649312
+      maximum_px: 1.2515958340622397
+    - session: candidate_pose_05
+      corner_count: 24
+      rmse_px: 1.493720874810763
+      mean_px: 1.4852336901748293
+      median_px: 1.5097467983922495
+      p95_px: 1.692327708912193
+      maximum_px: 1.7563659536635248
+    - session: candidate_pose_08
+      corner_count: 24
+      rmse_px: 1.2005581333629147
+      mean_px: 1.1924043022094126
+      median_px: 1.192288390438036
+      p95_px: 1.4110725085364275
+      maximum_px: 1.5178820322108735
+    - session: candidate_pose_09
+      corner_count: 22
+      rmse_px: 1.1902951258576315
+      mean_px: 1.165560991427005
+      median_px: 1.238807902303156
+      p95_px: 1.4145495613080383
+      maximum_px: 1.4250153894966342
+    - session: candidate_pose_10
+      corner_count: 24
+      rmse_px: 1.330443300678462
+      mean_px: 1.3262292687733763
+      median_px: 1.3090748210545602
+      p95_px: 1.5060673556834794
+      maximum_px: 1.574562135198896
+    - session: candidate_pose_11
+      corner_count: 24
+      rmse_px: 1.2430221022458336
+      mean_px: 1.2221214226287316
+      median_px: 1.213944633263869
+      p95_px: 1.5680193428893343
+      maximum_px: 1.6938804634271465
+    - session: candidate_pose_12
+      corner_count: 22
+      rmse_px: 0.6203148975488888
+      mean_px: 0.6042825339653974
+      median_px: 0.6150649063570384
+      p95_px: 0.8102887368298431
+      maximum_px: 0.8911587718340567
+    - session: candidate_pose_14
+      corner_count: 24
+      rmse_px: 0.49101380860864957
+      mean_px: 0.44267049524216334
+      median_px: 0.46657854863292114
+      p95_px: 0.7258299636821816
+      maximum_px: 1.000358173224337
+    - session: candidate_pose_16
+      corner_count: 21
+      rmse_px: 2.364535620806911
+      mean_px: 2.3344467142293333
+      median_px: 2.3617480981601653
+      p95_px: 2.9805498817841176
+      maximum_px: 3.34380802341337
+    - session: candidate_pose_18
+      corner_count: 24
+      rmse_px: 0.3683670093029904
+      mean_px: 0.34322546053935726
+      median_px: 0.3244332469436148
+      p95_px: 0.6241160461943277
+      maximum_px: 0.664190458337343
+    - session: candidate_pose_20
+      corner_count: 16
+      rmse_px: 0.7911500074781418
+      mean_px: 0.7770280659284438
+      median_px: 0.797421621743841
+      p95_px: 0.9764076642529733
+      maximum_px: 1.027271077340499
+  holdout_metrics:
+    session_count: 5
+    corner_count: 118
+    rmse_px: 1.9230093986210879
+    mean_px: 1.7982509762624
+    median_px: 1.6976385281463053
+    p95_px: 2.8885287107345694
+    maximum_px: 4.769993559604228
+    per_session:
+    - session: candidate_pose_06
+      corner_count: 24
+      rmse_px: 1.7470874230432794
+      mean_px: 1.734482958743226
+      median_px: 1.7929083879240548
+      p95_px: 1.973495235158943
+      maximum_px: 1.9959898370722005
+    - session: candidate_pose_07
+      corner_count: 24
+      rmse_px: 1.563188791755014
+      mean_px: 1.5521812415476788
+      median_px: 1.510887575349889
+      p95_px: 1.8835026279237126
+      maximum_px: 1.9364660105757243
+    - session: candidate_pose_13
+      corner_count: 24
+      rmse_px: 2.4606538519732304
+      mean_px: 2.2256059664168153
+      median_px: 1.9520952983457798
+      p95_px: 3.9465244920093228
+      maximum_px: 4.769993559604228
+    - session: candidate_pose_15
+      corner_count: 22
+      rmse_px: 1.1720112284885793
+      mean_px: 1.1083641545328418
+      median_px: 1.1146847836472642
+      p95_px: 1.634368813030587
+      maximum_px: 1.6518830077166315
+    - session: candidate_pose_19
+      corner_count: 24
+      rmse_px: 2.3177204617777347
+      mean_px: 2.3131299915939745
+      median_px: 2.3480502354595614
+      p95_px: 2.48253067599015
+      maximum_px: 2.573333456344796
+  inlier_screening: null
+  holdout_rmse_improvement_from_previous_px: 0.0
+  quality:
+    holdout_rmse_passed: true
+    holdout_p95_passed: true
+    per_scene_p95_passed: true
+- iteration: 1
+  label: fixed_factory_intrinsics
+  optimizer:
+    success: true
+    message: '`ftol` termination condition is satisfied.'
+    cost: 72.7375172256126
+    function_evaluations: 9
+    extrinsic_translation_delta_m: 0.0020798803042392133
+    extrinsic_rotation_delta_deg: 0.20277564514475552
+  result:
+    EE_T_camera:
+    - - -0.7296029674547325
+      - 0.5569764631348322
+      - -0.39680817707686006
+      - 0.08234524466372842
+    - - -0.6838686386173628
+      - -0.5927041168135865
+      - 0.42547093323499846
+      - -0.07379523273909878
+    - - 0.0017874554211562087
+      - 0.5817895233037791
+      - 0.8133374180357608
+      - -0.08095127822654699
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    base_T_board:
+    - - -0.9999879326559016
+      - 0.0048954970888767805
+      - -0.0004106711925946091
+      - 0.5673893123370863
+    - - 0.004895721188136452
+      - 0.9999878665678816
+      - -0.0005464714670645717
+      - 0.16113319194584858
+    - - 0.000407990960267402
+      - -0.0005484754042642814
+      - -0.9999997663590261
+      - 0.01878736538023968
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_matrix:
+    - - 658.275146484375
+      - 0.0
+      - 627.118408203125
+    - - 0.0
+      - 659.4003295898438
+      - 357.9600830078125
+    - - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      fx: 658.275146484375
+      fy: 659.4003295898438
+      ppx: 627.118408203125
+      ppy: 357.9600830078125
+  fit_metrics:
+    session_count: 12
+    corner_count: 271
+    rmse_px: 0.9815345494164822
+    mean_px: 0.8058856611586541
+    median_px: 0.7005538246744488
+    p95_px: 1.6295146536770233
+    maximum_px: 3.3861118300652704
+    per_session:
+    - session: candidate_pose_01
+      corner_count: 24
+      rmse_px: 1.9057798137285011
+      mean_px: 1.5570938960523517
+      median_px: 1.1980070820005455
+      p95_px: 3.3084976033575044
+      maximum_px: 3.3861118300652704
+    - session: candidate_pose_04
+      corner_count: 22
+      rmse_px: 1.099278862698058
+      mean_px: 1.089286998505162
+      median_px: 1.0862936172644027
+      p95_px: 1.3372027032953793
+      maximum_px: 1.4386609771073335
+    - session: candidate_pose_05
+      corner_count: 24
+      rmse_px: 1.2995515095019965
+      mean_px: 1.26798656689163
+      median_px: 1.310822534611303
+      p95_px: 1.635382615910596
+      maximum_px: 1.655898920938022
+    - session: candidate_pose_08
+      corner_count: 24
+      rmse_px: 0.570138861434756
+      mean_px: 0.5032881691448908
+      median_px: 0.44342272355090245
+      p95_px: 0.9492214351588025
+      maximum_px: 0.9738405812321286
+    - session: candidate_pose_09
+      corner_count: 22
+      rmse_px: 0.46068046294476594
+      mean_px: 0.44254551136614195
+      median_px: 0.43177143477642077
+      p95_px: 0.6952565373265083
+      maximum_px: 0.7357382858065827
+    - session: candidate_pose_10
+      corner_count: 24
+      rmse_px: 0.9128738406919068
+      mean_px: 0.8899922241956562
+      median_px: 0.9358361131382267
+      p95_px: 1.2402663039859732
+      maximum_px: 1.2618582891931738
+    - session: candidate_pose_11
+      corner_count: 24
+      rmse_px: 0.7459836008033247
+      mean_px: 0.6915159587340942
+      median_px: 0.6763501065018352
+      p95_px: 0.9911684027251578
+      maximum_px: 1.6205980632724994
+    - session: candidate_pose_12
+      corner_count: 22
+      rmse_px: 0.39344387390232316
+      mean_px: 0.33789976159246854
+      median_px: 0.29710598696854995
+      p95_px: 0.6247328011825888
+      maximum_px: 0.6528229261534307
+    - session: candidate_pose_14
+      corner_count: 24
+      rmse_px: 0.8755097448502424
+      mean_px: 0.7264151107804048
+      median_px: 0.49513654895541254
+      p95_px: 1.550956937613778
+      maximum_px: 1.7927502322743023
+    - session: candidate_pose_16
+      corner_count: 21
+      rmse_px: 1.0294416524799046
+      mean_px: 0.9569662144484793
+      median_px: 0.9406257514313052
+      p95_px: 1.53989350641311
+      maximum_px: 1.7143396929766639
+    - session: candidate_pose_18
+      corner_count: 24
+      rmse_px: 0.39265473573181503
+      mean_px: 0.35780482544386
+      median_px: 0.34799574443608844
+      p95_px: 0.59109259658343
+      maximum_px: 0.8529955274629464
+    - session: candidate_pose_20
+      corner_count: 16
+      rmse_px: 0.9088379556075447
+      mean_px: 0.8316432292840555
+      median_px: 0.9164519366554551
+      p95_px: 1.287633078208882
+      maximum_px: 1.2880453503078626
+  holdout_metrics:
+    session_count: 5
+    corner_count: 118
+    rmse_px: 1.6354191369712658
+    mean_px: 1.383947380045567
+    median_px: 1.2400011908533193
+    p95_px: 2.798729720255222
+    maximum_px: 5.437537587425621
+    per_session:
+    - session: candidate_pose_06
+      corner_count: 24
+      rmse_px: 1.0339615776312083
+      mean_px: 0.9706279537894517
+      median_px: 1.0286103367760813
+      p95_px: 1.5058743242870478
+      maximum_px: 1.574066320740759
+    - session: candidate_pose_07
+      corner_count: 24
+      rmse_px: 0.7661532981505943
+      mean_px: 0.7161404457546551
+      median_px: 0.7440287057564849
+      p95_px: 1.0100992103159472
+      maximum_px: 1.3241688164650662
+    - session: candidate_pose_13
+      corner_count: 24
+      rmse_px: 2.538740887708259
+      mean_px: 2.1814893604834134
+      median_px: 1.8453819442916968
+      p95_px: 4.275713343070505
+      maximum_px: 5.437537587425621
+    - session: candidate_pose_15
+      corner_count: 22
+      rmse_px: 1.195681976516958
+      mean_px: 1.1186193908913316
+      median_px: 1.0520815568168786
+      p95_px: 1.8272093983577424
+      maximum_px: 1.8918730755234492
+    - session: candidate_pose_19
+      corner_count: 24
+      rmse_px: 1.933469842873592
+      mean_px: 1.9107490835461316
+      median_px: 1.9608402294678682
+      p95_px: 2.3285237934972667
+      maximum_px: 2.3572353092211826
+  inlier_screening: null
+  holdout_rmse_improvement_from_previous_px: 0.28759026164982204
+  quality:
+    holdout_rmse_passed: true
+    holdout_p95_passed: true
+    per_scene_p95_passed: true
+- iteration: 2
+  label: bounded_fov_and_principal_point
+  optimizer:
+    success: true
+    message: '`ftol` termination condition is satisfied.'
+    cost: 44.47225144303131
+    function_evaluations: 24
+    extrinsic_translation_delta_m: 0.003
+    extrinsic_rotation_delta_deg: 0.17207668420233227
+  result: &id001
+    EE_T_camera:
+    - - -0.7273651635035532
+      - 0.5572095235663739
+      - -0.40057142405366775
+      - 0.08146046376132608
+    - - -0.6862453045017024
+      - -0.5928866846402112
+      - 0.42137010006134
+      - -0.0732052817914935
+    - - -0.002702030868492595
+      - 0.581380190601015
+      - 0.8136275394834617
+      - -0.07905631056285843
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    base_T_board:
+    - - -0.999984755461051
+      - 0.0055031594858892365
+      - 0.00045175344549581824
+      - 0.5671904691164967
+    - - 0.005503823350375812
+      - 0.999983756145459
+      - 0.0014816793674109273
+      - 0.1611029115556394
+    - - -0.00044359218941274724
+      - 0.0014841431510540328
+      - -0.999998800271819
+      - 0.018671067342068567
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_matrix:
+    - - 654.6155015049354
+      - 0.0
+      - 631.5455770865674
+    - - 0.0
+      - 656.5534088357522
+      - 358.9201539953889
+    - - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      fx: 654.6155015049354
+      fy: 656.5534088357522
+      ppx: 631.5455770865674
+      ppy: 358.9201539953889
+  fit_metrics:
+    session_count: 12
+    corner_count: 271
+    rmse_px: 0.6953545646035686
+    mean_px: 0.5872574098489363
+    median_px: 0.5169496618079105
+    p95_px: 1.4570068995838419
+    maximum_px: 2.1113625601434154
+    per_session:
+    - session: candidate_pose_01
+      corner_count: 24
+      rmse_px: 0.6756767230686815
+      mean_px: 0.5280865938660534
+      median_px: 0.3445434852844379
+      p95_px: 1.4113281393816786
+      maximum_px: 1.5769973171406553
+    - session: candidate_pose_04
+      corner_count: 22
+      rmse_px: 0.4033389732594924
+      mean_px: 0.36568616779302876
+      median_px: 0.36886675104701494
+      p95_px: 0.62189495415628
+      maximum_px: 0.7113941118796983
+    - session: candidate_pose_05
+      corner_count: 24
+      rmse_px: 0.5868033507479493
+      mean_px: 0.5513140349318386
+      median_px: 0.5635473507263413
+      p95_px: 0.8418428197635007
+      maximum_px: 0.8650999848728669
+    - session: candidate_pose_08
+      corner_count: 24
+      rmse_px: 0.45163229214879574
+      mean_px: 0.4313231377481926
+      median_px: 0.4368279788671354
+      p95_px: 0.5969398842715424
+      maximum_px: 0.6227432363769886
+    - session: candidate_pose_09
+      corner_count: 22
+      rmse_px: 0.5486735321353458
+      mean_px: 0.5085150600096673
+      median_px: 0.48139670351367964
+      p95_px: 0.7814471815746719
+      maximum_px: 1.1492178911155742
+    - session: candidate_pose_10
+      corner_count: 24
+      rmse_px: 0.6614609940796283
+      mean_px: 0.6410861828440062
+      median_px: 0.6707857850981913
+      p95_px: 0.9030042950841783
+      maximum_px: 0.9772684381978667
+    - session: candidate_pose_11
+      corner_count: 24
+      rmse_px: 0.7546009776138232
+      mean_px: 0.7166270234819327
+      median_px: 0.6719185584556264
+      p95_px: 0.9695002260740939
+      maximum_px: 1.4644419846612602
+    - session: candidate_pose_12
+      corner_count: 22
+      rmse_px: 0.37062836407765143
+      mean_px: 0.3332073976678067
+      median_px: 0.3070333253163692
+      p95_px: 0.5975477310499103
+      maximum_px: 0.6047590101189421
+    - session: candidate_pose_14
+      corner_count: 24
+      rmse_px: 0.7637798987970892
+      mean_px: 0.6335944530362768
+      median_px: 0.46719111629307924
+      p95_px: 1.3336339640587331
+      maximum_px: 1.5795171925065885
+    - session: candidate_pose_16
+      corner_count: 21
+      rmse_px: 0.9693277930110616
+      mean_px: 0.8018355205082686
+      median_px: 0.6560564541491531
+      p95_px: 1.7308086577363666
+      maximum_px: 1.8020450153586143
+    - session: candidate_pose_18
+      corner_count: 24
+      rmse_px: 0.574884435467924
+      mean_px: 0.538525099546238
+      median_px: 0.5546579668298232
+      p95_px: 0.7792122314686315
+      maximum_px: 1.0087310426533311
+    - session: candidate_pose_20
+      corner_count: 16
+      rmse_px: 1.319615494587002
+      mean_px: 1.1732416104455061
+      median_px: 1.2243367967551486
+      p95_px: 1.9998992068688968
+      maximum_px: 2.1113625601434154
+  holdout_metrics:
+    session_count: 5
+    corner_count: 118
+    rmse_px: 1.19678482492098
+    mean_px: 1.0899600029571737
+    median_px: 0.9958919115499012
+    p95_px: 1.9095549761931514
+    maximum_px: 3.041447279260393
+    per_session:
+    - session: candidate_pose_06
+      corner_count: 24
+      rmse_px: 0.753538463661576
+      mean_px: 0.7235963250798543
+      median_px: 0.8053593565032962
+      p95_px: 1.0166025377404078
+      maximum_px: 1.0806282573191892
+    - session: candidate_pose_07
+      corner_count: 24
+      rmse_px: 0.7407860874819236
+      mean_px: 0.7234671641577474
+      median_px: 0.6883691711402753
+      p95_px: 0.9902724810912215
+      maximum_px: 1.184766223172989
+    - session: candidate_pose_13
+      corner_count: 24
+      rmse_px: 1.5485956361195048
+      mean_px: 1.3920085467797865
+      median_px: 1.1820761031130738
+      p95_px: 2.4969170043117375
+      maximum_px: 3.041447279260393
+    - session: candidate_pose_15
+      corner_count: 22
+      rmse_px: 1.3695894622804847
+      mean_px: 1.3108407440268393
+      median_px: 1.3005169672590426
+      p95_px: 1.877419373542656
+      maximum_px: 1.8930754781365755
+    - session: candidate_pose_19
+      corner_count: 24
+      rmse_px: 1.3445885557618522
+      mean_px: 1.318293963164114
+      median_px: 1.3416168950214318
+      p95_px: 1.726434214846653
+      maximum_px: 1.7479291723421069
+  inlier_screening: null
+  holdout_rmse_improvement_from_previous_px: 0.4386343120502858
+  quality:
+    holdout_rmse_passed: true
+    holdout_p95_passed: true
+    per_scene_p95_passed: true
+- iteration: 3
+  label: robust_corner_inlier_refit
+  optimizer:
+    success: true
+    message: '`ftol` termination condition is satisfied.'
+    cost: 32.61597781038429
+    function_evaluations: 10
+    extrinsic_translation_delta_m: 0.003
+    extrinsic_rotation_delta_deg: 0.236856552957244
+  result:
+    EE_T_camera:
+    - - -0.7270633576340158
+      - 0.5568267876828765
+      - -0.4016500995950574
+      - 0.0815971905339622
+    - - -0.6865638200928582
+      - -0.5922175522740307
+      - 0.421792000538247
+      - -0.07312204051549488
+    - - -0.002999154122759251
+      - 0.5824279348531662
+      - 0.8128768084877456
+      - -0.07895877317020801
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    base_T_board:
+    - - -0.9999861541144286
+      - 0.005243577859383094
+      - 0.00044325011680713565
+      - 0.5671991526363296
+    - - 0.005244138368589185
+      - 0.9999854391560179
+      - 0.00127298417765158
+      - 0.16115817634688265
+    - - -0.0004365686710620611
+      - 0.0012752910170027525
+      - -0.9999990915198957
+      - 0.018704158104357764
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_matrix:
+    - - 654.4547349928404
+      - 0.0
+      - 631.5985664924999
+    - - 0.0
+      - 656.502368815898
+      - 358.18197884901235
+    - - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      fx: 654.4547349928404
+      fy: 656.502368815898
+      ppx: 631.5985664924999
+      ppy: 358.18197884901235
+  fit_metrics:
+    session_count: 12
+    corner_count: 271
+    rmse_px: 0.7159558436380632
+    mean_px: 0.5857041709691633
+    median_px: 0.4947361088774611
+    p95_px: 1.4938511342010365
+    maximum_px: 2.2513432892355834
+    per_session:
+    - session: candidate_pose_01
+      corner_count: 24
+      rmse_px: 0.6842537456760736
+      mean_px: 0.5246913082094959
+      median_px: 0.37395721261489856
+      p95_px: 1.4318931089016325
+      maximum_px: 1.6508681021776332
+    - session: candidate_pose_04
+      corner_count: 22
+      rmse_px: 0.3930730237362656
+      mean_px: 0.3510999359029688
+      median_px: 0.3040064717145028
+      p95_px: 0.6317019552608024
+      maximum_px: 0.7092794083543015
+    - session: candidate_pose_05
+      corner_count: 24
+      rmse_px: 0.5405954959075011
+      mean_px: 0.48774625220077134
+      median_px: 0.5095019841072504
+      p95_px: 0.8055533963156065
+      maximum_px: 0.825182834668218
+    - session: candidate_pose_08
+      corner_count: 24
+      rmse_px: 0.42261628266061796
+      mean_px: 0.401124046756113
+      median_px: 0.40729312196094597
+      p95_px: 0.5732228263638519
+      maximum_px: 0.5862849911348592
+    - session: candidate_pose_09
+      corner_count: 22
+      rmse_px: 0.4902954059177128
+      mean_px: 0.4442274243681357
+      median_px: 0.4082287667352923
+      p95_px: 0.7262300040274354
+      maximum_px: 1.117720057894192
+    - session: candidate_pose_10
+      corner_count: 24
+      rmse_px: 0.6557839858131362
+      mean_px: 0.6366759210037353
+      median_px: 0.6697483295567258
+      p95_px: 0.9024922827429785
+      maximum_px: 0.9774854800630666
+    - session: candidate_pose_11
+      corner_count: 24
+      rmse_px: 0.6958571507346577
+      mean_px: 0.6527206768966578
+      median_px: 0.6236708239811287
+      p95_px: 0.9006325196203125
+      maximum_px: 1.3973475764030487
+    - session: candidate_pose_12
+      corner_count: 22
+      rmse_px: 0.39685848497168486
+      mean_px: 0.34878289860888434
+      median_px: 0.32673255896099496
+      p95_px: 0.6669677009258371
+      maximum_px: 0.6830736628162136
+    - session: candidate_pose_14
+      corner_count: 24
+      rmse_px: 0.7071204427254715
+      mean_px: 0.578383477372544
+      median_px: 0.4355446079099806
+      p95_px: 1.2401000899875456
+      maximum_px: 1.4978514491519395
+    - session: candidate_pose_16
+      corner_count: 21
+      rmse_px: 1.158967791971593
+      mean_px: 0.9831082241421204
+      median_px: 0.7199044688394602
+      p95_px: 2.0765136690281842
+      maximum_px: 2.1185099438667985
+    - session: candidate_pose_18
+      corner_count: 24
+      rmse_px: 0.6194253192236039
+      mean_px: 0.5722674710185313
+      median_px: 0.5835224226740282
+      p95_px: 0.8838894044275004
+      maximum_px: 1.1082223642659927
+    - session: candidate_pose_20
+      corner_count: 16
+      rmse_px: 1.4331781972194333
+      mean_px: 1.2764695154569132
+      median_px: 1.354182107988666
+      p95_px: 2.1767916664098426
+      maximum_px: 2.2513432892355834
+  holdout_metrics:
+    session_count: 5
+    corner_count: 118
+    rmse_px: 1.2580293743575177
+    mean_px: 1.1650322103482957
+    median_px: 1.0599843282931625
+    p95_px: 1.9844283879516729
+    maximum_px: 3.0244328149580597
+    per_session:
+    - session: candidate_pose_06
+      corner_count: 24
+      rmse_px: 0.8463437939912865
+      mean_px: 0.8261542295852333
+      median_px: 0.8700090429152154
+      p95_px: 1.089573775752742
+      maximum_px: 1.1380402376223782
+    - session: candidate_pose_07
+      corner_count: 24
+      rmse_px: 0.853808373712843
+      mean_px: 0.8392410089854723
+      median_px: 0.8084636506914229
+      p95_px: 1.1059387439594337
+      maximum_px: 1.2980026076308608
+    - session: candidate_pose_13
+      corner_count: 24
+      rmse_px: 1.596992827727104
+      mean_px: 1.4547402328187484
+      median_px: 1.2629516573480797
+      p95_px: 2.5113827439466823
+      maximum_px: 3.0244328149580597
+    - session: candidate_pose_15
+      corner_count: 22
+      rmse_px: 1.4296156452295854
+      mean_px: 1.3650786656561256
+      median_px: 1.3659986703293336
+      p95_px: 1.9527104206677715
+      maximum_px: 1.977289540184977
+    - session: candidate_pose_19
+      corner_count: 24
+      rmse_px: 1.3828037608593122
+      mean_px: 1.3566174526382202
+      median_px: 1.396289942108806
+      p95_px: 1.7781517171163166
+      maximum_px: 1.7793411399990708
+  inlier_screening:
+    threshold_px: 1.3656300288632193
+    median_px: 0.5169496618079105
+    mad_px: 0.19080902177600362
+    retained_corners: 255
+    total_corners: 271
+  holdout_rmse_improvement_from_previous_px: -0.061244549436537676
+  quality:
+    holdout_rmse_passed: true
+    holdout_p95_passed: true
+    per_scene_p95_passed: true
+selected_iteration: 2
+selected_label: bounded_fov_and_principal_point
+selected_result: *id001
+quality_gates:
+  maximum_holdout_rmse_px: 2.0
+  maximum_holdout_p95_px: 3.0
+  maximum_per_scene_p95_px: 5.0
+  maximum_scene_regression_px: 2.0
+  convergence_improvement_px: 0.05
+status: passed
+interpretation:
+  fit_only_updates: true
+  holdout_used_for_parameter_updates: false
+  full_scene_edges: diagnostic only because room, cable, mount, and exact fingertip
+    geometry are not fully represented in Isaac

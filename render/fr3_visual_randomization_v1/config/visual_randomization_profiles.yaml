@@ -1,0 +1,79 @@
+schema_version: uwlab.fr3_visual_randomization.v1
+task: fr3_three_cube_stack
+capture:
+  width: 320
+  height: 180
+  aspect_ratio: "16:9"
+  fps: 10
+  codec: h264
+  pixel_format: yuv420p
+  cameras: [third_person_0, third_person_1, wrist]
+mixture:
+  nominal_lab: 0.50
+  lab_variation: 0.40
+  stress_tail: 0.10
+profiles:
+  nominal_lab:
+    color_scales: [0.965, 1.0, 1.035]
+    hdri: resources/hdri/studio_small_04_1k.hdr
+    dome_light_intensity: 1100.0
+  lab_variation:
+    color_scales: [0.90, 1.0, 1.10]
+    hdri: resources/hdri/studio_small_07_1k.hdr
+    dome_light_intensity: 1350.0
+  stress_tail:
+    color_scales: [0.82, 1.0, 1.18]
+    hdri: resources/hdri/empty_workshop_1k.hdr
+    dome_light_intensity: 1650.0
+nominal_colors_rgb:
+  gripper: [0.93, 0.93, 0.91]
+  cube_1: [0.72, 0.06, 0.04]
+  cube_2: [0.03, 0.17, 0.55]
+  cube_3: [0.04, 0.04, 0.04]
+  table: [0.84, 0.83, 0.77]
+  curtain_side_back: [0.48, 0.49, 0.48]
+  curtain_front: [0.88, 0.87, 0.83]
+materials:
+  gripper_and_cubes:
+    roughness: [0.25, 0.75]
+    metallic: [0.0, 0.03]
+    specular: [0.18, 0.50]
+  table:
+    roughness: [0.45, 0.88]
+    metallic: [0.0, 0.05]
+    specular: [0.18, 0.50]
+  curtain_side_back:
+    roughness: [0.72, 1.0]
+    metallic: [0.0, 0.02]
+    specular: [0.08, 0.25]
+  curtain_front:
+    roughness: [0.65, 0.96]
+    metallic: [0.0, 0.01]
+    specular: [0.08, 0.30]
+floor:
+  scope: process_startup
+  texture: resources/textures/Carpet_Gray_BaseColor.png
+  diffuse_tint_grayscale: [0.72, 0.92]
+  fallback_color_rgb: [0.42, 0.43, 0.42]
+  texture_scale: [1.5, 2.5]
+  roughness: [0.88, 1.0]
+  metallic: [0.0, 0.01]
+  specular: [0.05, 0.18]
+camera_randomization:
+  source: config/camera_nominal_measured_ranges.yaml
+  pose_scope: episode_reset
+  focal_scope: episode_reset
+  profiles_share_same_measured_range: true
+scope_contract:
+  profile_selection: process
+  hdri_and_dome_light: process
+  global_floor: process_startup
+  camera_pose_and_focal: episode_reset
+  object_and_local_materials: episode_reset
+  mid_episode_changes_allowed: false
+gates:
+  max_foreign_pixels_per_camera_env: 0
+  min_rgb_std: 10.0
+  require_complete_instance_id_mapping: true
+  require_identity_preservation: true
+

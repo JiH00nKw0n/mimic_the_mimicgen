@@ -1,0 +1,214 @@
+schema_version: stage2.fr3_camera_nominal_measured_ranges.v2
+status: measured_team_handoff
+description: >
+  FR3 camera nominal calibration and measured uncertainty envelopes. The
+  executable ranges below come only from this installation's repeated
+  measurements or bounded overlay refinement. They are not copied from a
+  paper and are not Bayesian credible intervals.
+
+conventions:
+  matrix: column_vectors_p_parent_equals_parent_T_child_times_p_child
+  optical_frame: RealSense_OpenCV_X_right_Y_down_Z_forward
+  length: meter
+  angle: degree
+  intrinsics: pixel
+  pose_delta:
+    translation: uniform_ball_volume_in_parent_frame
+    rotation: uniform_rotation_vector_ball_in_parent_frame
+  sampling: once_per_environment_or_episode_and_constant_across_frame_history
+
+nominal:
+  fixed_d435:
+    source: fixed_camera_nominal.yaml
+    parent_frame: fr3v2_link0
+    roles: [third_person_0, third_person_1, third_person_2]
+    status: measured_extrinsics_passed_pending_refreshed_full_scene_overlay
+    by_role:
+      third_person_0:
+        serial: "405622073775"
+        model: Intel RealSense D435
+        parent_T_camera_optical:
+          - [-0.6771122278294217, -0.42225278272659805, 0.6026787024638601, -0.09331517479057534]
+          - [-0.7358203564954122, 0.37809352859553313, -0.5617950574730465, 0.5898548246216894]
+          - [0.009350609116104747, -0.8238615606482823, -0.5667139445922738, 0.8939611703683683]
+          - [0.0, 0.0, 0.0, 1.0]
+        intrinsics:
+          width: 1280
+          height: 720
+          fx: 905.8136596679688
+          fy: 905.0765991210938
+          ppx: 653.3133544921875
+          ppy: 367.2752990722656
+          distortion_model: distortion.inverse_brown_conrady
+          coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+      third_person_1:
+        serial: "405622072503"
+        model: Intel RealSense D435
+        parent_T_camera_optical:
+          - [0.6794401763624509, -0.5194930709963901, 0.5181582730511033, 0.12026784387274411]
+          - [-0.727046407217115, -0.3815642050215267, 0.5707996839513627, -0.4871925539620426]
+          - [-0.09881583120759097, -0.7645493487231745, -0.6369456215955354, 0.7098765261109753]
+          - [0.0, 0.0, 0.0, 1.0]
+        intrinsics:
+          width: 1280
+          height: 720
+          fx: 906.5128173828125
+          fy: 906.0864868164062
+          ppx: 642.765380859375
+          ppy: 380.9598388671875
+          distortion_model: distortion.inverse_brown_conrady
+          coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+      third_person_2:
+        serial: "401622073398"
+        model: Intel RealSense D435
+        parent_T_camera_optical:
+          - [0.011671350827123755, 0.18845184694449357, -0.982013075754635, 1.5361225387640702]
+          - [0.9999276278326998, -0.005066196073224366, 0.010912046289151933, -0.014012480470567903]
+          - [-0.002918675511108637, -0.9820693636605085, -0.18849733762762813, 0.48604233347468173]
+          - [0.0, 0.0, 0.0, 1.0]
+        intrinsics:
+          width: 1280
+          height: 720
+          fx: 911.1847534179688
+          fy: 910.7587280273438
+          ppx: 656.52685546875
+          ppy: 369.46844482421875
+          distortion_model: distortion.inverse_brown_conrady
+          coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+    note: >
+      The nominal values are repeated inline so this canonical file is
+      sufficient at runtime. The source file remains provenance. Do not
+      average the three physical cameras.
+  wrist_d405:
+    source: wrist_overlay_refinement.yaml
+    condition_id: fr3_d405_rigid_mount_v1
+    selected_iteration: 2
+    selection_method: minimum_independent_holdout_rmse_after_three_bounded_iterations
+    parent_frame: fr3v2_hand_tcp
+    serial: "352122274598"
+    model: Intel RealSense D405
+    parent_T_camera_optical:
+      - [-0.7273651635035532, 0.5572095235663739, -0.40057142405366775, 0.08146046376132608]
+      - [-0.6862453045017024, -0.5928866846402112, 0.42137010006134, -0.0732052817914935]
+      - [-0.002702030868492595, 0.581380190601015, 0.8136275394834617, -0.07905631056285843]
+      - [0.0, 0.0, 0.0, 1.0]
+    translation_m: [0.08146046376132608, -0.0732052817914935, -0.07905631056285843]
+    quaternion_xyzw: [-0.1139012529048691, 0.2832185284280849, 0.8851383207763671, -0.351203534769974]
+    intrinsics:
+      width: 1280
+      height: 720
+      fx: 654.6155015049354
+      fy: 656.5534088357522
+      ppx: 631.5455770865674
+      ppy: 358.9201539953889
+      distortion_model: distortion.inverse_brown_conrady
+      coeffs: [-0.05444525554776192, 0.06205075606703758, -0.0004881659406237304, 0.0008019331144168973, -0.021376939490437508]
+    isaac_pinhole:
+      focal_length_mm: 20.0
+      horizontal_aperture_mm: 39.10692603695849
+      vertical_aperture_mm: 21.932716830356753
+      horizontal_aperture_offset_mm: 0.2583019465318564
+      vertical_aperture_offset_mm: -0.032894384221566195
+      clipping_range_m: [0.01, 10.0]
+      distortion_policy: >
+        USD pinhole rendering does not reproduce the listed RealSense
+        distortion. Undistort real images or apply a matching downstream lens
+        model when pixel-level overlay is required.
+
+measured_ranges:
+  camera_local:
+    fixed_d435:
+      evidence: maximum_deviation_across_repeated_extrinsic_estimates
+      intrinsics:
+        enabled: false
+        reason: no_repeated_intrinsic_scatter_dataset
+      by_role:
+        third_person_0:
+          translation_uniform_ball_radius_m: 0.003682735487551472
+          rotation_uniform_vector_ball_radius_deg: 0.19621075853334857
+        third_person_1:
+          translation_uniform_ball_radius_m: 0.0016704980944186392
+          rotation_uniform_vector_ball_radius_deg: 0.0791470705099882
+        third_person_2:
+          translation_uniform_ball_radius_m: 0.000684424686240364
+          rotation_uniform_vector_ball_radius_deg: 0.03355944094726284
+    wrist_d405:
+      evidence: handeye_to_selected_overlay_correction_and_intrinsic_refinement
+      translation_uniform_ball_radius_m: 0.003
+      rotation_uniform_vector_ball_radius_deg: 0.172077
+      focal_length_scale_uniform: [0.994441, 1.005559]
+      principal_point_delta_uniform_px:
+        x: [-4.427169, 4.427169]
+        y: [-0.960071, 0.960071]
+      note: >
+        These bounds use the observed correction magnitude as a residual-error
+        envelope. They do not estimate repeated rigid-mount reinstall scatter.
+
+  common_registration:
+    enabled_by_default: false
+    evidence: measured_board_placement_and_base_table_registration_uncertainty
+    applies_coherently_to:
+      - fixed_camera_parent_frame
+      - table_and_task_geometry
+    translation_uniform_ball_radius_m: 0.003
+    rotation_uniform_vector_ball_radius_deg: 1.0
+    note: >
+      Enable this component only when the base-to-table registration is also
+      uncertain. Do not independently perturb each fixed camera with it.
+
+evidence_summary:
+  fixed_d435_repeated_extrinsic_scatter:
+    third_person_0:
+      maximum_translation_deviation_m: 0.003682735487551472
+      maximum_rotation_deviation_deg: 0.19621075853334857
+    third_person_1:
+      maximum_translation_deviation_m: 0.0016704980944186392
+      maximum_rotation_deviation_deg: 0.0791470705099882
+    third_person_2:
+      maximum_translation_deviation_m: 0.000684424686240364
+      maximum_rotation_deviation_deg: 0.03355944094726284
+  wrist_d405_refinement:
+    fit_pose_count: 12
+    independent_holdout_pose_count: 5
+    selected_holdout_rmse_px: 1.196785
+    selected_holdout_p95_px: 1.909555
+    correction_from_handeye_translation_m: 0.003
+    correction_from_handeye_rotation_deg: 0.172077
+    factory_to_selected_intrinsics:
+      fx_fraction: -0.005559
+      fy_fraction: -0.004318
+      ppx_delta_px: 4.427169
+      ppy_delta_px: 0.960071
+
+usage_profiles:
+  nominal:
+    camera_local_randomization: false
+    common_registration_randomization: false
+    purpose: deterministic_overlay_regression_and_reporting
+  measured_camera_local:
+    camera_local_randomization: true
+    common_registration_randomization: false
+    purpose: camera_installation_robustness
+  measured_camera_plus_registration:
+    camera_local_randomization: true
+    common_registration_randomization: true
+    purpose: camera_and_task_frame_robustness
+
+sampling_policy:
+  distribution_is_an_example_not_a_training_requirement: true
+  sample_pose_in_parent_frame: true
+  sample_once_per_episode: true
+  keep_constant_across_temporal_observation_stack: true
+  log_every_sample_with_episode_id: true
+  always_report_nominal_separately: true
+  prohibited:
+    - per_frame_camera_pose_jitter
+    - replacing_nominal_calibration_with_randomization
+    - changing_wrist_camera_world_pose_without_following_hand_tcp
+    - applying_common_registration_independently_to_each_fixed_camera
+
+reference_principle:
+  note: >
+    Prior work, including OmniReset, motivates calibrating a nominal camera
+    model first and randomizing only residual uncertainty. No paper-reported
+    numeric camera range is used by this file.
