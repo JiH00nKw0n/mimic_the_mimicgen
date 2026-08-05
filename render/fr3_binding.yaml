@@ -1,0 +1,86 @@
+schema_version: stage2.fr3_camera_overlay_asset_binding.v1
+status: measured_in_sim_by_probe_tcp_binding
+overlay_bundle_id: fr3_four_camera_overlay_depth_refined
+calibration_revision: fr3_four_camera_v3_depth_refined
+scene:
+  runtime: isaaclab_uwlab_lab_stack
+  robot_usd: ISAAC_NUCLEUS/Robots/FrankaRobotics/FrankaFR3/fr3.usd
+  table_usd: /nonexistent.usdc
+robot_base:
+  team_prim: '{ENV_REGEX_NS}/Robot/fr3_link0'
+  calibrated_semantic: fr3v2_link0
+  compatibility_class: exact_semantic_frame
+  identity_transform_accepted: true
+  adapter_yaw_deg: 0
+  team_frame_T_calibrated_frame:
+    matrix:
+    - - 1.0
+      - -0.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 1.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 1.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    translation_m:
+    - 0.0
+    - 0.0
+    - 0.0
+    quaternion_wxyz:
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+  evidence: 'home-pose FK chain check with yaw-candidate fit: best yaw=0deg; hand_T_tcp
+    |t|=0.1034m (expect 0.1034), z-axis dev=0.00deg (gates 20mm/5deg)'
+hand_tcp:
+  team_prim: '{ENV_REGEX_NS}/Robot/fr3_hand'
+  calibrated_semantic: fr3v2_hand_tcp
+  compatibility_class: known_adapter_required
+  team_frame_T_calibrated_frame:
+    matrix:
+    - - 0.9999999999999526
+      - -2.56046896005995e-07
+      - 1.6991180350845667e-07
+      - -1.22845865091481e-07
+    - - 2.5604691504432137e-07
+      - 0.9999999999999613
+      - -1.1139486278760415e-07
+      - 2.26900277974847e-07
+    - - -1.6991177498614116e-07
+      - 1.1139490629299201e-07
+      - 0.9999999999999795
+      - 0.1034001162057741
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    translation_m:
+    - -1.22845865091481e-07
+    - 2.26900277974847e-07
+    - 0.1034001162057741
+    quaternion_wxyz:
+    - 0.9999999999999867
+    - 5.569744227014978e-08
+    - 8.49558946236506e-08
+    - 1.2802345276258078e-07
+  evidence: solved from sim fr3_hand FK at the overlay reference Franka-Home pose
+    against overlay runtime.reference_robot_pose.base_T_hand_tcp
+diagnostics:
+  isaac_lab_quat_order: xyzw
+  max_joint_error_rad: 1.422339668266659e-08
+  base_adapter_yaw_deg: 0
+  naive_guess_dpos_mm: 0.0002829816684075648
+  hand_T_tcp_norm_m: 0.10340011620609604
+  hand_T_tcp_z_axis_dev_deg: 1.1612577070626602e-05
+  hand_T_tcp_rot_deg: 1.870524340221744e-05
+  table_z_delta_mm: 21.373773340949924
+ready_to_apply: true
