@@ -1,0 +1,324 @@
+schema_version: stage2.provisional_base_camera_alignment.v1
+condition_id: fixed_cameras_layout_v4_20260728_01
+status: provisional_passed
+generated_at: '2026-07-28T13:37:09+09:00'
+source:
+  original_config_id: fixed_camera_recalibration_v4
+  capture_session_id: fixed_cameras_layout_v4_20260728_01
+  note: Original project paths are provenance only and are not required at runtime.
+convention:
+  base_T_camera_optical: maps RealSense color optical-frame points into fr3v2_link0
+    coordinates
+  base_T_board: maps printed ChArUco board-frame points into fr3v2_link0 coordinates
+board_placement:
+  mode: table_aligned_flat_at_registered_plate_origin
+  description: 'Align the outer corner of the printed 7x5 grid with the registered
+    plate origin. Point the 175 mm grid edge along table +X and the 125 mm edge along
+    table -Y. Use the printed grid edge rather than the A4 paper edge. OpenCV''s detected
+    board origin is at the opposite end of the 125 mm edge for this printed orientation,
+    so its table-frame Y coordinate is +0.125 m.
+
+    '
+  T_table_board:
+  - - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - -1.0
+    - 0.0
+    - 0.125
+  - - 0.0
+    - 0.0
+    - -1.0
+    - 0.0034
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+  detected_origin_offset_table_m:
+  - 0.0
+  - 0.125
+  - 0.0
+  detected_origin_offset_validation: 'Confirmed from the three-camera static cube
+    check: the initial common table-Y error was 0.1245 m, matching the printed grid''s
+    0.125 m short edge.
+
+    '
+  z_offset_m: 0.0034
+  z_offset_source: user_measured_printed_surface_height
+  placement_uncertainty_m: 0.003
+  placement_uncertainty_deg: 1.0
+board:
+  dictionary: DICT_5X5_100
+  squares_x: 7
+  squares_y: 5
+  square_length_m: 0.025
+  marker_length_m: 0.018
+base_T_board:
+- - -0.9999591654349744
+  - 0.008989462743353854
+  - -0.0009257549218736202
+  - 0.5647865024055219
+- - 0.008990737724726472
+  - 0.9999586269371136
+  - -0.0013824070340059116
+  - 0.161317566147276
+- - 0.0009132895240286737
+  - -0.00139067380371593
+  - -0.9999986159633506
+  - 0.0229505987728408
+- - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+cameras:
+  third_person_0:
+    serial: '405622073775'
+    model: Intel RealSense D435
+    status: provisional
+    base_T_camera_optical:
+    - - -0.6771122278294217
+      - -0.42225278272659805
+      - 0.6026787024638601
+      - -0.09331517479057534
+    - - -0.7358203564954122
+      - 0.37809352859553313
+      - -0.5617950574730465
+      - 0.5898548246216894
+    - - 0.009350609116104747
+      - -0.8238615606482823
+      - -0.5667139445922738
+      - 0.8939611703683683
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_T_base:
+    - - -0.6771122278294215
+      - -0.7358203564954119
+      - 0.00935060911610464
+      - 0.3624832599718417
+    - - -0.42225278272659805
+      - 0.378093528595533
+      - -0.8238615606482821
+      - 0.4740773607523955
+    - - 0.6026787024638599
+      - -0.5617950574730464
+      - -0.5667139445922735
+      - 0.8942368547338514
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      width: 1280
+      height: 720
+      fx: 905.8136596679688
+      fy: 905.0765991210938
+      ppx: 653.3133544921875
+      ppy: 367.2752990722656
+      distortion_model: distortion.inverse_brown_conrady
+      coeffs:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    observations_used:
+    - '0002'
+    - '0003'
+    - '0000'
+    - '0001'
+    - '0004'
+    observations_rejected: []
+    reprojection_rmse_px:
+    - 0.1321650594472885
+    - 0.14099925756454468
+    - 0.1427033245563507
+    - 0.1543748378753662
+    - 0.1838725507259369
+    translation_deviation_m:
+    - 0.0011049848594335905
+    - 0.0024695296738866572
+    - 0.0012576761236186593
+    - 0.0012451457323739371
+    - 0.003682735487551472
+    rotation_deviation_deg:
+    - 0.052505624689912475
+    - 0.12985126864408503
+    - 0.05867777360624159
+    - 0.06554112278885818
+    - 0.19621075853334857
+    maximum_translation_deviation_m: 0.003682735487551472
+    maximum_rotation_deviation_deg: 0.19621075853334857
+  third_person_1:
+    serial: '405622072503'
+    model: Intel RealSense D435
+    status: provisional
+    base_T_camera_optical:
+    - - 0.6794401763624509
+      - -0.5194930709963901
+      - 0.5181582730511033
+      - 0.12026784387274411
+    - - -0.727046407217115
+      - -0.3815642050215267
+      - 0.5707996839513627
+      - -0.4871925539620426
+    - - -0.09881583120759097
+      - -0.7645493487231745
+      - -0.6369456215955354
+      - 0.7098765261109753
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_T_base:
+    - - 0.6794401763624505
+      - -0.7270464072171147
+      - -0.0988158312075908
+      - -0.36577936205024913
+    - - -0.51949307099639
+      - -0.3815642050215268
+      - -0.7645493487231743
+      - 0.41931870772264773
+    - - 0.5181582730511031
+      - 0.5707996839513626
+      - -0.6369456215955351
+      - 0.6679243227201447
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      width: 1280
+      height: 720
+      fx: 906.5128173828125
+      fy: 906.0864868164062
+      ppx: 642.765380859375
+      ppy: 380.9598388671875
+      distortion_model: distortion.inverse_brown_conrady
+      coeffs:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    observations_used:
+    - '0002'
+    - '0000'
+    - '0003'
+    - '0004'
+    - '0001'
+    observations_rejected: []
+    reprojection_rmse_px:
+    - 0.18865233659744263
+    - 0.1886981725692749
+    - 0.21600951254367828
+    - 0.2323993742465973
+    - 0.24676765501499176
+    translation_deviation_m:
+    - 0.0013755477792738791
+    - 0.0016704980944186392
+    - 0.0008548398108247223
+    - 0.0014154921786187049
+    - 0.0007251611647813048
+    rotation_deviation_deg:
+    - 0.06687847353430304
+    - 0.0791470705099882
+    - 0.04919504460482583
+    - 0.07032901086279361
+    - 0.031509773720663485
+    maximum_translation_deviation_m: 0.0016704980944186392
+    maximum_rotation_deviation_deg: 0.0791470705099882
+  third_person_2:
+    serial: '401622073398'
+    model: Intel RealSense D435
+    status: provisional
+    base_T_camera_optical:
+    - - 0.011671350827123755
+      - 0.18845184694449357
+      - -0.982013075754635
+      - 1.5361225387640702
+    - - 0.9999276278326998
+      - -0.005066196073224366
+      - 0.010912046289151933
+      - -0.014012480470567903
+    - - -0.002918675511108637
+      - -0.9820693636605085
+      - -0.18849733762762813
+      - 0.48604233347468173
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    camera_T_base:
+    - - 0.011671350827123802
+      - 0.9999276278327006
+      - -0.002918675511108629
+      - -0.002498558850305893
+    - - 0.1884518469444937
+      - -0.005066196073224375
+      - -0.9820693636605093
+      - 0.18777116561085994
+    - - -0.9820130757546358
+      - 0.010912046289151904
+      - -0.1884973376276283
+      - 1.6002630096975425
+    - - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    intrinsics:
+      width: 1280
+      height: 720
+      fx: 911.1847534179688
+      fy: 910.7587280273438
+      ppx: 656.52685546875
+      ppy: 369.46844482421875
+      distortion_model: distortion.inverse_brown_conrady
+      coeffs:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 0.0
+    observations_used:
+    - '0002'
+    - '0001'
+    - '0000'
+    observations_rejected:
+    - sample: '0003'
+      reason: reprojection_rmse
+      value: 0.9732256178423035
+    - sample: '0004'
+      reason: reprojection_rmse
+      value: 0.9738837178296187
+    reprojection_rmse_px:
+    - 0.27682652388949175
+    - 0.2847013234391387
+    - 0.3008311132122104
+    translation_deviation_m:
+    - 0.000684424686240364
+    - 0.00047237397320083627
+    - 0.0004194551786327291
+    rotation_deviation_deg:
+    - 0.03355944094726284
+    - 0.026047561393927103
+    - 0.011009242624304767
+    maximum_translation_deviation_m: 0.000684424686240364
+    maximum_rotation_deviation_deg: 0.03355944094726284
+quality_gates:
+  minimum_valid_observations_per_camera: 3
+  maximum_reprojection_rmse_px: 0.5
+  maximum_translation_deviation_m: 0.004
+  maximum_rotation_deviation_deg: 0.75
+failures: []
+policy:
+  usable_for_pipeline_development: true
+  usable_as_final_calibration: false
+  invalidate_when:
+  - any fixed camera is moved
+  - role-to-serial assignment changes
+  - the selected stream or intrinsics change
+  - the board placement changes before capture is complete
