@@ -70,6 +70,12 @@ parser.add_argument("--double_render", action="store_true", help="render twice p
 parser.add_argument("--preview_video", type=int, default=2, help="write a 2x2-grid mp4 for the first N rendered demos")
 parser.add_argument("--no_compress", action="store_true", help="skip gzip (bigger, faster)")
 parser.add_argument("--append", action="store_true", help="resume: skip demos already fully rendered in the output")
+parser.add_argument("--vrand", default="", choices=["", "nominal_lab", "lab_variation", "stress_tail", "mixture"],
+                    help="apply the RL team's visual randomization contract; 'mixture' spreads "
+                         "episodes over the 50/40/10 profile split")
+parser.add_argument("--vrand_config", default="/vrand/config", help="dir with the handoff's config yamls")
+parser.add_argument("--vrand_root", default="/vrand", help="handoff package root (hdri/texture paths)")
+parser.add_argument("--vrand_seed", type=int, default=0)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.headless = True
@@ -85,6 +91,7 @@ import imageio.v2 as imageio
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
 import lab_env
+import visual_randomization as vrand_mod
 from overlay_cameras import (
     ALL_ROLES, build_camera_cfgs, camera_link_transforms, camera_metadata,
     camera_quat_order, load_binding, load_overlay, pose_T_from_data, quat_wxyz_from_R,
@@ -148,6 +155,9 @@ def main():
         env = gym.make(lab_env.TASK, cfg=lab_env.build_env_cfg(args.device, args.table_usd, cameras=cams)).unwrapped
     robot = env.scene["robot"]
     cam_objs = {r: env.scene[r] for r in ALL_ROLES}
+    randomizer = None
+    vrand_plan: dict[str, str] = {}
+    vrand_log: dict[str, dict] = {}
     origin = env.scene.env_origins
     finger_idx = [i for i, n in enumerate(robot.joint_names) if "finger" in n]
     i_hand = robot.body_names.index("fr3_hand")
@@ -204,6 +214,30 @@ def main():
     for k, v in src["data"].attrs.items():
         data_grp.attrs[f"source_{k}"] = v
 
+    if args.vrand:
+        # process scope: profile assignment, HDRI + dome light, floor. The
+        # 'mixture' mode still needs ONE hdri per process (the contract's
+        # scope), so it applies the process scope of the majority profile and
+        # varies only the episode-scope quantities.
+        mixture = vrand_mod.load_config(args.vrand_config)["profiles"]["mixture"]
+        if args.vrand == "mixture":
+            plan = vrand_mod.episode_profile_plan(len(names), mixture, args.vrand_seed)
+            process_profile = max(mixture, key=mixture.get)
+        else:
+            plan = [args.vrand] * len(names)
+            process_profile = args.vrand
+        vrand_plan = dict(zip(names, plan))
+        randomizer = vrand_mod.VisualRandomizer(
+            args.vrand_config, args.vrand_root, process_profile, args.vrand_seed)
+        proc = randomizer.apply_process_scope()
+        print(f"[vrand] process profile={process_profile} {proc}", flush=True)
+        data_grp.attrs["visual_randomization"] = json.dumps({
+            "contract": "fr3_visual_randomization_handoff_v1_320x180",
+            "mode": args.vrand, "seed": args.vrand_seed,
+            "process_profile": process_profile, "process": proc,
+            "mixture": mixture, "episode_profiles": vrand_plan,
+        })
+
     comp = {} if args.no_compress else {"compression": "gzip", "compression_opts": 4, "shuffle": True}
     total, previews_left = 0, args.preview_video
     warned_obs_keys: set[str] = set()
@@ -216,6 +250,12 @@ def main():
                 print(f"  [skip] {name} already rendered")
                 previews_left = max(0, previews_left - 1)
                 continue
+            if randomizer is not None:
+                randomizer.profile = vrand_plan[name]
+                randomizer.spec = randomizer.profiles_doc["profiles"][vrand_plan[name]]
+                vrand_log[name] = randomizer.apply_episode_scope(env.scene)
+                print(f"  [vrand] {name}: profile={vrand_plan[name]} "
+                      f"skipped={sorted(set(randomizer.skipped))[:3]}", flush=True)
             ep = handler.load_episode(name, env.device)
             if "states" not in ep.data:
                 raise SystemExit(f"{name} has no per-step states — this renderer needs state replay "
