@@ -1,0 +1,770 @@
+schema_version: stage2.fr3_camera_overlay.v1
+bundle_id: fr3_four_camera_overlay_measured_20260728
+package_revision: 2
+calibration_revision: fr3_four_camera_v4_measured_20260728
+status: measured_team_handoff_20260728
+generated_at: '2026-08-05T09:09:29.753064+00:00'
+units:
+  length: meter
+  angle: radian
+  camera_intrinsics: pixel
+conventions:
+  matrix: column_vectors_p_parent_equals_parent_T_child_times_p_child
+  camera_optical: RealSense_OpenCV_X_right_Y_down_Z_forward
+  camera_usd: USD_X_right_Y_up_view_minus_Z
+  optical_R_usd_camera:
+  - - 1.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - -1.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - -1.0
+frame_semantics:
+  robot_base:
+    calibrated_name: fr3v2_link0
+    consumer_binding_required: true
+  hand_tcp:
+    calibrated_name: fr3v2_hand_tcp
+    consumer_binding_required: true
+    rigidly_attached_camera: wrist
+  table_task:
+    calibrated_name: fr3v2_table_task
+  threaded_plate:
+    calibrated_name: fr3v2_threaded_plate
+asset_requirements:
+  robot:
+    asset_id: fr3_facelift_franka_hand
+    provided_by_consumer: true
+    required_frames:
+    - fr3v2_link0
+    - fr3v2_hand_tcp
+    required_arm_joints:
+    - fr3v2_joint1
+    - fr3v2_joint2
+    - fr3v2_joint3
+    - fr3v2_joint4
+    - fr3v2_joint5
+    - fr3v2_joint6
+    - fr3v2_joint7
+  table:
+    asset_id: fr3_cube_stacking_table
+    provided_by_consumer: true
+    alignment_frame: fr3v2_table_task
+    nominal_top_surface_z_m: 0.72
+  threaded_plate:
+    asset_id: threaded_plate_geometry_optional
+    provided_by_consumer: true
+    geometry_required_for_camera_pose: false
+asset_adapter_policy:
+  direct_binding_allowed_when:
+  - team_robot_base_frame_is_semantically_identical_to_fr3v2_link0
+  - team_hand_frame_is_semantically_identical_to_fr3v2_hand_tcp
+  - stage_uses_meters_and_Z_up
+  robot_base_adapter: If base definitions differ, author team_base_T_calibrated_fr3v2_link0
+    before applying fixed cameras and environment frames.
+  hand_tcp_adapter: If hand frame definitions differ, author team_hand_T_calibrated_fr3v2_hand_tcp
+    before attaching the wrist camera.
+  table_adapter: For a different table mesh, align its own top-surface frame to table_task;
+    do not assume the nominal -0.72 m asset offset.
+  incompatible_condition: Stop when a required frame relationship is unknown; prim-name
+    similarity is not sufficient evidence.
+runtime:
+  reference_robot_pose:
+    name: Franka Home
+    arm_joint_names:
+    - fr3v2_joint1
+    - fr3v2_joint2
+    - fr3v2_joint3
+    - fr3v2_joint4
+    - fr3v2_joint5
+    - fr3v2_joint6
+    - fr3v2_joint7
+    arm_joint_pos_rad:
+    - 0.0
+    - -0.785398
+    - 0.0
+    - -2.356194
+    - 0.0
+    - 1.570796
+    - 0.785398
+    finger_joint_pos_m: 0.04
+    base_T_hand_tcp:
+      matrix:
+      - - 0.9999999999999865
+        - 1.633974490711232e-07
+        - 2.1632925011343265e-16
+        - 0.3068905856748122
+      - - 1.633974489601009e-07
+        - -0.9999999999999867
+        - 6.280370860931423e-16
+        - 5.385330518091745e-16
+      - - 2.1632935273308734e-16
+        - -6.280370507454862e-16
+        - -0.9999999999999999
+        - 0.4868822047705315
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+      translation_m:
+      - 0.3068905856748122
+      - 5.385330518091745e-16
+      - 0.4868822047705315
+      quaternion_xyzw:
+      - 0.9999999999999967
+      - 8.16987245078063e-08
+      - 1.0816465071163037e-16
+      - -3.140185342096582e-16
+  cameras:
+    third_person_0:
+      role: third_person_0
+      mount_type: fixed
+      model: Intel RealSense D435
+      serial: '405622073775'
+      calibration_status: measured_20260728
+      calibration_id: third_person_0_fr3_four_camera_v4_measured_20260728
+      parent_semantic: robot_base
+      source_frame_name: fr3v2_link0
+      isaac_prim_name: third_person_0
+      parent_T_camera_optical:
+        matrix:
+        - - -0.6771122278294217
+          - -0.42225278272659805
+          - 0.6026787024638601
+          - -0.09331517479057534
+        - - -0.7358203564954122
+          - 0.37809352859553313
+          - -0.5617950574730465
+          - 0.5898548246216894
+        - - 0.009350609116104747
+          - -0.8238615606482823
+          - -0.5667139445922738
+          - 0.8939611703683683
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - -0.09331517479057534
+        - 0.5898548246216894
+        - 0.8939611703683683
+        quaternion_xyzw:
+        - -0.35759900313316
+        - 0.8096171473321864
+        - -0.4278740336365409
+        - 0.18321255154453656
+      parent_T_camera_usd:
+        matrix:
+        - - -0.6771122278294217
+          - 0.42225278272659805
+          - -0.6026787024638601
+          - -0.09331517479057534
+        - - -0.7358203564954122
+          - -0.37809352859553313
+          - 0.5617950574730465
+          - 0.5898548246216894
+        - - 0.009350609116104747
+          - 0.8238615606482823
+          - 0.5667139445922738
+          - 0.8939611703683683
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - -0.09331517479057534
+        - 0.5898548246216894
+        - 0.8939611703683683
+        quaternion_xyzw:
+        - -0.18321255154453656
+        - 0.4278740336365409
+        - 0.8096171473321864
+        - -0.35759900313316
+      intrinsics:
+        width: 1280
+        height: 720
+        fx: 905.8136596679688
+        fy: 905.0765991210938
+        ppx: 653.3133544921875
+        ppy: 367.2752990722656
+        distortion_model: distortion.inverse_brown_conrady
+        coeffs:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      isaac_camera_model:
+        focal_length_mm: 20.0
+        horizontal_aperture_mm: 28.261883365044227
+        vertical_aperture_mm: 15.910255567300737
+        horizontal_aperture_offset_mm: -0.2939534936372584
+        vertical_aperture_offset_mm: 0.16076648273373897
+        clipping_range_m:
+        - 0.01
+        - 10.0
+        distortion_policy: metadata_only_not_modeled_by_usd_pinhole
+      quality:
+        maximum_translation_deviation_m: 0.00235226133830861
+        maximum_rotation_deviation_deg: 0.12148990559146841
+    third_person_1:
+      role: third_person_1
+      mount_type: fixed
+      model: Intel RealSense D435
+      serial: '405622072503'
+      calibration_status: measured_20260728
+      calibration_id: third_person_1_fr3_four_camera_v4_measured_20260728
+      parent_semantic: robot_base
+      source_frame_name: fr3v2_link0
+      isaac_prim_name: third_person_1
+      parent_T_camera_optical:
+        matrix:
+        - - 0.6794401763624509
+          - -0.5194930709963901
+          - 0.5181582730511033
+          - 0.12026784387274411
+        - - -0.727046407217115
+          - -0.3815642050215267
+          - 0.5707996839513627
+          - -0.4871925539620426
+        - - -0.09881583120759097
+          - -0.7645493487231745
+          - -0.6369456215955354
+          - 0.7098765261109753
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.12026784387274411
+        - -0.4871925539620426
+        - 0.7098765261109753
+        quaternion_xyzw:
+        - 0.8212718799185068
+        - -0.37945396302172085
+        - 0.12765031048095876
+        - -0.4064881147541059
+      parent_T_camera_usd:
+        matrix:
+        - - 0.6794401763624509
+          - 0.5194930709963901
+          - -0.5181582730511033
+          - 0.12026784387274411
+        - - -0.727046407217115
+          - 0.3815642050215267
+          - -0.5707996839513627
+          - -0.4871925539620426
+        - - -0.09881583120759097
+          - 0.7645493487231745
+          - 0.6369456215955354
+          - 0.7098765261109753
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.12026784387274411
+        - -0.4871925539620426
+        - 0.7098765261109753
+        quaternion_xyzw:
+        - 0.4064881147541059
+        - -0.12765031048095876
+        - -0.37945396302172085
+        - 0.8212718799185068
+      intrinsics:
+        width: 1280
+        height: 720
+        fx: 906.5128173828125
+        fy: 906.0864868164062
+        ppx: 642.765380859375
+        ppy: 380.9598388671875
+        distortion_model: distortion.inverse_brown_conrady
+        coeffs:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      isaac_camera_model:
+        focal_length_mm: 20.0
+        horizontal_aperture_mm: 28.240086084948693
+        vertical_aperture_mm: 15.89252263389926
+        horizontal_aperture_offset_mm: -0.061011401192515156
+        vertical_aperture_offset_mm: 0.46264543555508164
+        clipping_range_m:
+        - 0.01
+        - 10.0
+        distortion_policy: metadata_only_not_modeled_by_usd_pinhole
+      quality:
+        maximum_translation_deviation_m: 0.0031541496588952844
+        maximum_rotation_deviation_deg: 0.17671240939612856
+    third_person_2:
+      role: third_person_2
+      mount_type: fixed
+      model: Intel RealSense D435
+      serial: '401622073398'
+      calibration_status: measured_20260728
+      calibration_id: third_person_2_fr3_four_camera_v4_measured_20260728
+      parent_semantic: robot_base
+      source_frame_name: fr3v2_link0
+      isaac_prim_name: third_person_2
+      parent_T_camera_optical:
+        matrix:
+        - - 0.011671350827123755
+          - 0.18845184694449357
+          - -0.982013075754635
+          - 1.5361225387640702
+        - - 0.9999276278326998
+          - -0.005066196073224366
+          - 0.010912046289151933
+          - -0.014012480470567903
+        - - -0.002918675511108637
+          - -0.9820693636605085
+          - -0.18849733762762813
+          - 0.48604233347468173
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 1.5361225387640702
+        - -0.014012480470567903
+        - 0.48604233347468173
+        quaternion_xyzw:
+        - 0.5489159508813661
+        - 0.5412392702694623
+        - -0.44858040182849945
+        - -0.4522465635928788
+      parent_T_camera_usd:
+        matrix:
+        - - 0.011671350827123755
+          - -0.18845184694449357
+          - 0.982013075754635
+          - 1.5361225387640702
+        - - 0.9999276278326998
+          - 0.005066196073224366
+          - -0.010912046289151933
+          - -0.014012480470567903
+        - - -0.002918675511108637
+          - 0.9820693636605085
+          - 0.18849733762762813
+          - 0.48604233347468173
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 1.5361225387640702
+        - -0.014012480470567903
+        - 0.48604233347468173
+        quaternion_xyzw:
+        - 0.4522465635928788
+        - 0.44858040182849945
+        - 0.5412392702694623
+        - 0.5489159508813661
+      intrinsics:
+        width: 1280
+        height: 720
+        fx: 911.1847534179688
+        fy: 910.7587280273438
+        ppx: 656.52685546875
+        ppy: 369.46844482421875
+        distortion_model: distortion.inverse_brown_conrady
+        coeffs:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+        - 0.0
+      isaac_camera_model:
+        focal_length_mm: 20.0
+        horizontal_aperture_mm: 28.09529011978216
+        vertical_aperture_mm: 15.810993138863083
+        horizontal_aperture_offset_mm: -0.3627553118454997
+        vertical_aperture_offset_mm: 0.2079243279880921
+        clipping_range_m:
+        - 0.01
+        - 10.0
+        distortion_policy: metadata_only_not_modeled_by_usd_pinhole
+      quality:
+        maximum_translation_deviation_m: 0.00117774831136247
+        maximum_rotation_deviation_deg: 0.05115281917373744
+    wrist:
+      role: wrist
+      mount_type: eye_in_hand
+      model: Intel RealSense D405
+      serial: '352122274598'
+      calibration_status: measured_20260728
+      calibration_id: wrist_fr3_four_camera_v4_measured_20260728
+      parent_semantic: hand_tcp
+      source_frame_name: fr3v2_hand_tcp
+      isaac_prim_name: wrist_d405_color
+      parent_T_camera_optical:
+        matrix:
+        - - -0.7273651635035532
+          - 0.5572095235663739
+          - -0.40057142405366775
+          - 0.08146046376132608
+        - - -0.6862453045017024
+          - -0.5928866846402112
+          - 0.42137010006134
+          - -0.0732052817914935
+        - - -0.002702030868492595
+          - 0.581380190601015
+          - 0.8136275394834617
+          - -0.07905631056285843
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.08146046376132608
+        - -0.0732052817914935
+        - -0.07905631056285843
+        quaternion_xyzw:
+        - -0.11390125290486909
+        - 0.28321852842808487
+        - 0.8851383207763671
+        - -0.3512035347699739
+      parent_T_camera_usd:
+        matrix:
+        - - -0.7273651635035532
+          - -0.5572095235663739
+          - 0.40057142405366775
+          - 0.08146046376132608
+        - - -0.6862453045017024
+          - 0.5928866846402112
+          - -0.42137010006134
+          - -0.0732052817914935
+        - - -0.002702030868492595
+          - -0.581380190601015
+          - -0.8136275394834617
+          - -0.07905631056285843
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.08146046376132608
+        - -0.0732052817914935
+        - -0.07905631056285843
+        quaternion_xyzw:
+        - -0.3512035347699739
+        - 0.8851383207763671
+        - -0.28321852842808487
+        - 0.11390125290486909
+      intrinsics:
+        width: 1280
+        height: 720
+        fx: 654.6155015049354
+        fy: 656.5534088357522
+        ppx: 631.5455770865674
+        ppy: 358.9201539953889
+        distortion_model: distortion.inverse_brown_conrady
+        coeffs:
+        - -0.05444525554776192
+        - 0.06205075606703758
+        - -0.0004881659406237304
+        - 0.0008019331144168973
+        - -0.021376939490437508
+      isaac_camera_model:
+        focal_length_mm: 20.0
+        horizontal_aperture_mm: 39.10692603695849
+        vertical_aperture_mm: 21.932716830356753
+        horizontal_aperture_offset_mm: 0.2583019465318564
+        vertical_aperture_offset_mm: -0.032894384221566195
+        clipping_range_m:
+        - 0.01
+        - 10.0
+        distortion_policy: 'USD pinhole rendering does not reproduce the listed RealSense
+          distortion. Undistort real images or apply a matching downstream lens model
+          when pixel-level overlay is required.
+
+          '
+      quality:
+        prior:
+          mean_mm: 9.660434471931499
+          median_mm: 6.765346772605055
+          p90_mm: 21.947762152682095
+          p95_mm: 26.640972405497557
+        refined:
+          mean_mm: 6.948353075653515
+          median_mm: 4.150448397276125
+          p90_mm: 16.05700234415462
+          p95_mm: 20.77390012849714
+        median_distance_improvement_fraction: 0.3865135762023978
+        optimizer_success: true
+        optimizer_message: '`ftol` termination condition is satisfied.'
+        advisory_pass: true
+  environment:
+    table:
+      calibration_status: accepted_geometry
+      base_T_table:
+        matrix:
+        - - -0.9999591654349744
+          - -0.008989462743353854
+          - 0.0009257549218736202
+          - 0.5637048327199484
+        - - 0.008990737724726472
+          - -0.9999586269371136
+          - 0.0013824070340059116
+          - 0.28994961017946325
+        - - 0.0009132895240286737
+          - 0.00139067380371593
+          - 0.9999986159633506
+          - 0.01937377334094992
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.5637048327199484
+        - 0.28994961017946325
+        - 0.01937377334094992
+        quaternion_xyzw:
+        - 0.00045976591557544657
+        - 0.0006932774534953496
+        - 0.9999895509873389
+        - 0.00449509708634645
+      top_surface_plane: table_frame_z_equals_0
+      convention:
+        transform: T_base_table maps table-frame points into fr3v2_link0 coordinates.
+        origin: Marked cube-task origin on the physical table top.
+        x_axis: From the task origin toward the FR3 base.
+        y_axis: Right side when standing behind the FR3 and looking into the workspace.
+        z_axis: Upward fitted table normal.
+      table_T_nominal_asset:
+        matrix:
+        - - 1.0
+          - 0.0
+          - 0.0
+          - 0.0
+        - - 0.0
+          - 1.0
+          - 0.0
+          - 0.0
+        - - 0.0
+          - 0.0
+          - 1.0
+          - -0.72
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.0
+        - 0.0
+        - -0.72
+        quaternion_xyzw:
+        - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+      measurement_quality:
+        probe_pivot_rms_m: 0.0003458473760884412
+        probe_pivot_maximum_residual_m: 0.0005473190200872114
+        probe_orientation_span_deg: 48.24444259076367
+        table_plane_rms_m: 0.0002609600559012329
+        table_plane_maximum_residual_m: 0.000502341818054568
+        origin_repeat_spread_m: 0.00037272188994630346
+        x_axis_repeat_spread_m: 0.00042484814867240985
+        y_side_repeat_spread_m: 0.00014545105234712352
+        origin_to_x_m: 0.25003499149832603
+        origin_to_y_side_signed_m: 0.2756742877692181
+        all_quality_gates_passed: true
+      scope:
+        measured:
+        - table_top_plane
+        - task_origin
+        - task_x_axis
+        - task_y_side
+        not_measured:
+        - physical_table_outer_bounds
+        - table_slab_thickness
+        - leg_geometry
+        isaac_policy: Keep the FR3 base fixed and compose task objects through this
+          measured table frame.
+    threaded_plate:
+      calibration_status: provisional_translation_only
+      base_T_plate:
+        matrix:
+        - - -0.9999591654349744
+          - -0.008989462743353854
+          - 0.0009257549218736202
+          - 0.5659070376817067
+        - - 0.008990737724726472
+          - -0.9999586269371136
+          - 0.0013824070340059116
+          - 0.2863076943304996
+        - - 0.0009132895240286737
+          - 0.00139067380371593
+          - 0.9999986159633506
+          - 0.019376769253100917
+        - - 0.0
+          - 0.0
+          - 0.0
+          - 1.0
+        translation_m:
+        - 0.5659070376817067
+        - 0.2863076943304996
+        - 0.019376769253100917
+        quaternion_xyzw:
+        - 0.00045976591557544657
+        - 0.0006932774534953496
+        - 0.9999895509873389
+        - 0.00449509708634645
+      measurement_quality:
+        capture_count: 2
+        measured_origin_mean_base_m:
+        - 0.5659061359539729
+        - 0.28630634780267405
+        - 0.018402724757692553
+        repeat_spread_m: 0.0009446374855998964
+        maximum_repeat_spread_m: 0.002
+        raw_translation_delta_m:
+        - 0.0022013032340244543
+        - -0.0036432623767891914
+        - -0.0009710485832573681
+        applied_in_plane_translation_delta_m:
+        - 0.0022022049617582266
+        - -0.00364191584896366
+        - 2.995912150994813e-06
+        ignored_normal_delta_m: -0.0009740458435235086
+        repeatability_passed: true
+      assumptions:
+        rotation_unchanged: true
+        plate_remains_flat_on_same_table: true
+        height_unchanged: true
+        same_probe_grasp_as_calibration_required: true
+      geometry_status: transform_only_outer_geometry_not_measured
+validation_scenes:
+  fixed_camera_board_scene:
+    scene_id: fixed_camera_board_table_v2
+    validation_only: true
+    purpose: fixed_camera_extrinsic_and_table_projection_check
+    physical_scene_note: Board placement used for the three fixed-camera calibration
+      views.
+    base_T_board:
+      matrix:
+      - - -0.9999591654349744
+        - 0.008989462743353854
+        - -0.0009257549218736202
+        - 0.5659101852484411
+      - - 0.008990737724726472
+        - 0.9999586269371136
+        - -0.0013824070340059116
+        - 0.2863123945144152
+      - - 0.0009132895240286737
+        - -0.00139067380371593
+        - -0.9999986159633506
+        - 0.02277676454737631
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+      translation_m:
+      - 0.5659101852484411
+      - 0.2863123945144152
+      - 0.02277676454737631
+      quaternion_xyzw:
+      - 0.00449509708634645
+      - 0.9999895509873389
+      - -0.0006932774534953496
+      - -0.0004597659155754465
+    board_size_m:
+    - 0.17500000000000002
+    - 0.125
+    artifacts:
+      report: validation/fixed_camera/report.md
+      board_projection: validation/fixed_camera/board_projection_contact_sheet.png
+      real_sim_comparison: validation/fixed_camera/contact_sheet.png
+  wrist_handeye_board_scene:
+    scene_id: wrist_handeye_multiscene_v1
+    validation_only: true
+    purpose: wrist_handeye_multiview_consistency_check
+    physical_scene_note: A different physical board placement from fixed_camera_board_scene.
+    base_T_board:
+      matrix:
+      - - -0.9999071654024356
+        - 0.012643059080445893
+        - 0.0050807119534958724
+        - 0.5918121322741237
+      - - 0.012676221095443864
+        - 0.9998982086394923
+        - 0.006548723407911812
+        - 0.16460928615252812
+      - - -0.0049973988839660515
+        - 0.006612519687854457
+        - -0.9999656497039144
+        - 0.023019065042027054
+      - - 0.0
+        - 0.0
+        - 0.0
+        - 1.0
+      translation_m:
+      - 0.5918121322741237
+      - 0.16460928615252812
+      - 0.023019065042027054
+      quaternion_xyzw:
+      - 0.006330001224061485
+      - 0.9999713775586083
+      - 0.0032904049533645004
+      - 0.002519599826463845
+    board_size_m:
+    - 0.17500000000000002
+    - 0.125
+    metrics:
+      shared_board_translation_error_mean_mm: 5.650653075987763
+      shared_board_translation_error_max_mm: 8.011642754893629
+      shared_board_rotation_error_mean_deg: 1.0109432724243541
+      shared_board_rotation_error_max_deg: 1.1305788428256365
+      projected_board_corner_error_mean_px: 6.241543693059067
+      projected_board_corner_error_p95_px: 7.459512692963589
+      full_frame_edge_p95_mean_px: 180.1934399705173
+      full_frame_edge_p95_max_px: 218.55205329623422
+      full_frame_edge_match_fraction_mean: 0.5136403209193438
+      full_frame_edge_match_fraction_minimum: 0.4602418018772731
+    independence: in_sample_not_independent_absolute_validation
+    artifacts:
+      comparison: validation/wrist_multiscene/three_scene_comparison.png
+      metrics: validation/wrist_multiscene/metrics.yaml
+      shared_board_pose: validation/wrist_multiscene/shared_board_pose.yaml
+      selection_summary: validation/wrist_multiscene/selection_summary.yaml
+provenance:
+  repository_id: fr_sys
+  repository_revision: 3ca10658451d66e5fa2d6eac7177b726da34cfaf
+  fixed_camera_calibration:
+    calibration_id: fixed_cameras_layout_v2_01
+    method: per_camera_board_pose_alignment
+  wrist_extrinsic:
+    calibration_id: fr3_wrist_camera_tape_mount_depth_refined_v2
+    method: 12_pose_handeye_plus_gripper_depth_refinement
+    supersedes: fr3_wrist_camera_tape_mount_v2
+    physical_mount: temporary_tape_mount
+  table_registration:
+    calibration_id: fr3_base_table_measured_v1
+    method: probe_plane_and_axis_registration
+  plate_registration:
+    calibration_id: fr3_base_plate_current
+    method: translation_only_origin_reregistration
+  rebuilt_from:
+    measured_ranges: camera_nominal_measured_ranges.yaml
+    measured_schema: stage2.fr3_camera_nominal_measured_ranges.v2
+    fixed_source: fixed_camera_nominal.yaml
+    wrist_condition_id: fr3_d405_rigid_mount_v1
+    structural_template: overlay.yaml
+    note: camera extrinsics/intrinsics replaced; robot-side sections (conventions,
+      frame semantics, reference_robot_pose) kept from the template because a camera
+      recalibration does not change them
+invalidation:
+- any_fixed_camera_moves
+- wrist_camera_or_mount_moves
+- wrist_mount_is_removed_or_reinstalled
+- table_or_robot_base_moves_relative_to_the_other
+limitations:
+- wrist_extrinsic_is_provisional_while_the_camera_uses_the_tape_mount
+- basic_usd_pinhole_does_not_apply_exported_realsense_distortion_coefficients
+- external_robot_table_and_plate_geometry_are_not_embedded
