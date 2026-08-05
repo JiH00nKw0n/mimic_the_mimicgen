@@ -40,11 +40,11 @@ ablation. 정책 학습 없음, 생성 단계만. 코드: `motivation/genaudit/p
 (Wilson 95% CI는 stack ±4pp, square ±2.5pp 수준. P0가 기존 N2 6250-attempt 풀의
 55.6%/23.1%를 CI 안에서 재현 — 물리 variant 서브클래스 경로가 기준선을 왜곡하지 않음.)
 
-**1. stack 생성은 stage2 물리에 둔감하다.** 다섯 물리 조건이 전부 56~59%로 CI가 겹친다.
-넓은 robust DR(테이블 마찰 1.25~2.6, 패드 마찰 0.65~1.3, 그리퍼 힘 ×0.63~1.25)을 걸어도
+**1. stack 생성은 stage2 물리에 둔감하다.** 다섯 물리 조건이 전부 56–59%로 CI가 겹친다.
+넓은 robust DR(테이블 마찰 1.25–2.6, 패드 마찰 0.65–1.3, 그리퍼 힘 ×0.63–1.25)을 걸어도
 생성이 무너지지 않는다 — 이 물리 범위에서 cube stack 데이터 생성은 안전.
 
-**2. square는 일관되게 3~5pp 내려가고, 그 근원은 소스별로 이질적이다.** nominal이 가장
+**2. square는 일관되게 3–5pp 내려가고, 그 근원은 소스별로 이질적이다.** nominal이 가장
 낮고(17.6%) wide DR이 부분 회복(20.1%)하는 순서가 특징적. per-source로 쪼개면 페널티가
 s8(40%→15%, nominal)과 s0(52%→43%)에 집중되고, s8은 robust에서 28%로 절반쯤 돌아온다.
 계약의 패드 마찰(0.8)이 robosuite 기본(2.0)보다 크게 낮은 게 원인으로 보이며 — nominal은
@@ -53,7 +53,7 @@ square만 force_scale(22→29%)과 finger_mu에 양의 기울기가 있는 것�
 물리 민감성은 grasp 마찰 병목이고, 특정 소스(잡기 취약한 s8류)에 몰린다.
 
 **3. per-source DGR 랭킹은 물리 변경에 거의 불변이다 (핵심 결과).** P0 기준 Spearman rank
-상관이 stack 0.92~0.99, square 0.95~0.99. square의 죽은 소스 5개(s1·s2·s5·s7·s9, DGR 0~4%)는
+상관이 stack 0.92–0.99, square 0.95–0.99. square의 죽은 소스 5개(s1·s2·s5·s7·s9, DGR 0–4%)는
 어떤 물리에서도 살아나지 않았다. 실무적 함의: **소스 데모의 DGR 랭킹은 물리 파라미터를 바꿔도
 그대로 이월되므로, 한 번 잰 hi-DGR 선별이 캘리브레이션된 새 물리·DR 환경에서도 유효하다.**
 
@@ -86,14 +86,14 @@ manifest.json, ref 클립 1개 + DR 클립 5개씩).
   Panda(FR3 아님) — 계약 runtime(Isaac 5.1/PhysX/dt 0.001)과 다른 **new condition**.
 - 미적용(기록만): restitution(MuJoCo 직접 파라미터 없음), 테이블 dynamic friction(MuJoCo는
   sliding 단일 계수), gripper speed_scale, 큐브 linear/angular damping(free joint 단일 스칼라
-  제약 — 선형 등가값이 회전을 ~1000배 과감쇠해 의도적으로 배제).
+  제약 — 선형 등가값이 회전을 약 1000배 과감쇠해 의도적으로 배제).
 - 부분 유효: 그리퍼 forcerange 상향은 servo 수요 한계 위에서 비활성. P5의 관절
   frictionloss/armature 배율은 Panda XML nominal이 0이라 비활성.
 - square는 proxy 매핑(finger→nut, table→nut, cube_cube→nut-peg)임을 명기.
 
 ## 한계
 
-- Panda + robosuite 기하(0.02~0.025m 큐브)에 FR3+50.7mm 실측값을 이식한 것이므로 절대
+- Panda + robosuite 기하(0.02–0.025m 큐브)에 FR3+50.7mm 실측값을 이식한 것이므로 절대
   충실도가 아니라 **조건 간 상대 비교**가 유효한 설계다.
 - attempts 고정이라 arm 간 IC 분포는 동일 시드 체계로 맞췄지만 완전 paired는 아니다.
 - square 페널티의 grasp-마찰 해석은 관찰 상관(소스별 회복 패턴 + force/finger 기울기)이며
