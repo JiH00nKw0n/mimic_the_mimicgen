@@ -70,9 +70,11 @@ RUN cat /opt/hf80k/isaac_python.env && rm -f /opt/hf80k/_probe.py
 # --target only needs pip itself.
 #
 # --target has one cost: pip resolves against the target directory alone and
-# ignores what the interpreter already has, so it downloaded torch and the
-# nvidia CUDA wheels a second time (2.8 GB compressed). The next RUN step
-# deletes those duplicates and then proves the import still works.
+# ignores what the interpreter already has, so it downloads torch and the nvidia
+# CUDA wheels a second time (2.8 GB compressed). The install and the cleanup are
+# one RUN on purpose. 도커 이미지의 크기는 레이어의 합이라, 다음 레이어에서 지워도
+# 앞 레이어에 그대로 남아 이미지는 한 바이트도 줄지 않는다. 같은 레이어 안에서
+# 지워야 실제로 줄어든다.
 #
 # 판본 조합은 실측으로 정했다. lerobot[dataset]이 datasets를 끌어오고, datasets가
 # huggingface-hub<1.0을 요구한다. 상한을 안 걸면 hub 1.27이 깔려 datasets가
@@ -86,52 +88,13 @@ RUN cat /opt/hf80k/isaac_python.env && rm -f /opt/hf80k/_probe.py
 ENV HF80K_LEROBOT_PATH=/opt/hf80k/deps/lerobot_0_4_py311
 # 기록·업로드 스크립트가 찾는 이름. 둘을 같은 값으로 두어 어긋나지 않게 한다.
 ENV LEROBOT_SITE=/opt/hf80k/deps/lerobot_0_4_py311
+COPY hf80k/docker/dedupe_site.py /opt/hf80k/dedupe_site.py
 RUN . /opt/hf80k/isaac_python.env \
  && "$HF80K_PYTHON" -m pip install --no-cache-dir --target "$HF80K_LEROBOT_PATH" \
       "lerobot[dataset]>=0.4,<0.5" "huggingface_hub>=0.34,<1.0" \
  && test -d "$HF80K_LEROBOT_PATH/lerobot" \
- && test -d "$HF80K_LEROBOT_PATH/huggingface_hub"
-
-# 중복 제거. 후보를 지우기 전에 그 모듈이 Isaac 인터프리터에 이미 있는지 직접 확인하고,
-# 있을 때만 지운다. 지운 다음에는 LeRobotDataset을 실제로 불러 본다. 여기서 실패하면
-# 빌드가 실패하므로, 망가진 이미지가 밖으로 나가지 않는다. 이 검사 때문에 후보 목록이
-# 틀려도 조용히 깨지지 않는다.
-RUN . /opt/hf80k/isaac_python.env \
- && HF80K_LEROBOT_PATH="$HF80K_LEROBOT_PATH" "$HF80K_PYTHON" - <<'PY'
-import importlib.util, os, shutil, sys
-
-target = os.environ["HF80K_LEROBOT_PATH"]
-# Isaac이 확실히 들고 있고 용량이 큰 것들만 후보로 둔다. numpy와 pyarrow는 판본 ABI가
-# 얽혀 있어 건드리지 않는다. 아낄 수 있는 양에 비해 위험이 크다.
-candidates = ["torch", "torchvision", "torchaudio", "triton", "nvidia", "cv2"]
-
-# 대상 디렉터리를 sys.path에서 빼고 확인해야 "Isaac에 있는가"를 묻는 것이 된다.
-sys.path = [p for p in sys.path if os.path.realpath(p) != os.path.realpath(target)]
-
-freed = 0
-for name in candidates:
-    here = os.path.join(target, name)
-    if not os.path.exists(here):
-        continue
-    if importlib.util.find_spec(name) is None:
-        print(f"[dedupe] keep {name}: Isaac 인터프리터에 없다")
-        continue
-    for path in [here] + [
-        os.path.join(target, d)
-        for d in os.listdir(target)
-        if d.startswith(name + "-") and d.endswith((".dist-info", ".libs"))
-    ]:
-        freed += sum(
-            os.path.getsize(os.path.join(r, f))
-            for r, _, fs in os.walk(path)
-            for f in fs
-            if os.path.exists(os.path.join(r, f))
-        )
-        shutil.rmtree(path, ignore_errors=True)
-    print(f"[dedupe] drop {name}: Isaac 것을 쓴다")
-
-print(f"[dedupe] 되찾은 용량 {freed / 1e9:.2f} GB")
-PY
+ && test -d "$HF80K_LEROBOT_PATH/huggingface_hub" \
+ && "$HF80K_PYTHON" /opt/hf80k/dedupe_site.py "$HF80K_LEROBOT_PATH"
 
 # 중복 제거가 끝난 상태에서 실제로 열리는지 본다. import lerobot만으로는 부족하다.
 # datasets가 빠졌을 때 lerobot 자체는 멀쩡히 열리고 LeRobotDataset에서만 죽는다.

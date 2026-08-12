@@ -11,6 +11,7 @@ hf80k/*
 !hf80k/docker
 hf80k/docker/*
 !hf80k/docker/entrypoint.sh
+!hf80k/docker/dedupe_site.py
 
 # Never ship secrets or python caches, even from inside hf80k/.
 **/.env
