@@ -118,12 +118,16 @@ run:
 	  "$(IMAGE)"
 	@echo "시작했다. 로그: make logs GPU=$(GPU)"
 
-# GPU 4대에 2만 개씩. 시드를 다르게 줘야 네 대가 같은 데이터를 만들지 않는다.
+# GPU 4대에 2만 개씩.
+# 두 값이 대마다 달라야 한다. 시드가 같으면 네 대가 같은 데이터를 만든다. 몫 이름이
+# 같으면 네 대가 저장소의 같은 자리에 올려 서로 덮어쓴다. 오류 없이 4분의 1만 남는다.
 run-4gpu:
 	@for g in 0 1 2 3 ; do \
-	  $(MAKE) --no-print-directory run GPU=$$g TARGET=20000 SEED=$$((42000 + g * 10000)) ; \
+	  $(MAKE) --no-print-directory run GPU=$$g TARGET=20000 \
+	    SEED=$$((42000 + g * 10000)) RUN_ARGS="$(RUN_ARGS) -e SHARD_ID=gpu$$g" ; \
 	done
 	@echo "네 대 모두 시작했다. 진행: make progress WORK='/data/hf80k/gpu*'"
+	@echo "다 끝나면 합치기: make aggregate WORK='/data/hf80k/gpu*'"
 
 logs:
 	docker logs -f $(NAME)
@@ -149,10 +153,22 @@ stop:
 	-docker rm $(NAME)
 
 # 청크를 하나로 합쳐 올린다. 본 실행이 다 끝난 뒤 한 번만 한다.
+#
+# GPU 여러 장으로 돌렸으면 작업 디렉터리를 전부 넘겨야 한다.
+#   make aggregate WORK='/data/hf80k/gpu*'
+# 하나만 넘기면 그 한 대분(2만 편)만 담긴 데이터셋이 조용히 만들어진다. 아래는 별표를
+# 셸이 풀게 두고, 풀린 디렉터리를 컨테이너 안 /work/0, /work/1 ...로 각각 붙인다.
 aggregate:
-	docker run --rm --env-file "$(ENV_FILE)" -v "$(WORK)":/work \
+	@dirs="$$(echo $(WORK))" ; \
+	mounts="" ; inner="" ; i=0 ; \
+	for d in $$dirs ; do \
+	  mounts="$$mounts -v $$d:/work/$$i" ; \
+	  inner="$$inner,/work/$$i" ; i=$$((i+1)) ; \
+	done ; \
+	echo "합칠 작업 디렉터리: $$dirs" ; \
+	docker run --rm --env-file "$(ENV_FILE)" $$mounts \
 	  --entrypoint /opt/hf80k/entrypoint.sh "$(IMAGE)" \
-	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/hf_upload.py --mode aggregate --work_dir /work"
+	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/hf_upload.py --mode aggregate --work_dir '$${inner#,}'"
 
 clean-work:
 	@read -p "$(WORK) 를 통째로 지운다. 되돌릴 수 없다. 계속하려면 yes: " a ; \

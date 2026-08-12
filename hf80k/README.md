@@ -186,65 +186,48 @@ docker run -d --name fr3-hf80k-gpu0 \
 
 ### GPU 4장으로 돌리기
 
-GPU마다 컨테이너를 따로 띄운다. 한 컨테이너가 여러 GPU를 쓰지 않는다.
+한 줄이면 된다.
 
 ```bash
-for g in 0 1 2 3; do
-  mkdir -p /data/hf80k/gpu$g
-  docker run -d --name fr3-hf80k-gpu$g \
-    --gpus "\"device=$g\"" --network host --shm-size=8g \
-    --env-file /path/to/mimic_the_mimicgen/hf80k/.env \
-    -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=Y -e OMNI_KIT_ACCEPT_EULA=YES \
-    -e CUDA_VISIBLE_DEVICES=0 \
-    -e WORK_DIR=/work \
-    -e TARGET_EPISODES=20000 \
-    -e SEED_BASE=$((42000 + g * 100000)) \
-    -e HF_REPO_ID=myorg/fr3-cube-stack-80k-p$g \
-    -v /data/hf80k/gpu$g:/work \
-    -v /data/hf80k/cache/kit:/isaac-sim/kit/cache \
-    -v /data/hf80k/cache/ov:/root/.cache/ov \
-    fr3-hf80k:1
-done
+make run-4gpu
 ```
 
-4장으로 나눌 때 반드시 지켜야 할 것이 세 가지다.
+컨테이너 네 개를 띄우고, 대마다 GPU 한 장과 2만 편을 맡기고, 아래 세 값을 서로 다르게
+넣는다. 한 컨테이너가 여러 GPU를 쓰지는 않는다.
 
-- `TARGET_EPISODES`를 20,000으로 낮춘다. 네 컨테이너가 각각 80,000개를 만들면 320,000개가 된다.
-- `SEED_BASE`를 컨테이너마다 다르게 준다. 같은 시드를 쓰면 네 컨테이너가 똑같은 장면을 만든다.
-  위 예시의 간격 100,000은 청크 번호가 겹치지 않을 만큼 넉넉하다.
-- 저장소를 컨테이너마다 따로 준다. 네 컨테이너가 같은 저장소에 동시에 올리면 에피소드 번호와
-  메타데이터가 충돌한다. 위 예시는 저장소 이름 뒤에 조각 번호 `-p0`부터 `-p3`까지 붙였다.
+| 값 | gpu0 | gpu1 | gpu2 | gpu3 | 같으면 무슨 일이 생기나 |
+|---|---|---|---|---|---|
+| 호스트 작업 디렉터리 | `/data/hf80k/gpu0` | `gpu1` | `gpu2` | `gpu3` | 네 대가 같은 청크 디렉터리를 두고 싸운다 |
+| `SEED_BASE` | 42000 | 52000 | 62000 | 72000 | 네 대가 똑같은 장면을 만든다 |
+| `SHARD_ID` | `gpu0` | `gpu1` | `gpu2` | `gpu3` | 저장소의 같은 자리에 올려 서로 덮어쓴다 |
 
-작업 디렉터리도 `gpu0`부터 `gpu3`까지 따로 준다. 캐시 디렉터리는 읽기가 대부분이라 네
-컨테이너가 같이 써도 된다.
+세 번째 값을 특히 조심한다. 청크 번호는 컨테이너마다 0부터 다시 시작하므로, 몫 이름이
+없으면 네 대가 모두 `chunks/chunk_00000`에 올린다. 오류도 나지 않고 로그도 정상인데 다
+끝나고 보면 저장소에 8만 편이 아니라 2만 편만 남는다. `SHARD_ID`를 비워 두면
+`SEED_BASE`로 이름을 만들어 쓰므로(`seed42000`) 그대로 둬도 겹치지는 않는다.
 
-### 조각 저장소 네 개를 하나로 합치기
+`TARGET_EPISODES`도 대마다 2만으로 낮춰야 한다. 네 대가 각각 8만을 만들면 32만 편이
+된다. `make run-4gpu`가 알아서 넣는다.
 
-학습 쪽에서 저장소 네 개를 그대로 같이 읽어도 된다. 하나로 합치고 싶으면 LeRobot의
-`aggregate_datasets` 함수를 쓴다. 인자 이름은 이미지에 들어 있는 LeRobot 판본에 따라 다를 수
-있으므로 먼저 아래 명령으로 확인한다.
+캐시 디렉터리는 읽기가 대부분이라 네 컨테이너가 같이 써도 된다.
+
+### 네 대분을 하나로 합치기
+
+본 실행이 다 끝난 뒤 한 번만 한다.
 
 ```bash
-docker run --rm fr3-hf80k:1 \
-  python3 -c "from lerobot.datasets.aggregate import aggregate_datasets; \
-help(aggregate_datasets)"
+make aggregate WORK='/data/hf80k/gpu*'
 ```
 
-이미지 안에서 `python3`을 찾지 못하면 대신 `/workspace/isaaclab/isaaclab.sh -p`를 쓴다. 아래에
-나오는 다른 임시 명령들도 마찬가지다.
+작업 디렉터리를 전부 넘겨야 한다. 하나만 넘기면 그 한 대분(2만 편)만 담긴 데이터셋이
+오류 없이 만들어진다. 별표는 셸이 풀고, 풀린 디렉터리가 컨테이너 안에 각각 붙는다.
 
-확인한 이름대로 아래처럼 부른다.
+합치기는 LeRobot의 `aggregate_datasets`를 쓰고, 합친 결과를 저장소 최상위에 올린다.
+그래야 학습 쪽에서 `LeRobotDataset("myorg/fr3-cube-stack-80k")` 한 줄로 열린다. 청크별
+사본은 `chunks/` 아래에 원본 기록으로 남는다.
 
-```bash
-docker run --rm --network host --env-file .env fr3-hf80k:1 \
-  python3 -c "
-from lerobot.datasets.aggregate import aggregate_datasets
-aggregate_datasets(
-    repo_ids=['myorg/fr3-cube-stack-80k-p%d' % i for i in range(4)],
-    aggr_repo_id='myorg/fr3-cube-stack-80k',
-)
-"
-```
+합친 편수가 청크 편수의 합과 다르면 오류를 내고 멈춘다. 조용히 일부만 담긴 데이터셋이
+나오지 않게 하려는 것이다.
 
 ## 걸리는 시간
 

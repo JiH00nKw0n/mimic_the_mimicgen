@@ -59,7 +59,12 @@ else
 fi
 
 export WORK_DIR="${WORK_DIR:-/work}"
-mkdir -p "$WORK_DIR/logs"
+# 로그 디렉터리를 못 만들어도 여기서 멈추지 않는다. 마지막 합치기는 작업 디렉터리
+# 여러 개를 /work/0, /work/1 ...로 붙이고 도는데, 그때 /work 자체는 컨테이너 안
+# 읽기 전용 자리라 mkdir이 실패한다. 오케스트레이터는 자기가 쓸 디렉터리를 직접
+# 만들므로 여기서 실패해도 잃는 것이 없다.
+mkdir -p "$WORK_DIR/logs" 2>/dev/null \
+  || echo "[entrypoint] $WORK_DIR/logs를 만들지 못했다. 단계별로 필요한 곳에서 다시 만든다."
 
 # --- interpreter ------------------------------------------------------------
 # isaac_python.env is written during the build and holds the interpreter path
