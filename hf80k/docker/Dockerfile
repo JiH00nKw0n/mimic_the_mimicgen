@@ -71,6 +71,12 @@ RUN cat /opt/hf80k/isaac_python.env && rm -f /opt/hf80k/_probe.py
 # for --target, so requirements the Isaac interpreter already satisfies (torch,
 # numpy, opencv) are skipped and nothing heavy is duplicated.
 #
+# 판본 조합은 실측으로 정했다. lerobot[dataset]이 datasets를 끌어오고, datasets가
+# huggingface-hub<1.0을 요구한다. 상한을 안 걸면 hub 1.27이 깔려 datasets가
+# "huggingface-hub>=0.34.0,<1.0 is required"로 죽는다. 상한을 걸면 lerobot 0.4.4,
+# hub 0.35.3, datasets 4.8.5로 풀리고 LeRobotDataset import가 통과한다. 0.4.4는
+# 재익님 쪽이 쓰는 판본과 같아서(lerobot_0_4_4_py311) 데이터 호환에도 유리하다.
+#
 # HF80K_LEROBOT_PATH goes on PYTHONPATH ONLY for the writer and upload steps
 # (src/lerobot_writer.py, src/hf_upload.py). The generate and render steps run
 # inside Isaac and must not see it.
@@ -79,7 +85,7 @@ ENV HF80K_LEROBOT_PATH=/opt/hf80k/deps/lerobot_0_4_py311
 ENV LEROBOT_SITE=/opt/hf80k/deps/lerobot_0_4_py311
 RUN . /opt/hf80k/isaac_python.env \
  && "$HF80K_PYTHON" -m pip install --no-cache-dir --target "$HF80K_LEROBOT_PATH" \
-      "lerobot>=0.4" "huggingface_hub>=0.34" \
+      "lerobot[dataset]>=0.4,<0.5" "huggingface_hub>=0.34,<1.0" \
  && test -d "$HF80K_LEROBOT_PATH/lerobot" \
  && test -d "$HF80K_LEROBOT_PATH/huggingface_hub"
 
@@ -108,4 +114,12 @@ ENV HF80K_SRC=/opt/hf80k/src \
     WORK_DIR=/work
 
 WORKDIR /opt/hf80k/src
+# 기반 이미지의 헬스체크는 Isaac이 컨테이너 안에서 계속 떠 있다고 보고 Kit 로그의
+# AppReady를 찾는다. 우리는 오케스트레이터가 단계마다 Isaac을 자식 프로세스로 띄웠다
+# 내리므로 그 로그가 없어 항상 unhealthy가 된다. 무해해 보이지만 compose나 쿠버네티스가
+# 헬스 조건을 걸면 멀쩡한 컨테이너를 계속 재시작한다. 우리 기준으로 바꾼다.
+# 판정 기준은 하나다. 오케스트레이터가 살아 있는가.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=300s --retries=3 \
+  CMD pgrep -f "orchestrate.py" > /dev/null 2>&1 || exit 1
+
 ENTRYPOINT ["/opt/hf80k/entrypoint.sh"]

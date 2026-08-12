@@ -270,7 +270,17 @@ def check_lerobot(cfg):
         return "FAIL", "lerobot not importable"
     if _version_tuple(version)[:2] < MIN_LEROBOT:
         return "FAIL", f"lerobot {version} < {'.'.join(str(v) for v in MIN_LEROBOT)}"
-    return "PASS", f"lerobot {version}"
+    # 여기까지는 껍데기만 확인한 것이다. 실제로 쓰는 클래스를 불러 봐야 추가 의존성이
+    # 빠진 경우를 잡는다. lerobot 0.6은 datasets 패키지가 없으면 이 지점에서만 죽는데,
+    # 그걸 놓치면 생성에 20분을 쓰고 마지막 단계에서 실패한다.
+    try:
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset  # noqa: F401
+    except Exception as exc:                      # noqa: BLE001
+        detail = _probe("from lerobot.datasets.lerobot_dataset import LeRobotDataset;"
+                        "print('ok')")
+        if detail != "ok":
+            return "FAIL", f"lerobot {version}이지만 LeRobotDataset을 불러올 수 없다: {exc}"
+    return "PASS", f"lerobot {version} (LeRobotDataset 확인)"
 
 
 def check_h5py(cfg):
