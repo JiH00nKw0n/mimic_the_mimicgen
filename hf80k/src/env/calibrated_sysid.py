@@ -68,7 +68,12 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
     @staticmethod
     def _set_materials(asset: RigidObject | Articulation, env_ids_cpu: torch.Tensor, values: torch.Tensor) -> None:
         materials = asset.root_physx_view.get_material_properties()
-        materials[env_ids_cpu] = values[:, None, :].expand(-1, asset.root_physx_view.max_shapes, -1)
+        # hf80k 수정: max_shapes를 int()로 감싼다. 이 판본의 PhysX 뷰가 이 값을 파이썬
+        # 정수가 아니라 0차원 텐서로 돌려주는데, expand()에 텐서를 넣으면
+        # "only integer tensors of a single element can be converted to an index"로
+        # 죽는다. 환경을 만드는 startup 이벤트에서 터지므로 생성이 통째로 시작도 못 한다.
+        max_shapes = int(asset.root_physx_view.max_shapes)
+        materials[env_ids_cpu] = values[:, None, :].expand(-1, max_shapes, -1)
         asset.root_physx_view.set_material_properties(materials, env_ids_cpu)
 
     def _set_finger_materials(self, env_ids_cpu: torch.Tensor, values: torch.Tensor) -> None:
@@ -76,7 +81,7 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         shape_counts: list[int] = []
         for link_path in self.robot.root_physx_view.link_paths[0]:
             view = self.robot._physics_sim_view.create_rigid_body_view(link_path)  # type: ignore[attr-defined]
-            shape_counts.append(view.max_shapes)
+            shape_counts.append(int(view.max_shapes))   # 위와 같은 이유로 int()
         body_names = list(self.robot.body_names)
         for finger_name in ("fr3_leftfinger", "fr3_rightfinger"):
             body_id = body_names.index(finger_name)
@@ -199,7 +204,10 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
     ) -> None:
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device=self.robot.device)
-        env_ids_cpu = env_ids.detach().cpu()
+        # 색인으로 쓸 것이므로 정수 텐서임을 보장한다. startup 이벤트에서는 슬라이스나
+        # 리스트가 올 수도 있다.
+        env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.robot.device)
+        env_ids_cpu = env_ids.detach().cpu().long()
         seed = int(getattr(env.cfg, "seed", 0) or 0) + int(sample_seed_offset)
         values = self._sample(len(env_ids), seed)
 

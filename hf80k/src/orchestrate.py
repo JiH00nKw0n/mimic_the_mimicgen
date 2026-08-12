@@ -610,6 +610,24 @@ def count_frames(contract_path: str) -> int:
 
 
 # --------------------------------------------------------------------- stages
+def _generate_failure_hint(log_path: str, lines: int = 25) -> str:
+    """청크 로그에서 마지막 파이썬 예외를 찾아 돌려준다.
+
+    생성이 종료 코드 0으로 끝나 놓고 아무것도 안 만드는 경우가 있어서, 오케스트레이터가
+    내는 메시지만으로는 원인을 알 수 없다. 로그에서 마지막 Traceback 이후를 잘라 붙인다.
+    """
+    try:
+        with open(log_path, errors="replace") as fh:
+            body = fh.read()
+    except OSError:
+        return ""
+    idx = body.rfind("Traceback (most recent call last)")
+    if idx < 0:
+        return ""
+    tail = [ln for ln in body[idx:].splitlines() if ln.strip()][:lines]
+    return "\n  로그에 남은 실제 예외:\n    " + "\n    ".join(tail)
+
+
 def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
     """MimicGen generation, GEN_PROCS processes over disjoint success quotas.
 
@@ -647,9 +665,26 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
         shards.append(shard)
         provs.append(prov)
     secs = run_parallel(jobs, cfg["gen_procs"], log, log_path)
+    # Isaac Lab의 generate_dataset.py는 환경 생성이 예외로 죽어도 종료 코드 0으로
+    # 끝나는 경우가 있다. 종료 코드만 믿으면 빈 파일을 들고 다음 단계로 넘어가고,
+    # 거기서 "truncated file" 같은 엉뚱한 오류가 나서 진짜 원인이 가려진다. 그래서
+    # 산출물을 직접 열어 확인하고, 비어 있으면 로그에서 실제 예외를 뽑아 보고한다.
     missing = [s for s in shards if not os.path.isfile(s)]
     if missing:
-        raise StageError(f"generation produced no file: {missing}")
+        raise StageError(f"generation produced no file: {missing}"
+                         + _generate_failure_hint(log_path))
+    import h5py
+    for s in shards:
+        try:
+            with h5py.File(s, "r") as h:
+                if len(h.get("data", {})) == 0:
+                    raise StageError(f"generation wrote no demos into {s}"
+                                     + _generate_failure_hint(log_path))
+        except StageError:
+            raise
+        except Exception as exc:
+            raise StageError(f"generation output {s} is unreadable ({exc})"
+                             + _generate_failure_hint(log_path)) from exc
     n = merge_hdf5_shards(shards, os.path.join(cdir, "gen.hdf5"), renumber=True, log=log)
     prov = merge_provenance(provs, os.path.join(cdir, "gen.provenance.json"))
     if n == 0:
