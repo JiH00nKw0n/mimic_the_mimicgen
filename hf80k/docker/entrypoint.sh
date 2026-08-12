@@ -78,6 +78,10 @@ if [[ -f /opt/hf80k/isaac_python.env ]]; then
 fi
 PY="${PY_OVERRIDE:-${HF80K_PYTHON:-$(command -v python3)}}"
 [[ -x "$PY" ]] || { echo "[entrypoint] no usable python ($PY)" >&2; exit 1; }
+# 밖으로 내보낸다. 안 그러면 `shell -c "$HF80K_PYTHON ..."`에서 이 값이 빈 문자열이 되고,
+# bash가 파이썬 파일을 그대로 실행하려다 "Permission denied"로 끝난다. 파이썬이 없다는
+# 뜻으로도 안 읽히는 문구라 원인을 찾기 어렵다. Makefile의 aggregate가 이 형태를 쓴다.
+export HF80K_PYTHON="$PY"
 
 prepend_path() {  # prepend_path VAR VALUE — skips empties so no ":" entries appear
   local var="$1" value="$2" current="${!1:-}"
