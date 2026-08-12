@@ -40,6 +40,7 @@ import os
 import re
 import shutil
 import sys
+import traceback
 from pathlib import Path
 
 import h5py
@@ -275,6 +276,34 @@ def prepare_episode(contract_group, rgb_group, roles, fps, geometry, min_steps,
     return payload, None
 
 
+def scalarize_singleton_columns(dataset) -> None:
+    """모양이 (1,)인 특성을 저장 직전에 파이썬 스칼라로 바꾼다.
+
+    lerobot 0.4.4는 모양이 `(1,)`인 특성을 파케이에서 스칼라 열(`datasets.Value`)로
+    선언한다. 그런데 `add_frame`의 검사(`validate_feature_numpy_array`)는 모양이 정확히
+    `(1,)`인 넘파이 배열만 받아들인다. 그래서 버퍼에는 `(프레임 수, 1)` 모양이 쌓이고,
+    저장할 때 `datasets`가 각 행에 `int()`를 건다. 원소가 하나뿐이어도 1차원 배열에
+    `int()`를 거는 것은 numpy 2.5부터 오류다(2.2까지는 경고였다). Isaac 인터프리터의
+    numpy가 2.5.0이라 여기서 걸린다.
+
+    실제로 이것 때문에 스모크 시험의 세 청크가 모두 기록 단계에서 한 편도 남기지 못했다.
+    저장 직전에 원소를 파이썬 정수로 바꿔 두면 `np.stack`이 `(프레임 수,)`를 만들고
+    `int()`가 통과한다. 검사는 이미 `add_frame`에서 끝났으므로 이 시점에는 안전하다.
+    우리 특성 중에서는 `visual.profile_id` 하나가 여기 해당한다.
+    """
+    buffer = getattr(dataset, "episode_buffer", None)
+    if not isinstance(buffer, dict):
+        return
+    for key, spec in getattr(dataset, "features", {}).items():
+        if spec.get("dtype") in ("image", "video"):
+            continue
+        if tuple(spec.get("shape", ())) != (1,):
+            continue
+        column = buffer.get(key)
+        if isinstance(column, list):
+            buffer[key] = [np.asarray(item).reshape(-1)[0].item() for item in column]
+
+
 def write_episode(dataset, payload, roles, profile_id: int, task: str) -> int:
     """Stream one episode into the writer, one frame at a time (never one file)."""
     images = {role: payload["obs"][f"{role}_image"] for role in roles}
@@ -289,6 +318,7 @@ def write_episode(dataset, payload, roles, profile_id: int, task: str) -> int:
         frame["visual.profile_id"] = profile.copy()
         frame["task"] = task
         dataset.add_frame(frame)
+    scalarize_singleton_columns(dataset)
     dataset.save_episode()
     return int(len(index))
 
@@ -301,7 +331,15 @@ def drop_pending_episode(dataset) -> None:
     removed by hand -- otherwise a failure mid-chunk leaks a few hundred MB.
     """
     buffer = getattr(dataset, "episode_buffer", None)
-    if buffer is None or int(buffer.get("size", 0)) == 0:
+    if buffer is None:
+        return
+    # `save_episode()`는 "size"와 "task"를 버퍼에서 먼저 꺼낸 뒤 나머지 작업을 한다.
+    # 그 뒤쪽에서 실패하면 버퍼에는 "size" 항목 자체가 없다. 예전 코드는 그것을 크기 0,
+    # 곧 "비어 있으니 치울 것이 없다"로 읽고 그냥 돌아갔다. 그래서 반쯤 먹힌 버퍼가 그대로
+    # 남고, 다음 에피소드의 `add_frame`이 `self.episode_buffer["size"]`를 읽다가
+    # `KeyError: 'size'`로 죽었다. 한 편이 실패하면 그 뒤의 모든 편이 이 오류로 무너진다.
+    # 항목이 없는 것과 값이 0인 것을 구분한다.
+    if "size" in buffer and int(buffer["size"]) == 0:
         return
     episode_index = buffer.get("episode_index", 0)
     if isinstance(episode_index, np.ndarray):
@@ -364,9 +402,13 @@ def parse_args():
                         default=DEFAULT_TASK_STRING)
     parser.add_argument("--overwrite", action="store_true",
                         help="delete a non-empty --out before writing")
-    parser.add_argument("--batch-encoding-size", type=int, default=10,
-                        help="episodes buffered before one ffmpeg pass; chosen "
-                             "here (the spec is silent), finalize() flushes the rest")
+    # 1로 둔다. 2 이상이면 lerobot 0.4.4가 새로 만든 데이터셋에서 반드시 죽는다.
+    # 묶음 경계에서 부르는 _batch_save_episode_video가 첫 줄에서 self.meta.episodes를
+    # 읽는데, 그 값은 바로 그 함수 안에서만 채워진다. 새 데이터셋에서는 None이라
+    # 'NoneType' object is not subscriptable로 끝난다. 실제로 10편째에서 그렇게 죽었다.
+    # 1이면 편마다 바로 인코딩하는 다른 경로를 타서 이 문제가 없다.
+    parser.add_argument("--batch-encoding-size", type=int, default=1,
+                        help="영상 인코딩을 몇 편씩 묶을지. 1만 안전하다(위 주석 참고)")
     parser.add_argument("--min-steps", type=int, default=2,
                         help="drop an episode with fewer aligned steps than this")
     parser.add_argument("--max-frame-gap", type=int, default=4,
@@ -468,9 +510,16 @@ def main():
                     count = write_episode(
                         dataset, payload, roles, PROFILE_IDS[profile], args.task_string)
                 except Exception as exc:  # one bad demo must not kill the chunk
+                    # 첫 실패의 역추적을 반드시 남긴다. 형식과 메시지만 적으면
+                    # ("TypeError: only 0-dimensional arrays ...") 어느 줄에서 났는지
+                    # 알 수 없어, 컨테이너를 다시 띄워 재현하는 데만 한 시간이 든다.
+                    # 뒤따르는 실패는 대개 첫 실패의 잔해라 한 번만 남기면 충분하다.
+                    if not skipped or "traceback" not in skipped[-1]:
+                        log(traceback.format_exc())
                     drop_pending_episode(dataset)
                     skipped.append({"episode": name,
-                                    "reason": f"{type(exc).__name__}: {exc}"})
+                                    "reason": f"{type(exc).__name__}: {exc}",
+                                    "traceback": traceback.format_exc().splitlines()[-6:]})
                     log(f"[lerobot] {name}: FAILED {type(exc).__name__}: {exc}")
                     continue
                 written += 1
