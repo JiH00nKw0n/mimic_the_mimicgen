@@ -28,6 +28,7 @@ Progress goes to stderr; the LAST line of stdout is the JSON summary.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import random
@@ -184,22 +185,67 @@ def upload_folder(api, folder: Path, repo_id: str, path_in_repo: str, token: str
     }
 
 
+def shard_id() -> str:
+    """이 컨테이너가 저장소 안에서 쓰는 자기 몫의 이름.
+
+    왜 필요한가. 청크 번호는 컨테이너마다 0부터 다시 시작한다. GPU 4장에 컨테이너를
+    네 개 띄우면 네 개가 모두 `chunks/chunk_00000`에 올리고, 먼저 올린 것을 나중에
+    올린 것이 덮는다. 오류도 나지 않고 로그도 정상이며, 다 끝난 뒤 저장소에 8만 편이
+    아니라 2만 편만 남는다. 8일을 쓰고 나서야 알게 되는 종류의 결함이다.
+
+    그래서 컨테이너마다 다른 이름을 앞에 붙인다. 기본값은 `SEED_BASE`에서 만든다.
+    컨테이너마다 SEED_BASE가 달라야 한다는 것은 이미 규칙이라(같으면 네 대가 같은
+    데이터를 만든다) 그것을 그대로 쓰면 설정을 하나 더 늘리지 않고도 겹치지 않는다.
+    사람이 읽기 좋은 이름을 원하면 `SHARD_ID=gpu0`처럼 직접 준다. Makefile의
+    run-4gpu가 그렇게 한다.
+    """
+    explicit = os.environ.get("SHARD_ID", "").strip().strip("/")
+    if explicit:
+        return re.sub(r"[^A-Za-z0-9._-]", "_", explicit)
+    seed = os.environ.get("SEED_BASE", "").strip()
+    return f"seed{seed}" if seed else ""
+
+
+def chunk_path_in_repo(chunk_name: str) -> str:
+    """청크 하나가 저장소에서 차지할 경로. 몫 이름이 있으면 그 아래에 둔다."""
+    shard = shard_id()
+    return f"chunks/{shard}/{chunk_name}" if shard else f"chunks/{chunk_name}"
+
+
 def default_path_in_repo(folder: Path) -> str:
-    """/work/chunks/chunk_00007/lerobot -> chunks/chunk_00007.
+    """/work/chunks/chunk_00007/lerobot -> chunks/<몫>/chunk_00007.
 
     The chunk directory name is the only thing that keeps two chunks from
     overwriting each other, so it is taken from the layout rather than invented.
     """
     folder = Path(folder).resolve()
     parent = folder.parent.name
-    if parent.startswith("chunk_"):
-        return f"chunks/{parent}"
-    return f"chunks/{folder.name}"
+    return chunk_path_in_repo(parent if parent.startswith("chunk_") else folder.name)
 
 
-def chunk_dataset_dirs(work_dir: Path) -> list[Path]:
-    """Every finished per-chunk LeRobot dataset under $WORK_DIR/chunks."""
-    roots = sorted((work_dir / "chunks").glob("chunk_*/lerobot"))
+def work_dirs(spec: str) -> list[Path]:
+    """작업 디렉터리 목록. 쉼표로 여러 개를 주거나 별표를 쓸 수 있다.
+
+    GPU 4장으로 돌리면 한 대의 기계에 작업 디렉터리가 네 개 생긴다
+    (/data/hf80k/gpu0부터 gpu3까지). 마지막 합치기는 네 개를 전부 읽어야 8만 편이
+    나온다. 하나만 읽으면 2만 편짜리 데이터셋이 조용히 만들어진다.
+    """
+    parts = [p.strip() for p in str(spec).split(",") if p.strip()]
+    found: list[Path] = []
+    for part in parts:
+        matches = sorted(Path(p) for p in glob.glob(part)) if any(
+            ch in part for ch in "*?[") else [Path(part)]
+        for match in matches:
+            if match.is_dir() and match.resolve() not in [f.resolve() for f in found]:
+                found.append(match)
+    return found
+
+
+def chunk_dataset_dirs(work_dir) -> list[Path]:
+    """끝난 청크 데이터셋 전부. 작업 디렉터리를 여러 개 줘도 된다."""
+    roots: list[Path] = []
+    for directory in work_dirs(work_dir) if isinstance(work_dir, str) else [Path(work_dir)]:
+        roots.extend(sorted((Path(directory) / "chunks").glob("chunk_*/lerobot")))
     return [root for root in roots if (root / "meta" / "info.json").is_file()]
 
 
@@ -223,20 +269,36 @@ def aggregate_and_upload(work_dir, repo_id: str, token: str, *, merged_dir=None,
     path is quadratic in the number of sources and 160 chunks would never
     finish (same reason the RL team's collector passes it).
     """
-    work_dir = Path(work_dir).resolve()
-    merged = Path(merged_dir).resolve() if merged_dir else work_dir / "merged"
+    directories = work_dirs(work_dir) if isinstance(work_dir, str) else [Path(work_dir)]
+    if not directories:
+        raise FileNotFoundError(f"작업 디렉터리를 찾지 못했다: {work_dir}")
+    merged = (Path(merged_dir).resolve() if merged_dir
+              else directories[0].resolve() / "merged")
     roots = chunk_dataset_dirs(work_dir)
     if not roots:
-        raise FileNotFoundError(f"no finished chunk datasets under {work_dir}/chunks")
-    if merged.exists() and any(merged.iterdir()):
-        if not overwrite:
+        raise FileNotFoundError(
+            "청크 데이터셋이 없다. 찾아본 곳: "
+            + ", ".join(f"{d}/chunks" for d in directories))
+    log(f"[aggregate] 작업 디렉터리 {len(directories)}개에서 청크 {len(roots)}개를 찾았다: "
+        + ", ".join(str(d) for d in directories))
+    if merged.exists():
+        # 비어 있어도 지운다. lerobot의 aggregate_datasets가 이 디렉터리를 자기가
+        # 만들면서 이미 있으면 FileExistsError를 낸다. 오케스트레이터가 작업 디렉터리를
+        # 만들 때 빈 merged/를 함께 만들어 두므로, "비었으면 그냥 둔다"로 두면 합치기가
+        # 항상 그 오류로 죽는다.
+        if any(merged.iterdir()) and not overwrite:
             raise FileExistsError(f"{merged} exists and is not empty; pass --overwrite")
         shutil.rmtree(merged)
 
     version, aggregate_datasets = import_lerobot()
     # the source repo ids are labels only (roots decide what is read), but they
-    # must be unique, so the chunk directory name carries into them
-    source_ids = [f"{repo_id}-{root.parent.name}" for root in roots]
+    # must be unique. 청크 이름만 쓰면 작업 디렉터리를 여러 개 합칠 때 gpu0의
+    # chunk_00000과 gpu1의 chunk_00000이 같은 이름이 되어 겹친다. 작업 디렉터리
+    # 이름까지 넣어야 네 대분을 한 번에 합칠 수 있다.
+    source_ids = [f"{repo_id}-{root.parents[2].name}-{root.parent.name}" for root in roots]
+    if len(set(source_ids)) != len(source_ids):
+        raise RuntimeError("청크 이름이 겹친다. 작업 디렉터리 이름이 서로 달라야 한다: "
+                           + ", ".join(str(d) for d in directories))
     expected = sum(read_total_episodes(root) for root in roots)
     log(f"[aggregate] lerobot {version}: merging {len(roots)} chunks "
         f"({expected} episodes) into {merged}")
@@ -297,7 +359,9 @@ def parse_args():
                              "instead of deriving it from the directory")
     parser.add_argument("--work-dir", "--work_dir", dest="work_dir",
                         default=os.environ.get("WORK_DIR", "/work"),
-                        help="aggregate mode: holds chunks/ and merged/")
+                        help="aggregate mode: chunks/와 merged/를 담은 디렉터리. "
+                             "쉼표로 여러 개를 주거나 '/data/hf80k/gpu*'처럼 별표를 "
+                             "쓸 수 있다. GPU 여러 장으로 돌렸으면 반드시 전부 준다")
     parser.add_argument("--merged", default="",
                         help="aggregate mode: default $WORK_DIR/merged")
     parser.add_argument("--repo-id", "--repo_id", dest="repo_id", default="",
@@ -343,7 +407,7 @@ def main():
     folder = Path(args.folder).resolve()
     path_in_repo = args.path_in_repo
     if not path_in_repo and args.chunk_index >= 0:
-        path_in_repo = f"chunks/chunk_{args.chunk_index:05d}"
+        path_in_repo = chunk_path_in_repo(f"chunk_{args.chunk_index:05d}")
     path_in_repo = path_in_repo or default_path_in_repo(folder)
     HfApi = import_hub()
     api = HfApi()
