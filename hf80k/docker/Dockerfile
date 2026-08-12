@@ -67,9 +67,12 @@ RUN cat /opt/hf80k/isaac_python.env && rm -f /opt/hf80k/_probe.py
 # (/home/ubuntu/jake/aidas/deps/lerobot_0_4_4_py311); this is that layout moved
 # into the image. `--target` was chosen over a venv because the Isaac
 # interpreter is an embedded Kit python with no guaranteed ensurepip, while
-# --target only needs pip itself. pip >= 20 no longer implies --ignore-installed
-# for --target, so requirements the Isaac interpreter already satisfies (torch,
-# numpy, opencv) are skipped and nothing heavy is duplicated.
+# --target only needs pip itself.
+#
+# --target has one cost: pip resolves against the target directory alone and
+# ignores what the interpreter already has, so it downloaded torch and the
+# nvidia CUDA wheels a second time (2.8 GB compressed). The next RUN step
+# deletes those duplicates and then proves the import still works.
 #
 # 판본 조합은 실측으로 정했다. lerobot[dataset]이 datasets를 끌어오고, datasets가
 # huggingface-hub<1.0을 요구한다. 상한을 안 걸면 hub 1.27이 깔려 datasets가
@@ -88,6 +91,54 @@ RUN . /opt/hf80k/isaac_python.env \
       "lerobot[dataset]>=0.4,<0.5" "huggingface_hub>=0.34,<1.0" \
  && test -d "$HF80K_LEROBOT_PATH/lerobot" \
  && test -d "$HF80K_LEROBOT_PATH/huggingface_hub"
+
+# 중복 제거. 후보를 지우기 전에 그 모듈이 Isaac 인터프리터에 이미 있는지 직접 확인하고,
+# 있을 때만 지운다. 지운 다음에는 LeRobotDataset을 실제로 불러 본다. 여기서 실패하면
+# 빌드가 실패하므로, 망가진 이미지가 밖으로 나가지 않는다. 이 검사 때문에 후보 목록이
+# 틀려도 조용히 깨지지 않는다.
+RUN . /opt/hf80k/isaac_python.env \
+ && HF80K_LEROBOT_PATH="$HF80K_LEROBOT_PATH" "$HF80K_PYTHON" - <<'PY'
+import importlib.util, os, shutil, sys
+
+target = os.environ["HF80K_LEROBOT_PATH"]
+# Isaac이 확실히 들고 있고 용량이 큰 것들만 후보로 둔다. numpy와 pyarrow는 판본 ABI가
+# 얽혀 있어 건드리지 않는다. 아낄 수 있는 양에 비해 위험이 크다.
+candidates = ["torch", "torchvision", "torchaudio", "triton", "nvidia", "cv2"]
+
+# 대상 디렉터리를 sys.path에서 빼고 확인해야 "Isaac에 있는가"를 묻는 것이 된다.
+sys.path = [p for p in sys.path if os.path.realpath(p) != os.path.realpath(target)]
+
+freed = 0
+for name in candidates:
+    here = os.path.join(target, name)
+    if not os.path.exists(here):
+        continue
+    if importlib.util.find_spec(name) is None:
+        print(f"[dedupe] keep {name}: Isaac 인터프리터에 없다")
+        continue
+    for path in [here] + [
+        os.path.join(target, d)
+        for d in os.listdir(target)
+        if d.startswith(name + "-") and d.endswith((".dist-info", ".libs"))
+    ]:
+        freed += sum(
+            os.path.getsize(os.path.join(r, f))
+            for r, _, fs in os.walk(path)
+            for f in fs
+            if os.path.exists(os.path.join(r, f))
+        )
+        shutil.rmtree(path, ignore_errors=True)
+    print(f"[dedupe] drop {name}: Isaac 것을 쓴다")
+
+print(f"[dedupe] 되찾은 용량 {freed / 1e9:.2f} GB")
+PY
+
+# 중복 제거가 끝난 상태에서 실제로 열리는지 본다. import lerobot만으로는 부족하다.
+# datasets가 빠졌을 때 lerobot 자체는 멀쩡히 열리고 LeRobotDataset에서만 죽는다.
+RUN . /opt/hf80k/isaac_python.env \
+ && PYTHONPATH="$HF80K_LEROBOT_PATH:$HF80K_PYTHONPATH" "$HF80K_PYTHON" -c \
+      "import lerobot, torch; from lerobot.datasets.lerobot_dataset import LeRobotDataset; \
+       print('[build] lerobot', lerobot.__version__, '/ torch', torch.__version__, torch.__file__)"
 
 # Pipeline code and assets. src/ is small; assets/ is the 90 MB that
 # scripts/fetch_assets.sh puts there before the build.

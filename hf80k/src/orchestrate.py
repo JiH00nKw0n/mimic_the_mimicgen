@@ -2,9 +2,9 @@
 """Chunk orchestrator — the single entry point of the hf80k container.
 
 WHY this file exists: 80k successful episodes cannot come out of one long
-process. At the measured rates (3.17 s per generation attempt at num_envs=4,
-15.2% yield with the zero-yield source excluded, 15.1 ms per camera-frame,
-176 contract steps per episode) a full run is days of wall clock, and anything
+process. At the measured rates (2.97 s per generation attempt, 14.2% yield with
+the zero-yield source excluded, 31.9 s of wall clock per finished episode on one
+L40S) a full run is weeks of wall clock, and anything
 that runs for days gets interrupted — a spot reclaim, an OOM kill, a driver
 hiccup, someone restarting the box. So the run is cut into chunks of
 CHUNK_SIZE episodes; each chunk walks the whole pipeline on its own
