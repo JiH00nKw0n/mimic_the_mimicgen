@@ -26,6 +26,12 @@ FROM      ?=
 # .env를 고치지 않고 한 번만 다르게 돌려 보고 싶을 때 쓴다.
 #   make smoke RUN_ARGS="-e NUM_ENVS=16 -e LOG_LEVEL=DEBUG"
 RUN_ARGS  ?=
+# DEV_SRC=1이면 이미지에 구워진 코드 대신 이 저장소의 src/를 읽기 전용으로 덮어 쓴다.
+# 파이프라인 코드를 고칠 때마다 30분짜리 빌드를 기다리지 않으려는 것이다. 확인이
+# 끝나면 반드시 DEV_SRC 없이 다시 구워서 돌려 본다. 재익님이 받는 것은 이미지 안의
+# 코드이지 이 마운트가 아니다.
+DEV_SRC   ?=
+SRC_MOUNT := $(if $(DEV_SRC),-v "$(HF80K_DIR)/src":/opt/hf80k/src:ro,)
 
 # 자산 세 가지. 없으면 이미지는 구워지지만 첫 청크에서 죽는다.
 ASSETS := $(HF80K_DIR)/assets/fwd_annotated.hdf5 \
@@ -90,7 +96,7 @@ smoke:
 	docker run -d --name $(NAME)-smoke --gpus '"device=$(GPU)"' \
 	  --env-file "$(ENV_FILE)" \
 	  -e TARGET_EPISODES=$(TARGET) -e CHUNK_SIZE=$(CHUNK) -e CUDA_VISIBLE_DEVICES=0 \
-	  $(RUN_ARGS) \
+	  $(RUN_ARGS) $(SRC_MOUNT) \
 	  -v "$(SMOKE_WORK)":/work \
 	  -v "$(CACHE)/cache/kit":/isaac-sim/kit/cache:rw \
 	  -v "$(CACHE)/cache/ov":/root/.cache/ov:rw \
@@ -105,7 +111,7 @@ run:
 	  -e CUDA_VISIBLE_DEVICES=0 \
 	  $(if $(TARGET),-e TARGET_EPISODES=$(TARGET),) \
 	  $(if $(SEED),-e SEED_BASE=$(SEED),) \
-	  $(RUN_ARGS) \
+	  $(RUN_ARGS) $(SRC_MOUNT) \
 	  -v "$(WORK)":/work \
 	  -v "$(CACHE)/cache/kit":/isaac-sim/kit/cache:rw \
 	  -v "$(CACHE)/cache/ov":/root/.cache/ov:rw \
