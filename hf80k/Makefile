@@ -23,6 +23,9 @@ ENV_FILE  ?= $(HF80K_DIR)/.env
 WORK      ?= /data/hf80k/gpu$(GPU)
 CACHE     ?= $(HOME)/docker/isaac-sim
 FROM      ?=
+# .env를 고치지 않고 한 번만 다르게 돌려 보고 싶을 때 쓴다.
+#   make smoke RUN_ARGS="-e NUM_ENVS=16 -e LOG_LEVEL=DEBUG"
+RUN_ARGS  ?=
 
 # 자산 세 가지. 없으면 이미지는 구워지지만 첫 청크에서 죽는다.
 ASSETS := $(HF80K_DIR)/assets/fwd_annotated.hdf5 \
@@ -87,6 +90,7 @@ smoke:
 	docker run -d --name $(NAME)-smoke --gpus '"device=$(GPU)"' \
 	  --env-file "$(ENV_FILE)" \
 	  -e TARGET_EPISODES=$(TARGET) -e CHUNK_SIZE=$(CHUNK) -e CUDA_VISIBLE_DEVICES=0 \
+	  $(RUN_ARGS) \
 	  -v "$(SMOKE_WORK)":/work \
 	  -v "$(CACHE)/cache/kit":/isaac-sim/kit/cache:rw \
 	  -v "$(CACHE)/cache/ov":/root/.cache/ov:rw \
@@ -101,6 +105,7 @@ run:
 	  -e CUDA_VISIBLE_DEVICES=0 \
 	  $(if $(TARGET),-e TARGET_EPISODES=$(TARGET),) \
 	  $(if $(SEED),-e SEED_BASE=$(SEED),) \
+	  $(RUN_ARGS) \
 	  -v "$(WORK)":/work \
 	  -v "$(CACHE)/cache/kit":/isaac-sim/kit/cache:rw \
 	  -v "$(CACHE)/cache/ov":/root/.cache/ov:rw \
