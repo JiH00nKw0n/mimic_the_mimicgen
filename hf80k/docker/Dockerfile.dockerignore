@@ -1,0 +1,19 @@
+# BuildKit reads <dockerfile>.dockerignore in preference to the context root's
+# .dockerignore. The build context has to be the repo root (the Dockerfile copies
+# hf80k/src and hf80k/assets), but the repo root also holds datasets/, outputs/
+# and .git — tens of GB we must not send to the daemon. This file trims the
+# context to hf80k/ without putting a .dockerignore outside hf80k/.
+*
+!hf80k
+hf80k/*
+!hf80k/src
+!hf80k/assets
+!hf80k/docker
+hf80k/docker/*
+!hf80k/docker/entrypoint.sh
+
+# Never ship secrets or python caches, even from inside hf80k/.
+**/.env
+**/__pycache__
+**/*.pyc
+**/.DS_Store

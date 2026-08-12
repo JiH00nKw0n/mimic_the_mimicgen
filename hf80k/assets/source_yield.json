@@ -1,0 +1,20 @@
+{
+  "schema_version": "fr3_cube.hf80k.source_yield.v1",
+  "measured_on": "gen_flip_25",
+  "measured_after": "base_frame_180_fix",
+  "annotated_source": "assets/fwd_annotated.hdf5",
+  "index_semantics": "src_ind is the position of a demo in list(h5file['data'].keys()), which is exactly the order isaaclab_mimic's HDF5DatasetFileHandler.get_episode_names() feeds into the DataGenInfoPool, so pool index == this index. Demo NAMES are not recorded here because the pool is index-addressed; source_filter.py resolves index -> name from the file itself and prints the mapping. Watch out: h5py returns group keys alphabetically, so with 13 demos the order is demo_0, demo_1, demo_10, demo_11, demo_12, demo_2, ... — index 2 is demo_10, not demo_2.",
+  "attribution": "Counted from the run's provenance JSON (provenance_hooks.py counts_all / counts_success), attributed per generation attempt. The four per-source attempt counts sum exactly to the 201 attempts of the run.",
+  "attempts_total": 201,
+  "successes_total": 25,
+  "yield_all_sources": 0.1244,
+  "yield_excluding_zero": 0.1524,
+  "excluded_indices": [0],
+  "sources": [
+    {"src_ind": 0, "attempts": 37, "successes": 0, "yield": 0.0},
+    {"src_ind": 1, "attempts": 71, "successes": 21, "yield": 0.2958},
+    {"src_ind": 2, "attempts": 68, "successes": 3, "yield": 0.0441},
+    {"src_ind": 3, "attempts": 25, "successes": 1, "yield": 0.04}
+  ],
+  "note": "Only source indices 0..3 ever appeared in this measurement even though the annotated file holds 13 demos. Indices 4..12 have no measurement at all — they were never picked by the nearest-neighbour source selection during gen_flip_25 — so they are NOT treated as zero-yield and SOURCE_DEMO_FILTER=exclude_zero_yield keeps them. This whole table is 201 attempts on one run and MUST be re-verified on a longer run before it is used as anything but a first-cut exclusion: index 0 producing 0/37 is suggestive, not conclusive (95% upper bound on its true yield is still ~9.5%), and the absence of 4..12 may itself be a selection artefact rather than evidence about those demos."
+}
