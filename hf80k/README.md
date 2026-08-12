@@ -123,6 +123,22 @@ LOG_LEVEL=INFO
 기반 이미지는 `nvcr.io/nvidia/isaac-lab:3.0.0-beta2-post1`이다. NGC에 로그인이 필요하면
 `docker login nvcr.io`를 먼저 한다.
 
+가장 간단한 방법은 `make`다. 아래 세 줄이면 끝난다.
+
+```bash
+make assets FROM=aidas      # 자산 90 MB를 가져온다. 한 번만 하면 된다
+cp .env.example .env        # 토큰과 저장소 이름을 채운다
+make build                  # 이미지를 굽는다
+make smoke                  # 100개로 동작을 확인한다
+make run                    # 본 실행
+```
+
+`make`만 치면 쓸 수 있는 명령이 전부 나온다. 진행 상황은 `make progress`, 로그는
+`make logs`, 중단은 `make stop`이다. GPU 4대에 나눠 돌리려면 `make run-4gpu` 한 줄이면
+된다. 값을 바꾸고 싶으면 명령줄에서 덮어쓴다. 예를 들어 `make run GPU=2 TARGET=20000`이다.
+
+아래는 `make`가 실제로 무엇을 하는지 풀어 쓴 것이다. 직접 실행하고 싶을 때만 보면 된다.
+
 ```bash
 cd /path/to/mimic_the_mimicgen
 docker build -f hf80k/docker/Dockerfile -t fr3-hf80k:1 .

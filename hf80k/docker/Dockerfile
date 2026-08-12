@@ -19,6 +19,11 @@ ENV ACCEPT_EULA=Y \
     OMNI_KIT_ACCEPT_EULA=YES \
     PYTHONUNBUFFERED=1
 
+# 기반 이미지는 uid 1000(ubuntu)으로 돈다. apt와 /opt 쓰기에는 root가 필요하므로
+# 빌드 동안만 root로 올라갔다가 마지막에 되돌린다. 실행까지 root로 두면 /work 바인드
+# 마운트에 쌓이는 파일이 호스트에서 root 소유가 되어 운영자가 지울 수 없다.
+USER root
+
 # LeRobot v3 encodes the three camera streams to H.264 by shelling out to
 # ffmpeg. Some Isaac Lab tags ship it and some do not, so ask first.
 RUN if ! command -v ffmpeg > /dev/null 2>&1; then \
@@ -90,6 +95,10 @@ RUN T=/opt/hf80k/assets/fr3_visual_randomization_v1/assets/table ; \
       echo "[build] table USD -> $F" ; \
     else echo "[build] WARNING: no table USD under $T (slab fallback)" ; fi
 ENV LAB_TABLE_USD=/opt/hf80k/assets/table_scene.usdc
+
+# 빌드 산출물을 실행 사용자에게 넘기고 root에서 내려온다.
+RUN chown -R 1000:1000 /opt/hf80k
+USER ubuntu
 
 # Defaults that match INTERFACE.md; .env or `docker run -e` override them.
 ENV HF80K_SRC=/opt/hf80k/src \
