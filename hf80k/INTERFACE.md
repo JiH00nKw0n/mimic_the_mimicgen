@@ -28,7 +28,8 @@
 | `KEEP_INTERMEDIATE` | `0` | 1이면 청크 후 중간 HDF5를 지우지 않는다. 디버그용 |
 | `UPLOAD_EACH_CHUNK` | `1` | 1이면 청크마다 바로 올린다 |
 | `RESUME` | `1` | 1이면 완료된 청크를 건너뛰고 이어서 한다 |
-| `SEED_BASE` | `42000` | 청크마다 `SEED_BASE + chunk_index`를 시드로 쓴다 |
+| `SEED_BASE` | `42000` | 청크마다 `SEED_BASE + chunk_index`를 시드로 쓴다. 컨테이너끼리 달라야 한다. 같으면 같은 데이터를 여러 벌 만든다 |
+| `SHARD_ID` | 비어 있음 | 저장소에서 이 컨테이너가 쓸 자리 이름. 청크는 `chunks/<SHARD_ID>/chunk_00000`에 올라간다. 청크 번호는 컨테이너마다 0부터 다시 시작하므로, 이름이 겹치면 네 대가 서로를 덮어써서 4분의 1만 남는다. 비우면 `SEED_BASE`에서 이름을 만든다(`seed42000`) |
 | `LOG_LEVEL` | `INFO` | |
 
 ### 1b. 내부 조절 변수
