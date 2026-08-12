@@ -169,7 +169,7 @@ aggregate:
 	  inner="$$inner,/work/$$i" ; i=$$((i+1)) ; \
 	done ; \
 	echo "합칠 작업 디렉터리: $$dirs" ; \
-	docker run --rm --env-file "$(ENV_FILE)" $$mounts \
+	docker run --rm --env-file "$(ENV_FILE)" $$mounts $(SRC_MOUNT) \
 	  --entrypoint /opt/hf80k/entrypoint.sh "$(IMAGE)" \
 	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/hf_upload.py --mode aggregate --work_dir '$${inner#,}' $(AGG_ARGS)"
 

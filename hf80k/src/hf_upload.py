@@ -113,6 +113,35 @@ def import_lerobot():
     return version, aggregate_datasets
 
 
+def push_dataset_card(repo_id: str, token: str, attempts: int, info: dict | None = None):
+    """저장소에 LeRobot 데이터셋 카드를 올린다.
+
+    왜 필요한가. 허깅페이스의 데이터 뷰어는 저장소 최상위 README.md의 머리말에 적힌
+    `configs.data_files`를 보고 어느 파일이 데이터인지 정한다. 그 파일이 없으면 뷰어가
+    저장소를 훑어 스스로 짐작하는데, 우리 저장소에는 mp4가 수천 개라 "영상 폴더"로 보고
+    영상 하나를 한 행으로 세어 버린다. 실제로 100편(17,700프레임)을 올린 저장소가
+    뷰어에서는 39행으로 보였다. 영상 파일이 39개였기 때문이다.
+
+    데이터 자체는 멀쩡하고 `LeRobotDataset(repo_id)`도 정상으로 연다. 뷰어만 틀리게
+    보여 주는 것인데, 받는 쪽이 데이터가 잘못됐다고 판단하기 딱 좋다.
+
+    lerobot의 `push_to_hub`는 이 카드를 자기가 만들어 올린다. 우리는 청크 단위로 나눠
+    올리느라 `upload_folder`를 직접 쓰므로 그 단계가 빠져 있었다. lerobot이 쓰는 것과
+    같은 함수로 만들어 같은 내용이 되게 한다.
+    """
+    site = os.environ.get("LEROBOT_SITE") or os.environ.get("UWLAB_LEROBOT_SITE", "")
+    if site and os.path.isdir(site) and site not in sys.path:
+        sys.path.insert(0, site)
+    from lerobot.datasets.utils import create_lerobot_dataset_card
+
+    card = create_lerobot_dataset_card(
+        tags=["robotics", "franka", "fr3", "cube-stacking", "isaac-sim", "synthetic"],
+        dataset_info=info, license="apache-2.0", repo_id=repo_id)
+    with_retries(lambda: card.push_to_hub(repo_id=repo_id, repo_type="dataset", token=token),
+                 attempts, token, "dataset card")
+    log(f"[upload] 데이터셋 카드를 올렸다 -> {repo_id}/README.md")
+
+
 def is_transient(exc) -> bool:
     """Retry anything that is not an outright rejection by the Hub."""
     response = getattr(exc, "response", None)
@@ -156,8 +185,15 @@ def count_files(path: Path) -> int:
 
 def upload_folder(api, folder: Path, repo_id: str, path_in_repo: str, token: str,
                   *, allow_patterns=None, ignore_patterns=DEFAULT_IGNORE,
-                  attempts: int = 4, commit_message: str = "") -> dict:
-    """upload_folder into a path prefix, retried. Same prefix = overwrite, not copy."""
+                  attempts: int = 4, commit_message: str = "",
+                  delete_patterns=None) -> dict:
+    """upload_folder into a path prefix, retried. Same prefix = overwrite, not copy.
+
+    delete_patterns를 주면 그 무늬에 걸리는 저장소 파일 중 이번에 올리는 폴더에 없는
+    것을 같은 커밋에서 지운다. 안 주면 남는다. 합친 최종본을 다시 올릴 때 이것이
+    필요하다. 전에 올린 최종본이 더 컸으면 남은 영상 파일이 그대로 남아, 메타데이터는
+    100편이라고 하는데 파일은 120편분이 있는 상태가 된다. 실제로 그렇게 됐다.
+    """
     folder = Path(folder).resolve()
     if not folder.is_dir():
         raise FileNotFoundError(f"not a directory: {folder}")
@@ -171,6 +207,7 @@ def upload_folder(api, folder: Path, repo_id: str, path_in_repo: str, token: str
             repo_id=repo_id, repo_type="dataset", folder_path=str(folder),
             path_in_repo=path_in_repo, allow_patterns=allow_patterns,
             ignore_patterns=list(ignore_patterns) if ignore_patterns else None,
+            delete_patterns=list(delete_patterns) if delete_patterns else None,
             commit_message=message, token=token),
         attempts, token, f"upload_folder {path_in_repo or '/'}")
     return {
@@ -332,10 +369,27 @@ def aggregate_and_upload(work_dir, repo_id: str, token: str, *, merged_dir=None,
         api = HfApi()
         result["repo_url"] = scrub(
             ensure_repo(api, repo_id, private, token, attempts), token)
+        # 최상위에 올릴 때는 예전 최종본이 남긴 파일을 같은 커밋에서 지운다. 안 그러면
+        # 더 컸던 이전 최종본의 영상 파일이 남아 메타데이터와 파일이 어긋난다. 무늬를
+        # data/meta/videos로 한정해 청크 사본(chunks/ 아래)은 건드리지 않는다.
+        stale = None if path_in_repo else ["data/**", "meta/**", "videos/**"]
         result["upload"] = upload_folder(api, merged, repo_id, path_in_repo, token,
-                                         attempts=attempts,
+                                         attempts=attempts, delete_patterns=stale,
                                          commit_message="hf80k: merged dataset")
         result["uploaded"] = True
+        # 카드는 업로드 뒤에 올린다. 카드가 가리키는 data/*/*.parquet이 이미 있어야
+        # 뷰어가 첫 조회에서 성공한다.
+        try:
+            info_path = merged / "meta" / "info.json"
+            info = json.load(open(info_path)) if info_path.is_file() else None
+            push_dataset_card(repo_id, token, attempts, info)
+            result["card"] = True
+        except Exception as exc:  # 카드는 보기용이다. 데이터는 이미 올라갔다
+            result["card"] = False
+            result["card_error"] = scrub(f"{type(exc).__name__}: {exc}", token)
+            log(f"[upload] 데이터셋 카드를 올리지 못했다: {result['card_error']}. "
+                f"데이터는 올라갔고 LeRobotDataset으로는 정상으로 열린다. "
+                f"허깅페이스 뷰어만 저장소를 영상 폴더로 잘못 볼 수 있다.")
     return result
 
 
