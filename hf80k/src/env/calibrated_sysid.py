@@ -16,6 +16,7 @@ from pathlib import Path
 import carb
 import numpy as np
 import torch
+import warp as wp
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
@@ -66,18 +67,54 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         self.applied_summary: dict[str, object] = {}
 
     @staticmethod
+    def _warp_indices(env_ids_cpu: torch.Tensor):
+        """PhysX 뷰가 받는 유일한 색인 형태로 바꾼다.
+
+        이 판본에서 set_material_properties는 파이토치 텐서를 색인으로 받으면
+        "issubclass() arg 1 must be a class"로 죽는다. warp int32 배열만 받는다.
+        """
+        return wp.from_torch(env_ids_cpu.to(torch.int32).contiguous(), dtype=wp.int32)
+
+    @staticmethod
+    def _get_as_torch(getter):
+        """PhysX 뷰의 조회 결과를 수정 가능한 파이토치 텐서로 바꾼다.
+
+        warp 배열이 오면 사본을 뜨고, 이미 파이토치 텐서면 그대로 쓴다. 판본에 따라
+        둘 중 하나가 오므로 양쪽을 다 받는다.
+        """
+        out = getter()
+        if isinstance(out, torch.Tensor):
+            return out
+        return wp.to_torch(out).clone()
+
+    @staticmethod
+    def _put(setter, tensor: torch.Tensor, env_ids_cpu: torch.Tensor) -> None:
+        """수정한 텐서를 PhysX 뷰에 되돌려 넣는다. 색인은 warp int32여야 한다."""
+        setter(wp.from_torch(tensor.contiguous(), dtype=wp.float32),
+               apply_fr3_cube_calibration_bundle._warp_indices(env_ids_cpu))
+
+    @staticmethod
+    def _materials_as_torch(view):
+        """재질 배열을 수정 가능한 파이토치 텐서로 가져온다.
+
+        get_material_properties()는 warp 배열을 돌려준다. warp 배열은 여러 색인으로
+        값을 넣는 것이 아예 안 되고, wp.to_torch가 만든 텐서는 메모리를 공유하지 않는
+        사본이라 거기에 써도 시뮬레이터에는 반영되지 않는다. 실측으로 확인했다.
+        그래서 사본에서 고친 뒤 set으로 되돌려 넣는 방식만 동작한다.
+        """
+        return apply_fr3_cube_calibration_bundle._get_as_torch(view.get_material_properties)
+
+    @staticmethod
     def _set_materials(asset: RigidObject | Articulation, env_ids_cpu: torch.Tensor, values: torch.Tensor) -> None:
-        materials = asset.root_physx_view.get_material_properties()
-        # hf80k 수정: max_shapes를 int()로 감싼다. 이 판본의 PhysX 뷰가 이 값을 파이썬
-        # 정수가 아니라 0차원 텐서로 돌려주는데, expand()에 텐서를 넣으면
-        # "only integer tensors of a single element can be converted to an index"로
-        # 죽는다. 환경을 만드는 startup 이벤트에서 터지므로 생성이 통째로 시작도 못 한다.
-        max_shapes = int(asset.root_physx_view.max_shapes)
-        materials[env_ids_cpu] = values[:, None, :].expand(-1, max_shapes, -1)
-        asset.root_physx_view.set_material_properties(materials, env_ids_cpu)
+        view = asset.root_physx_view
+        materials = apply_fr3_cube_calibration_bundle._materials_as_torch(view)
+        max_shapes = int(view.max_shapes)
+        materials[env_ids_cpu] = values[:, None, :].expand(-1, max_shapes, -1).to(materials.dtype)
+        apply_fr3_cube_calibration_bundle._put(
+            view.set_material_properties, materials, env_ids_cpu)
 
     def _set_finger_materials(self, env_ids_cpu: torch.Tensor, values: torch.Tensor) -> None:
-        materials = self.robot.root_physx_view.get_material_properties()
+        materials = self._materials_as_torch(self.robot.root_physx_view)
         shape_counts: list[int] = []
         for link_path in self.robot.root_physx_view.link_paths[0]:
             view = self.robot._physics_sim_view.create_rigid_body_view(link_path)  # type: ignore[attr-defined]
@@ -87,8 +124,9 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
             body_id = body_names.index(finger_name)
             start = sum(shape_counts[:body_id])
             stop = start + shape_counts[body_id]
-            materials[env_ids_cpu, start:stop] = values[:, None, :]
-        self.robot.root_physx_view.set_material_properties(materials, env_ids_cpu)
+            materials[env_ids_cpu, start:stop] = values[:, None, :].to(materials.dtype)
+        self._put(self.robot.root_physx_view.set_material_properties,
+                  materials, env_ids_cpu)
 
     def _sample(self, count: int, seed: int) -> dict[str, np.ndarray]:
         rng = np.random.default_rng(seed)
@@ -264,13 +302,13 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         # Exact measured identity masses and uniform-cube inertia at 50.7 mm.
         size = 0.0507
         for name, cube in self.cubes.items():
-            masses = cube.root_physx_view.get_masses()
+            masses = self._get_as_torch(cube.root_physx_view.get_masses)
             if masses.ndim == 1:
                 masses[env_ids_cpu] = CUBE_MASSES_KG[name]
             else:
                 masses[env_ids_cpu, 0] = CUBE_MASSES_KG[name]
-            cube.root_physx_view.set_masses(masses, env_ids_cpu)
-            inertias = cube.root_physx_view.get_inertias()
+            self._put(cube.root_physx_view.set_masses, masses, env_ids_cpu)
+            inertias = self._get_as_torch(cube.root_physx_view.get_inertias)
             moment = CUBE_MASSES_KG[name] * size * size / 6.0
             if inertias.ndim == 2:
                 inertias[env_ids_cpu] = 0.0
@@ -282,26 +320,26 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
                 inertias[env_ids_cpu, 0, 0] = moment
                 inertias[env_ids_cpu, 0, 4] = moment
                 inertias[env_ids_cpu, 0, 8] = moment
-            cube.root_physx_view.set_inertias(inertias, env_ids_cpu)
+            self._put(cube.root_physx_view.set_inertias, inertias, env_ids_cpu)
 
         # Map the rigid D405 payload to the receiving asset's hand-TCP body.
         # The bundle provides mass and CoM but no inertia, so preserve the
         # receiving inertia shape and scale it by mass.
         payload_body = "fr3_hand_tcp" if "fr3_hand_tcp" in self.robot.body_names else "fr3_hand"
         payload_id = list(self.robot.body_names).index(payload_body)
-        masses = self.robot.root_physx_view.get_masses()
+        masses = self._get_as_torch(self.robot.root_physx_view.get_masses)
         old_payload_mass = masses[env_ids_cpu, payload_id].clone()
         masses[env_ids_cpu, payload_id] = 0.0946
-        self.robot.root_physx_view.set_masses(masses, env_ids_cpu)
-        inertias = self.robot.root_physx_view.get_inertias()
+        self._put(self.robot.root_physx_view.set_masses, masses, env_ids_cpu)
+        inertias = self._get_as_torch(self.robot.root_physx_view.get_inertias)
         ratio = (0.0946 / torch.clamp(old_payload_mass, min=1e-6)).unsqueeze(-1)
         inertias[env_ids_cpu, payload_id] *= ratio
-        self.robot.root_physx_view.set_inertias(inertias, env_ids_cpu)
-        coms = self.robot.root_physx_view.get_coms()
+        self._put(self.robot.root_physx_view.set_inertias, inertias, env_ids_cpu)
+        coms = self._get_as_torch(self.robot.root_physx_view.get_coms)
         coms[env_ids_cpu, payload_id, :3] = torch.tensor(
             [0.0695086838, -0.0630348763, -0.0714033328], dtype=coms.dtype
         )
-        self.robot.root_physx_view.set_coms(coms, env_ids_cpu)
+        self._put(self.robot.root_physx_view.set_coms, coms, env_ids_cpu)
 
         # Gripper force scale is represented by its implicit position actuator
         # stiffness. Speed scale is not explicitly modeled by this task.
@@ -334,7 +372,10 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         }
         env.fr3_cube_calibration_summary = self.applied_summary
         if log_samples:
-            log_dir = Path(getattr(env.cfg, "log_dir", "."))
+            # env.cfg.log_dir은 None인 경우가 많다. Path(None)은 TypeError로 죽으므로
+            # 작업 디렉터리 아래를 기본값으로 쓴다. 뽑힌 물리값을 남기는 진단용 경로다.
+            log_dir = Path(getattr(env.cfg, "log_dir", None)
+                           or os.environ.get("WORK_DIR", ".")) / "sysid_samples"
             log_dir.mkdir(parents=True, exist_ok=True)
             sample_path = log_dir / f"calibrated_sysid_samples_seed{seed}.npz"
             np.savez_compressed(sample_path, **values)

@@ -610,6 +610,23 @@ def count_frames(contract_path: str) -> int:
 
 
 # --------------------------------------------------------------------- stages
+def already_has_demos(path: str, want: int) -> bool:
+    """이 파일이 이미 원하는 만큼의 데모를 담고 있으면 참.
+
+    재시도할 때 앞 단계를 다시 돌리지 않기 위해 쓴다. 생성 17분, 렌더 8분을 마지막
+    단계 실패 때문에 버리지 않게 하는 것이 목적이다. 열리지 않거나 개수가 모자라면
+    거짓을 돌려 그 단계를 다시 하게 한다.
+    """
+    if not os.path.isfile(path):
+        return False
+    try:
+        import h5py
+        with h5py.File(path, "r") as fh:
+            return len(fh.get("data", {})) >= want
+    except Exception:
+        return False
+
+
 def _generate_failure_hint(log_path: str, lines: int = 25) -> str:
     """청크 로그에서 마지막 파이썬 예외를 찾아 돌려준다.
 
@@ -635,6 +652,11 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
     until it has that many), so splitting it is enough to split the work.
     """
     cdir = chunk["dir"]
+    merged = os.path.join(cdir, "gen.hdf5")
+    if already_has_demos(merged, chunk["episodes"]):
+        log(f"generate: {merged} 이미 {chunk['episodes']}개를 담고 있어 건너뛴다")
+        chunk["produced"] = chunk["episodes"]
+        return 0.0
     quotas = largest_remainder(chunk["episodes"], [1.0] * cfg["gen_procs"])
     quotas = [q for q in quotas if q > 0]
     jobs, shards, provs = [], [], []
@@ -700,6 +722,9 @@ def stage_convert(cfg: dict, chunk: dict, log, log_path: str) -> float:
     """gen.hdf5 -> contract.hdf5 (10 Hz control contract, one process)."""
     cdir = chunk["dir"]
     out = os.path.join(cdir, "contract.hdf5")
+    if already_has_demos(out, chunk["produced"]):
+        log(f"convert: {out} 이미 완성돼 있어 건너뛴다")
+        return 0.0
     cmd = [ISAACLAB_SH, "-p", CONVERT_SCRIPT, "--device", PHYSICS_DEVICE,
            "--dataset", os.path.join(cdir, "gen.hdf5"), "--output", out,
            "--count", str(chunk["produced"]),
@@ -720,6 +745,10 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
     """
     cdir = chunk["dir"]
     n = chunk["produced"]
+    rgb_out = os.path.join(cdir, "rgb.hdf5")
+    if already_has_demos(rgb_out, n):
+        log(f"render: {rgb_out} 이미 완성돼 있어 건너뛴다")
+        return 0.0
     counts = largest_remainder(n, [1.0] * cfg["render_procs"])
     jobs, shards, vlogs, start = [], [], [], 0
     for i, count in enumerate(counts):
@@ -1031,14 +1060,18 @@ def main(argv=None) -> int:
                     break
                 log(f"chunk {chunk['chunk_index']:05d} attempt {attempt} failed: {exc}")
                 if attempt == 1:
-                    wipe_chunk_products(chunk)
+                    # 이미 만든 산출물은 남긴다. 각 단계가 자기 결과물이 있으면
+                    # 건너뛰므로, 실패한 단계부터 이어서 한다.
+                    log(f"chunk {chunk['chunk_index']:05d} 이미 만든 산출물은 두고 "
+                        f"실패한 단계부터 다시 한다")
                 else:
                     chunk["status"] = "failed"
                     chunk["error"] = str(exc)
             except Exception as exc:                     # noqa: BLE001 - keep the run alive
                 log(f"chunk {chunk['chunk_index']:05d} attempt {attempt} crashed: {exc!r}")
                 if attempt == 1:
-                    wipe_chunk_products(chunk)
+                    log(f"chunk {chunk['chunk_index']:05d} 이미 만든 산출물은 두고 "
+                        f"실패한 단계부터 다시 한다")
                 else:
                     chunk["status"] = "failed"
                     chunk["error"] = repr(exc)

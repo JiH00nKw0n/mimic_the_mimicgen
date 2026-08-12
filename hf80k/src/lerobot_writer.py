@@ -89,10 +89,14 @@ def import_lerobot():
     try:
         version = importlib.metadata.version("lerobot")
         from lerobot.datasets.lerobot_dataset import LeRobotDataset
-    except (ImportError, importlib.metadata.PackageNotFoundError) as exc:
+    except importlib.metadata.PackageNotFoundError as exc:
         raise SystemExit(
-            "lerobot (>=0.4, dataset v3) is not importable. Install it or point "
-            "LEROBOT_SITE at the directory it lives in.") from exc
+            "lerobot을 찾지 못했다. 설치하거나 LEROBOT_SITE가 설치 위치를 가리키게 한다. "
+            f"지금 LEROBOT_SITE={site!r}") from exc
+    except ImportError as exc:
+        # 원문을 그대로 보여 준다. lerobot은 datasets 같은 추가 의존성이 없을 때도
+        # ImportError를 내는데, 이걸 "lerobot이 없다"로 바꿔 버리면 원인을 못 찾는다.
+        raise SystemExit(f"lerobot을 불러오지 못했다: {exc}") from exc
     numbers = re.findall(r"\d+", version)
     if len(numbers) >= 2 and (int(numbers[0]), int(numbers[1])) < (0, 4):
         raise SystemExit(f"LeRobot dataset v3 needs lerobot>=0.4, found {version}")
