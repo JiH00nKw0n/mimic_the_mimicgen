@@ -32,6 +32,9 @@ RUN_ARGS  ?=
 # 코드이지 이 마운트가 아니다.
 DEV_SRC   ?=
 SRC_MOUNT := $(if $(DEV_SRC),-v "$(HF80K_DIR)/src":/opt/hf80k/src:ro,)
+# make aggregate에 그대로 넘어가는 인자. 이미 만든 merged/를 버리고 다시 합치려면
+#   make aggregate WORK='/data/hf80k/gpu*' AGG_ARGS=--overwrite
+AGG_ARGS  ?=
 
 # 자산 세 가지. 없으면 이미지는 구워지지만 첫 청크에서 죽는다.
 ASSETS := $(HF80K_DIR)/assets/fwd_annotated.hdf5 \
@@ -168,7 +171,7 @@ aggregate:
 	echo "합칠 작업 디렉터리: $$dirs" ; \
 	docker run --rm --env-file "$(ENV_FILE)" $$mounts \
 	  --entrypoint /opt/hf80k/entrypoint.sh "$(IMAGE)" \
-	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/hf_upload.py --mode aggregate --work_dir '$${inner#,}'"
+	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/hf_upload.py --mode aggregate --work_dir '$${inner#,}' $(AGG_ARGS)"
 
 clean-work:
 	@read -p "$(WORK) 를 통째로 지운다. 되돌릴 수 없다. 계속하려면 yes: " a ; \
