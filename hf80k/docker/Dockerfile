@@ -37,6 +37,16 @@ RUN if ! command -v ffmpeg > /dev/null 2>&1; then \
 # them. The entrypoint then `exec`s that binary directly instead of the wrapper:
 # bash does not forward SIGTERM to a foreground child, so execing the wrapper
 # would make `docker stop` a 10-second wait followed by SIGKILL mid-chunk.
+# /vrand는 파일시스템 최상위라 root만 만들 수 있다. 가리키는 대상은 나중에 COPY되지만
+# 심볼릭 링크는 대상이 없어도 만들어진다.
+RUN ln -sfn /opt/hf80k/assets/fr3_visual_randomization_v1 /vrand
+
+# 아래 모든 쓰기를 실행 사용자로 하기 위해 디렉터리 하나만 미리 넘긴다. 이렇게 하면
+# 마지막에 chown -R을 걸 필요가 없다. chown -R은 오버레이 파일시스템에서 아래층 파일을
+# 전부 위층으로 복사하게 만들어, 5 GB짜리 레이어와 20분을 그냥 더한다.
+RUN mkdir -p /opt/hf80k && chown 1000:1000 /opt/hf80k
+USER ubuntu
+
 RUN mkdir -p /opt/hf80k \
  && printf '%s\n' \
       'import os, sys' \
@@ -75,14 +85,10 @@ RUN . /opt/hf80k/isaac_python.env \
 
 # Pipeline code and assets. src/ is small; assets/ is the 90 MB that
 # scripts/fetch_assets.sh puts there before the build.
-COPY hf80k/src /opt/hf80k/src
-COPY hf80k/assets /opt/hf80k/assets
-COPY hf80k/docker/entrypoint.sh /opt/hf80k/entrypoint.sh
+COPY --chown=1000:1000 hf80k/src /opt/hf80k/src
+COPY --chown=1000:1000 hf80k/assets /opt/hf80k/assets
+COPY --chown=1000:1000 hf80k/docker/entrypoint.sh /opt/hf80k/entrypoint.sh
 RUN chmod +x /opt/hf80k/entrypoint.sh
-
-# render_viewpoints.py defaults --vrand_root/--vrand_config to /vrand; keep that
-# default working so a debug run inside the container needs no extra flags.
-RUN ln -sfn /opt/hf80k/assets/fr3_visual_randomization_v1 /vrand
 
 # The lab table USD ships inside the visual randomization package, but its file
 # name is the package's business, not ours. Resolve it at build time and expose
@@ -95,10 +101,6 @@ RUN T=/opt/hf80k/assets/fr3_visual_randomization_v1/assets/table ; \
       echo "[build] table USD -> $F" ; \
     else echo "[build] WARNING: no table USD under $T (slab fallback)" ; fi
 ENV LAB_TABLE_USD=/opt/hf80k/assets/table_scene.usdc
-
-# 빌드 산출물을 실행 사용자에게 넘기고 root에서 내려온다.
-RUN chown -R 1000:1000 /opt/hf80k
-USER ubuntu
 
 # Defaults that match INTERFACE.md; .env or `docker run -e` override them.
 ENV HF80K_SRC=/opt/hf80k/src \
