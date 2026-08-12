@@ -1,0 +1,30 @@
+# 자산은 git으로 나르지 않는다. scripts/fetch_assets.sh가 채우고 이미지가 굽는다.
+# 소스 시연 HDF5 + 캘리브레이션 번들 12 MB + 시각 랜덤화 패키지 74 MB.
+# 다만 우리가 직접 쓰고 관리하는 작은 YAML(카메라 오버레이, 바인딩)은 추적한다.
+assets/*
+!assets/*.yaml
+!assets/source_yield.json
+!assets/fr3_camera_overlay_v2/
+assets/fr3_camera_overlay_v2/*
+!assets/fr3_camera_overlay_v2/*.yaml
+
+# 비밀. .env.example만 추적한다
+.env
+*.env
+!.env.example
+
+# 작업 디렉터리(WORK_DIR 마운트 대상)와 실행 부산물
+work/
+_work/
+out/
+logs/
+chunks/
+merged/
+state.json
+*.hdf5
+*.log
+
+# 파이썬 부스러기와 OS 소음
+__pycache__/
+*.pyc
+.DS_Store
