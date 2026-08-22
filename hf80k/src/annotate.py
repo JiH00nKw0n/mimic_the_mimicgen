@@ -114,6 +114,10 @@ def main(argv=None) -> int:
     env = orch.base_env(cfg, [orch.ENV_DIR])
     for key, value in (orch.PROFILE.get("generate.extra_env", {}) or {}).items():
         env[str(key)] = str(value)
+    # 어노테이션은 기록된 데모를 그대로 재생해야 한다. 리셋 때 물체를 무작위로 옮기는
+    # 이벤트가 남아 있으면 기록된 초기 배치가 지워지고, 재생하는 로봇이 빈 자리를 집는다.
+    # peg에서 실제로 그렇게 되어 12편 전부 실패했다.
+    env["LAB_DISABLE_RESET_RANDOMIZATION"] = "1"
 
     log(f"annotate: task={orch.TASK_ID} input={src} output={dst}")
     proc = subprocess.run(cmd, env=env, stdout=subprocess.PIPE,

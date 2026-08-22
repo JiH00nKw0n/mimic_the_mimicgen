@@ -21,6 +21,8 @@ self-contained copy in ``peg_grasped``, use
 
 from __future__ import annotations
 
+import os
+
 import torch
 
 import isaaclab.utils.math as PoseUtils
@@ -92,6 +94,22 @@ def peg_grasped(
     return grasped
 
 
+def _as_torch(value):
+    """이 Isaac 판본은 물리 값을 warp 배열로 돌려준다. 파이토치 텐서로 바꿔 준다.
+
+    `peg.data.root_quat_w`가 ProxyArray로 오면 `matrix_from_quat`이
+    "Expected a value of type 'Tensor' ... but instead found type 'ProxyArray'"로 죽는다.
+    `calibrated_sysid.py`가 PhysX 뷰에서 겪은 것과 같은 문제이고 같은 방식으로 푼다.
+    """
+    if isinstance(value, torch.Tensor):
+        return value
+    try:
+        import warp as wp
+        return wp.to_torch(value).clone()
+    except Exception:                                   # noqa: BLE001
+        return torch.as_tensor(value)
+
+
 def peg_inserted(
     env,
     peg_cfg: SceneEntityCfg = SceneEntityCfg("peg"),
@@ -120,8 +138,11 @@ def peg_inserted(
     VERIFY ON-BOX (see the summary's ranked risks).
     """
     peg = env.scene[peg_cfg.name]
-    pos = peg.data.root_pos_w - env.scene.env_origins   # env-local (num_envs, 3)
-    quat = peg.data.root_quat_w                          # WXYZ (num_envs, 4)
+    pos = _as_torch(peg.data.root_pos_w) - _as_torch(env.scene.env_origins)
+    quat = _as_torch(peg.data.root_quat_w)               # WXYZ (num_envs, 4)
+    # warp의 quatf 배열은 (N,) 모양으로 오므로 (N, 4)로 펴 준다.
+    if quat.ndim == 1 or quat.shape[-1] != 4:
+        quat = quat.reshape(-1, 4)
 
     rot = PoseUtils.matrix_from_quat(quat)               # (num_envs, 3, 3), body->world
     upright = rot[:, 2, 2]                                # peg body z-axis . world z
@@ -132,7 +153,14 @@ def peg_inserted(
     inside = radial < radial_inside
     depth = torch.where(inside, rim_z - peg_bottom_z, torch.zeros_like(peg_bottom_z))
 
-    return (radial < radial_success) & (depth > depth_success) & (upright > upright_success)
+    result = (radial < radial_success) & (depth > depth_success) & (upright > upright_success)
+    # 재생이 왜 실패하는지 보려면 LAB_PEG_DEBUG=1로 둔다. 판정에 들어간 세 값을 그대로 찍는다.
+    if os.environ.get("LAB_PEG_DEBUG", "") == "1":
+        print(f"[peg_inserted] 반경={radial[0]:.4f}(<{radial_success}) "
+              f"깊이={depth[0]:.4f}(>{depth_success}) 수직도={upright[0]:.3f}"
+              f"(>{upright_success}) 핀위치={[round(float(v), 4) for v in pos[0]]} "
+              f"-> {bool(result[0])}", flush=True)
+    return result
 
 
 def randomize_peg_xy(

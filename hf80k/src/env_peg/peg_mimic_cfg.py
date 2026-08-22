@@ -274,23 +274,41 @@ def _apply_lab_overrides(self):
 
     # --- events --------------------------------------------------------------------------
     # teleport the arm home on reset (see reset_arm_to_home); drop the stock franka/cube events.
-    self.events.init_franka_arm_pose = EventTerm(func=reset_arm_to_home, mode="reset", params={})
+    # 리셋 때 팔을 홈 자세로 되돌린다. 생성에서는 매 시도를 같은 자세에서 시작하게 하는
+    # 장치이지만, 어노테이션 재생에서는 기록된 초기 관절 자세를 덮어 버린다. 그러면 재생이
+    # 엉뚱한 자세에서 시작해 상대 명령이 전혀 다른 궤적을 그린다.
+    if os.environ.get("LAB_DISABLE_RESET_RANDOMIZATION", "") == "1":
+        print("[peg_mimic_cfg] 리셋 팔 자세 되돌리기도 끈다 (어노테이션 재생용)")
+        self.events.init_franka_arm_pose = None
+    else:
+        self.events.init_franka_arm_pose = EventTerm(
+            func=reset_arm_to_home, mode="reset", params={})
     if hasattr(self.events, "randomize_franka_joint_state"):
         self.events.randomize_franka_joint_state = None
     if hasattr(self.events, "randomize_cube_positions"):
         self.events.randomize_cube_positions = None
-    # peg xy randomization for GENERATION (annotation overrides the peg via reset_to).
-    self.events.randomize_peg = EventTerm(
-        func=peg_mdp.randomize_peg_xy,
-        mode="reset",
-        params={
-            "x_range": peg_mdp.PEG_REGION_X,
-            "y_range": peg_mdp.PEG_REGION_Y,
-            "hole_xy": HOLE_XY,
-            "min_sep": peg_mdp.PEG_MIN_SEP,
-            "asset_cfg": SceneEntityCfg("peg"),
-        },
-    )
+    # 리셋 때 핀 위치를 무작위로 옮긴다. 생성에서는 이것이 있어야 새 배치가 나온다.
+    #
+    # 어노테이션에서는 반드시 꺼야 한다. 주석은 "어노테이션이 reset_to로 덮는다"고 적고
+    # 있었지만 실제로는 이 이벤트가 reset_to 뒤에 발동해 기록된 초기 배치를 지운다. 그러면
+    # 재생하는 로봇이 빈 자리를 집고, 12편 전부 "과제 미완료"로 끝난다. 실제로 그렇게 됐다.
+    # 확인한 값은 재생이 끝난 시점의 핀이 책상 위 z=0.75에 그대로 있고 구멍에서 8 cm에서
+    # 24 cm 떨어져 있었다는 것이다.
+    if os.environ.get("LAB_DISABLE_RESET_RANDOMIZATION", "") == "1":
+        print("[peg_mimic_cfg] 리셋 무작위화를 끈다 (어노테이션 재생용)")
+        self.events.randomize_peg = None
+    else:
+        self.events.randomize_peg = EventTerm(
+            func=peg_mdp.randomize_peg_xy,
+            mode="reset",
+            params={
+                "x_range": peg_mdp.PEG_REGION_X,
+                "y_range": peg_mdp.PEG_REGION_Y,
+                "hole_xy": HOLE_XY,
+                "min_sep": peg_mdp.PEG_MIN_SEP,
+                "asset_cfg": SceneEntityCfg("peg"),
+            },
+        )
 
     # --- observations (replace wholesale) ------------------------------------------------
     self.observations = PegObservationsCfg()

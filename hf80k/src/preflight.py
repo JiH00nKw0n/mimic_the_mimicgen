@@ -72,6 +72,23 @@ def _version_tuple(text: str) -> tuple:
 
 
 # ------------------------------------------------------------------- checks
+def check_task_profile(cfg):
+    """어떤 태스크 프로필로 도는지, 요청한 것이 실제로 실려 있는지 본다.
+
+    로더는 잘못된 프로필을 만나면 기본(큐브) 프로필로 되돌린다. 그 자체는 옳지만, 조용히
+    되돌아가면 peg를 돌리려던 사람이 큐브 데이터를 8만 편 만들게 된다. 여기서 막는다.
+    """
+    profile = orch.PROFILE
+    wanted = os.environ.get("TASK_PROFILE", "").strip()
+    if profile.error:
+        return "FAIL", f"프로필 {wanted or profile.name}: {profile.error}"
+    if wanted and profile.name != wanted:
+        return "FAIL", f"{wanted}를 요청했는데 {profile.name}이 실렸다"
+    return "PASS", (f"{profile.name} / 태스크 {orch.TASK_ID} / "
+                    f"카메라 {len(orch.CAMERAS)}대 / 소스 "
+                    f"{os.path.basename(orch.SOURCE_HDF5)}")
+
+
 def check_required_env(cfg):
     """허깅페이스에 올릴 때만 자격증명을 요구한다.
 
@@ -326,6 +343,7 @@ def check_hf_token(cfg):
 
 
 CHECKS = [
+    ("task profile", check_task_profile),
     ("required env vars", check_required_env),
     ("config sanity", check_config_sanity),
     ("work dir writable", check_work_dir),
