@@ -1,0 +1,75 @@
+# FR3가 큐브 세 개를 탑으로 쌓는 태스크.
+#
+# 값은 전부 예전에 코드에 상수로 박혀 있던 것을 그대로 옮긴 것이다. 이 프로필을 쓰면
+# 파이프라인이 지금까지와 똑같이 동작한다.
+schema_version: fr3.hf80k.task_profile.v1
+id: cube_stack_fr3
+
+generate:
+  # Isaac에 등록되는 태스크 이름. 생성 스크립트에 --task로 넘어간다.
+  task_id: Isaac-Stack-Cube-LabFR3-HF80K-Fwd-IK-Rel-Mimic-v0
+  # 생성 스크립트에 import 한 줄로 끼워 넣을 모듈들. 순서가 중요하다.
+  register_modules: [lab_register, clean_success_hook, provenance_hooks]
+  # 위 모듈이 들어 있는 디렉터리. src 아래의 상대 경로다.
+  module_dir: env
+  # 구간 경계 표시가 붙은 소스 데모. assets 아래의 상대 경로다.
+  source_hdf5: fwd_annotated.hdf5
+  source_yield_json: source_yield.json
+  arm_scale: "0.5"
+  subtask_offsets: "10,20"
+  extra_env: {}
+
+convert:
+  task_id: ""
+  register_modules: []
+
+render:
+  # 비우면 렌더가 자기 기본 환경을 쓴다. 큐브는 그것이 맞다.
+  task_id: ""
+  register_modules: []
+  cameras: [third_person_0, third_person_1, wrist]
+  overlay_yaml: fr3_camera_overlay_v2/overlay.yaml
+  binding_yaml: fr3_binding_v2.yaml
+  table_usd_env: LAB_TABLE_USD
+  success:
+    # 재생하며 다시 매기는 판정. 세 큐브가 탑으로 서고 그리퍼를 놓았는지 본다.
+    module: success_criteria
+    function: tower_status
+    verdict_attr: replay_success_any_order
+    extra_attrs: [stack_order]
+
+physics:
+  # assets 아래의 표준 번들 디렉터리. tools/normalize_physics_bundle.py가 만든 것이다.
+  bundle_dir: fr3_cube_system_calibration_bundle_v1
+  # 물리를 적용할 주된 물체들과 그것이 놓인 작업면.
+  primary_objects: [cube_1, cube_2, cube_3]
+  surface: work_surface
+  arm_actuator: arm
+  gripper_actuator: gripper
+  # 실측 질량. 물체마다 다르므로 번들의 공통 질량 대신 이 표를 쓴다.
+  object_masses_kg:
+    cube_1: 0.0633333333
+    cube_2: 0.0650333333
+    cube_3: 0.0660333333
+  object_size_m: 0.0507
+
+visual:
+  package_dir: fr3_visual_randomization_v1
+  # 시각 랜덤화 규격의 물체 이름과 이 장면의 물체를 잇는다.
+  object_prims:
+    cube_1: cube_1
+    cube_2: cube_2
+    cube_3: cube_3
+    table: work_surface
+
+dataset:
+  task_string: Stack three cubes into a three-level tower
+  robot_type: franka_fr3_osc
+  fps: 10
+  schema_prefix: fr3_cube.hf80k
+
+assets:
+  required:
+    - fwd_annotated.hdf5
+    - fr3_cube_system_calibration_bundle_v1
+    - fr3_visual_randomization_v1

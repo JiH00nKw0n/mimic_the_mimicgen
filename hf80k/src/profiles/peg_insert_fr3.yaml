@@ -1,0 +1,74 @@
+# FR3가 핀을 구멍에 꽂는 태스크.
+#
+# 큐브 프로필과 다른 곳만 보면 된다. 태스크 이름, 소스 데모, 환경 모듈, 성공 판정,
+# 장면 물체 이름, 그리퍼 액추에이터 묶음 이름이 다르다. 파이프라인 다섯 단계는 같다.
+schema_version: fr3.hf80k.task_profile.v1
+id: peg_insert_fr3
+
+generate:
+  task_id: Isaac-PegInsert-LabFR3-IK-Rel-Mimic-v0
+  # 큐브의 clean_success_hook은 cube_1부터 cube_3을 이름으로 찾으므로 여기서는 쓸 수 없다.
+  # peg용 판정 훅을 쓴다.
+  register_modules: [peg_register, peg_success_hook, provenance_hooks]
+  module_dir: env_peg
+  source_hdf5: peg_annotated.hdf5
+  source_yield_json: ""
+  arm_scale: "1.0"
+  # peg는 2구간이다. 핀을 집고, 구멍에 넣는다. 경계가 하나뿐이라 흔들림 범위도 하나다.
+  subtask_offsets: "10,20"
+  extra_env:
+    LAB_PEG_ENV_USD: /opt/hf80k/assets/peg_hole_env.usd
+    LAB_PEG_HOLE_USD: /opt/hf80k/assets/hole_01.usd
+
+convert:
+  task_id: Isaac-PegInsert-LabFR3-IK-Rel-Mimic-v0
+  register_modules: [peg_register]
+
+render:
+  # 렌더는 기본 환경이 큐브 장면이므로 peg에서는 태스크를 명시해야 한다.
+  task_id: Isaac-PegInsert-LabFR3-IK-Rel-Mimic-v0
+  register_modules: [peg_register]
+  cameras: [third_person_0, third_person_1, wrist]
+  overlay_yaml: fr3_camera_overlay_v2/overlay.yaml
+  binding_yaml: fr3_binding_v2.yaml
+  table_usd_env: LAB_TABLE_USD
+  success:
+    # 삽입 판정. 핀 중심이 구멍 축에서 1 cm 안, 깊이 2 cm 이상, 수직도 0.9 이상이다.
+    module: peg_success_criteria
+    function: insertion_status
+    verdict_attr: replay_success_any_order
+    extra_attrs: [insert_depth_m]
+
+physics:
+  bundle_dir: fr3_peg_in_hole_physics_bundle_v1_normalized
+  primary_objects: [peg]
+  # 구멍은 고정된 정적 물체라 물리 재질을 줄 대상이 아니다. 데스크가 작업면이다.
+  surface: desk_surface
+  arm_actuator: a1
+  # peg 환경은 그리퍼 액추에이터 묶음 이름이 "h"다. 큐브는 "gripper"다.
+  gripper_actuator: h
+  object_masses_kg:
+    peg: 0.0636
+  # 핀은 정육면체가 아니지만 관성 계산에 쓰는 대표 변 길이다.
+  object_size_m: 0.02
+
+visual:
+  package_dir: fr3_visual_randomization_v1
+  # 시각 랜덤화 규격은 물체를 큐브 이름으로 부른다. peg 장면 물체로 잇는다.
+  object_prims:
+    cube_1: peg
+    table: desk_surface
+
+dataset:
+  task_string: Insert the peg into the hole
+  robot_type: franka_fr3_osc
+  fps: 10
+  schema_prefix: fr3_peg.hf80k
+
+assets:
+  required:
+    - peg_annotated.hdf5
+    - fr3_peg_in_hole_physics_bundle_v1_normalized
+    - fr3_visual_randomization_v1
+    - peg_hole_env.usd
+    - hole_01.usd

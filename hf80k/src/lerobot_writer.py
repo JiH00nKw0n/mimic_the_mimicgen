@@ -400,6 +400,9 @@ def parse_args():
     parser.add_argument("--cameras", default=",".join(CONTRACT_CAMERAS))
     parser.add_argument("--task-string", "--task_string", dest="task_string",
                         default=DEFAULT_TASK_STRING)
+    # 태스크마다 다르다. 데이터셋 meta/info.json에 그대로 적힌다.
+    parser.add_argument("--robot-type", "--robot_type", dest="robot_type",
+                        default=ROBOT_TYPE)
     parser.add_argument("--overwrite", action="store_true",
                         help="delete a non-empty --out before writing")
     # 1로 둔다. 2 이상이면 lerobot 0.4.4가 새로 만든 데이터셋에서 반드시 죽는다.
@@ -465,7 +468,7 @@ def main():
             fps=args.fps,
             features=build_features(roles, height, width),
             root=out_dir,
-            robot_type=ROBOT_TYPE,
+            robot_type=args.robot_type,
             use_videos=True,
             batch_encoding_size=max(1, args.batch_encoding_size),
             video_backend=None,
@@ -552,7 +555,7 @@ def main():
         "repo_id": args.repo_id,
         "lerobot_version": version,
         "fps": args.fps,
-        "robot_type": ROBOT_TYPE,
+        "robot_type": args.robot_type,
         "task": args.task_string,
         "cameras": roles,
         "image_size": [geometry[1], geometry[0]] if geometry else None,
