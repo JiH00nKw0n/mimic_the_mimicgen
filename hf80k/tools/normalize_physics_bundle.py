@@ -48,6 +48,11 @@ CONTACT_COLUMNS = [
     "sample_id",
     "pair_primary_static_friction",
     "pair_primary_dynamic_friction",
+    # 운동 마찰을 정지 마찰로 나눈 비율. 나눗셈으로 되돌리면 될 것 같지만 안 된다.
+    # 큐브 번들 2048행 중 278행이 dynamic/static을 다시 계산했을 때 원본 비율과
+    # 비트까지 같지 않다. 물리 항이 이 비율을 그대로 쓰므로, 옮길 때 잃으면 큐브
+    # 결과가 미세하게 달라진다. 그래서 별도 열로 싣는다.
+    "pair_primary_dynamic_ratio",
     "surface_restitution",
     "object_linear_damping",
     "object_angular_damping",
@@ -65,6 +70,7 @@ MAPPINGS = {
             "sample_id": "sample_id",
             "pair_primary_static_friction": "cube_cube_static_friction",
             "pair_primary_dynamic_friction": "cube_cube_dynamic_friction",
+            "pair_primary_dynamic_ratio": "cube_cube_dynamic_ratio",
             "surface_restitution": "table_cube_restitution",
             "object_linear_damping": "cube_linear_damping",
             "object_angular_damping": "cube_angular_damping",

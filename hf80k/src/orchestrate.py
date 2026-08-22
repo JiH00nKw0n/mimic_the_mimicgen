@@ -176,6 +176,10 @@ def load_config() -> dict:
         "work_dir": env_str("WORK_DIR", "/work"),
         "keep_intermediate": env_flag("KEEP_INTERMEDIATE", "0"),
         "upload_each_chunk": env_flag("UPLOAD_EACH_CHUNK", "1"),
+        # 0이면 허깅페이스에 아무것도 올리지 않고 결과를 작업 디렉터리에만 남긴다.
+        # 남의 파이프라인 안에서 한 모듈로 돌 때는 저장소도 토큰도 없는 것이 보통이라,
+        # 그때 이 값을 0으로 두면 자격증명 없이 끝까지 돈다.
+        "hf_upload": env_flag("HF_UPLOAD", "1"),
         "resume": env_flag("RESUME", "1"),
         "seed_base": env_int("SEED_BASE", 42000),
         "log_level": env_str("LOG_LEVEL", "INFO"),
@@ -880,7 +884,7 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
         # 못 미친 채 조용히 끝난다.
         raise StageError("이 청크는 기록된 에피소드가 0개다")
     uploaded = False
-    if cfg["upload_each_chunk"]:
+    if cfg["upload_each_chunk"] and cfg["hf_upload"]:
         durations["upload"] = round(stage_upload(cfg, chunk, log, log_path), 1)
         uploaded = True
     else:
