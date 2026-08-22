@@ -52,14 +52,20 @@ CHUNK_SCHEMA = "fr3_cube.hf80k.chunk.v1"
 STATE_SCHEMA = "fr3_cube.hf80k.state.v1"
 # INTERFACE.md §4: the dataset carries these three views. Passed to the renderer
 # explicitly so a change of its default cannot quietly add a fourth camera.
-CAMERAS = ["third_person_0", "third_person_1", "wrist"]
+CAMERAS = ["third_person_0", "third_person_1", "wrist"]   # 프로필이 아래에서 덮어쓴다
 
 # In-container Isaac Lab install (we are already inside the isaac-lab image, so
 # no nested docker — this is the difference from contract/run_lab_generate_docker.sh).
 ISAACLAB_SH = "/workspace/isaaclab/isaaclab.sh"
 GEN_DATASET_SRC = ("/workspace/isaaclab/scripts/imitation_learning/isaaclab_mimic/"
                    "generate_dataset.py")
-TASK_ID = "Isaac-Stack-Cube-LabFR3-HF80K-Fwd-IK-Rel-Mimic-v0"
+# 태스크마다 다른 값은 프로필 한 장에서 온다. TASK_PROFILE 환경변수로 고르고, 없으면
+# 큐브 프로필이 기본이다. 로더는 예외를 던지지 않으므로 여기서 죽지 않는다.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import task_profile as _task_profile          # noqa: E402
+PROFILE = _task_profile.load()
+TASK_ID = PROFILE.get("generate.task_id",
+                      "Isaac-Stack-Cube-LabFR3-HF80K-Fwd-IK-Rel-Mimic-v0")
 # Chosen (spec silent): the physics device of every working run so far is cpu —
 # run_generate.sh and run_render_aidas.sh both pass --device cpu. RTX rendering
 # still uses the GPU selected by CUDA_VISIBLE_DEVICES.
@@ -87,6 +93,26 @@ BINDING_YAML = os.path.join(ASSETS_DIR, "fr3_binding_v2.yaml")
 # The RL team's visual-randomization handoff package. Preferred location is
 # inside our assets; /vrand is the mount the existing render script assumes.
 VRAND_ROOTS = (os.path.join(ASSETS_DIR, "fr3_visual_randomization_v1"), "/vrand")
+
+# ---- 여기서부터 태스크 프로필이 이깁니다 -------------------------------------
+# 위의 값들은 프로필을 읽지 못했을 때 쓰는 기본값이다. 프로필이 정상이면 아래가 덮는다.
+CAMERAS = list(PROFILE.get("render.cameras", CAMERAS))
+ENV_DIR = os.path.join(SRC_DIR, PROFILE.get("generate.module_dir", "env"))
+SOURCE_HDF5 = os.path.join(ASSETS_DIR, PROFILE.get("generate.source_hdf5",
+                                                   "fwd_annotated.hdf5"))
+_yield_name = PROFILE.get("generate.source_yield_json", "source_yield.json")
+SOURCE_YIELD_JSON = os.path.join(ASSETS_DIR, _yield_name) if _yield_name else ""
+OVERLAY_YAML = os.path.join(ASSETS_DIR, PROFILE.get("render.overlay_yaml",
+                                                    "fr3_camera_overlay_v2/overlay.yaml"))
+BINDING_YAML = os.path.join(ASSETS_DIR, PROFILE.get("render.binding_yaml",
+                                                    "fr3_binding_v2.yaml"))
+VRAND_ROOTS = (os.path.join(ASSETS_DIR, PROFILE.get("visual.package_dir",
+                                                    "fr3_visual_randomization_v1")), "/vrand")
+CHUNK_SCHEMA = PROFILE.get("dataset.schema_prefix", "fr3_cube.hf80k") + ".chunk.v1"
+STATE_SCHEMA = PROFILE.get("dataset.schema_prefix", "fr3_cube.hf80k") + ".state.v1"
+# 생성 스크립트에 끼워 넣을 모듈. 큐브는 clean_success_hook을 쓰고 peg는 peg 판정 훅을 쓴다.
+REGISTER_MODULES = list(PROFILE.get("generate.register_modules",
+                                    ["lab_register", "clean_success_hook", "provenance_hooks"]))
 
 # Memory guard. An Isaac Sim process (generation or RTX render) sits around
 # 6-8 GB resident; we refuse to add another one below this much MemAvailable.
@@ -465,7 +491,7 @@ def prepare_generate_script(cfg: dict, log) -> str:
         raise SystemExit(f"[orch] missing {GEN_DATASET_SRC} (not inside the isaac-lab image?)")
     with open(GEN_DATASET_SRC) as fh:
         text = fh.read()
-    inject = "\nimport lab_register\nimport clean_success_hook\nimport provenance_hooks"
+    inject = "".join(f"\nimport {name}" for name in REGISTER_MODULES)
     out, done = [], False
     for line in text.splitlines():
         out.append(line)
@@ -772,6 +798,14 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
                "--vrand_config", cfg["vrand_config"], "--vrand_root", cfg["vrand_root"],
                "--vrand_seed", str(chunk["seed"] * 100 + i),
                "--vrand_log", vlog]
+        # 렌더는 기본 환경이 큐브 장면이다. 다른 태스크는 자기 환경을 명시해야 한다.
+        # 렌더 스크립트에 --task와 --register가 이미 있는데 넘기지 않고 있었다.
+        render_task = PROFILE.get("render.task_id", "")
+        render_modules = PROFILE.get("render.register_modules", [])
+        if render_task:
+            cmd += ["--task", render_task]
+        if render_modules:
+            cmd += ["--register", ",".join(render_modules)]
         # 프로파일과 시드는 위에서 --vrand / --vrand_seed로 넘긴다. 예전 도커
         # 스크립트가 내보내던 VRAND_PROFILE / VRAND_SEED는 읽는 코드가 없어 뺐다.
         env = base_env(cfg, [RENDER_DIR, ENV_DIR])
@@ -803,6 +837,9 @@ def stage_lerobot(cfg: dict, chunk: dict, log, log_path: str) -> float:
            "--output", out,
            "--profile", chunk["profile"],
            "--cameras", ",".join(CAMERAS),
+           "--task-string", PROFILE.get("dataset.task_string",
+                                        "Stack three cubes into a three-level tower"),
+           "--robot-type", PROFILE.get("dataset.robot_type", "franka_fr3_osc"),
            # 걸러진 에피소드는 기록으로 남기고 청크는 살린다. 기본값 0.9로 두면
            # 10%만 걸려도 종료 코드가 1이 되고, 오케스트레이터가 청크를 통째로
            # 버려 이미 쓴 몇 시간의 GPU 시간을 날린다. 실제 개수는 MANIFEST.json의
