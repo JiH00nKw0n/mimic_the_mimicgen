@@ -73,9 +73,18 @@ def _version_tuple(text: str) -> tuple:
 
 # ------------------------------------------------------------------- checks
 def check_required_env(cfg):
+    """허깅페이스에 올릴 때만 자격증명을 요구한다.
+
+    예전에는 무조건 요구했다. 그러면 결과를 로컬에만 쌓고 싶은 사람도 토큰을 만들어야
+    했고, 남의 파이프라인 안에 한 모듈로 끼워 넣을 때 특히 부담이었다. HF_UPLOAD=0이면
+    업로드 단계를 아예 돌지 않으므로 자격증명이 필요 없다.
+    """
+    if not cfg.get("hf_upload", True):
+        return "PASS", "HF_UPLOAD=0, 업로드를 하지 않으므로 자격증명을 보지 않는다"
     missing = [n for n in ("HF_TOKEN", "HF_REPO_ID") if not os.environ.get(n)]
     if missing:
-        return "FAIL", f"missing: {', '.join(missing)}"
+        return "FAIL", (f"missing: {', '.join(missing)}. "
+                        f"올리지 않을 것이면 HF_UPLOAD=0으로 둔다")
     return "PASS", f"repo {cfg['hf_repo_id']} private={int(cfg['hf_private'])}"
 
 
@@ -295,10 +304,12 @@ def check_h5py(cfg):
 
 
 def check_hf_token(cfg):
+    if not cfg.get("hf_upload", True):
+        return "PASS", "HF_UPLOAD=0, 토큰을 확인하지 않는다"
     _add_lerobot_site()          # huggingface_hub도 같은 격리 경로에 설치돼 있다
     token = os.environ.get("HF_TOKEN", "")
     if not token:
-        return "FAIL", "HF_TOKEN not set"
+        return "FAIL", "HF_TOKEN not set (올리지 않을 것이면 HF_UPLOAD=0)"
     try:
         from huggingface_hub import HfApi
     except Exception as exc:                      # noqa: BLE001
