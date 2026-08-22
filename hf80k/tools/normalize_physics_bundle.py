@@ -44,6 +44,10 @@ import os
 import shutil
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import bundle_params  # noqa: E402
+
 CONTACT_COLUMNS = [
     "sample_id",
     "pair_primary_static_friction",
@@ -97,6 +101,15 @@ CARRY_AS_NOTES = {
     ],
 }
 
+PARAMS_REL = "parameters.json"
+
+# 대표값과 범위를 담은 계약 파일이 번들마다 다른 자리에 있다.
+CONTACT_CONTRACT_CANDIDATES = (
+    os.path.join("modules", "contact", "task_contact_randomization.yaml"),
+    "peg_contact_parameter_contract.yaml",
+)
+DYNAMICS_CONTRACT_REL = os.path.join("modules", "dynamics_controller", "nominal_and_ranges.yaml")
+
 DYNAMICS_REL = os.path.join("modules", "dynamics_controller",
                             "domain_randomization_samples.csv")
 CONTACT_REL = os.path.join("modules", "contact", "posterior_samples.csv")
@@ -146,6 +159,44 @@ def normalize_contact(src_csv: str):
     return schema, out_rows, notes
 
 
+def load_yaml(path: str):
+    try:
+        import yaml
+    except ImportError:
+        raise SystemExit(
+            "PyYAML이 필요하다. 이 도구는 번들을 표준 형식으로 옮길 때만 쓰므로 "
+            "파이프라인 컨테이너가 아니라 준비하는 기계에서 돌린다. pip install pyyaml")
+    with open(path, encoding="utf-8") as stream:
+        return yaml.safe_load(stream)
+
+
+def build_parameters(src: str, schema: str, donor_root: str) -> dict:
+    """번들의 계약 파일에서 대표값과 범위를 뽑아 표준 파라미터를 만든다."""
+    dynamics_doc = {}
+    dyn_contract = os.path.join(src, DYNAMICS_CONTRACT_REL)
+    if os.path.isfile(dyn_contract):
+        dynamics_doc = load_yaml(dyn_contract) or {}
+
+    if schema == "cube":
+        contract = os.path.join(src, CONTACT_CONTRACT_CANDIDATES[0])
+        if not os.path.isfile(contract):
+            raise SystemExit(f"접촉 계약 파일이 없다: {contract}")
+        return bundle_params.from_cube_bundle(load_yaml(contract) or {}, dynamics_doc)
+
+    contract = os.path.join(src, CONTACT_CONTRACT_CANDIDATES[1])
+    if not os.path.isfile(contract):
+        raise SystemExit(f"접촉 계약 파일이 없다: {contract}")
+    donor_params = None
+    if donor_root:
+        donor_dyn = os.path.join(donor_root, DYNAMICS_CONTRACT_REL)
+        donor_contact = os.path.join(donor_root, CONTACT_CONTRACT_CANDIDATES[0])
+        if os.path.isfile(donor_contact):
+            donor_params = bundle_params.from_cube_bundle(
+                load_yaml(donor_contact) or {},
+                load_yaml(donor_dyn) if os.path.isfile(donor_dyn) else {})
+    return bundle_params.from_peg_bundle(load_yaml(contract) or {}, donor_params)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -188,6 +239,15 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(rows)
 
+    # 대표값과 범위를 표준 파일로 만든다. 물리 항은 코드에 숫자를 두지 않고 이 파일만 읽는다.
+    params = build_parameters(src, schema, os.path.abspath(os.path.expanduser(args.donor))
+                              if args.donor else "")
+    params["schema_version"] = bundle_params.PARAMS_SCHEMA
+    params["source_schema"] = schema
+    with open(os.path.join(out, PARAMS_REL), "w", encoding="utf-8") as stream:
+        json.dump(params, stream, ensure_ascii=False, indent=1, sort_keys=True)
+    still_missing = bundle_params.missing_keys(params)
+
     record = {
         "schema_version": "fr3_cube.hf80k.normalized_bundle.v1",
         "detected_source_schema": schema,
@@ -199,6 +259,8 @@ def main() -> int:
         "empty_standard_columns": sorted(
             column for column in CONTACT_COLUMNS
             if all(not row[column] for row in rows)),
+        "parameters_file": PARAMS_REL,
+        "parameters_missing_after_fill": still_missing,
     }
     with open(os.path.join(out, "NORMALIZED.yaml"), "w", encoding="utf-8") as stream:
         for key, value in record.items():
@@ -212,6 +274,14 @@ def main() -> int:
               + ", ".join(record["empty_standard_columns"]))
     for key, values in notes.items():
         print(f"[normalize] 표준 배치에 자리가 없어 기록만 남긴 값: {key} = {values}")
+    borrowed = sorted(k for k, v in params["provenance"].items()
+                      if str(v).startswith("borrowed"))
+    if borrowed:
+        print(f"[normalize] 기증 번들에서 채운 항목 {len(borrowed)}개: {', '.join(borrowed)}")
+    if still_missing:
+        print(f"[normalize] 채우지 못한 표준 항목: {', '.join(still_missing)}")
+    else:
+        print("[normalize] 표준 항목이 모두 채워졌다")
     return 0
 
 

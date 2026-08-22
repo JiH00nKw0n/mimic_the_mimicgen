@@ -33,8 +33,47 @@ CUBE_MASSES_KG = {
 
 
 def _read_csv(path: Path) -> list[dict[str, float]]:
+    """표준 접촉 CSV. 빈 칸은 "이 번들이 재지 않았다"는 뜻이라 건너뛴다."""
     with path.open(newline="", encoding="utf-8") as stream:
-        return [{key: float(value) for key, value in row.items()} for row in csv.DictReader(stream)]
+        rows = []
+        for row in csv.DictReader(stream):
+            out = {}
+            for key, value in row.items():
+                if value is None or value == "":
+                    continue
+                try:
+                    out[key] = float(value)
+                except ValueError:
+                    continue          # sample_id 같은 글자 열
+            rows.append(out)
+        return rows
+
+
+def _read_params(path: Path) -> dict:
+    """번들의 표준 파라미터 파일.
+
+    예전에는 대표값과 범위가 이 파일에 숫자로 적혀 있었다. 그 숫자들은 전부 큐브 번들의
+    계약 파일에서 베껴 온 것이라, 다른 번들이 다른 값을 줘도 코드가 무시했다. 이제
+    tools/normalize_physics_bundle.py가 번들에서 뽑아 만든 parameters.json만 읽는다.
+    """
+    if not path.is_file():
+        raise RuntimeError(
+            f"물리 파라미터 파일이 없다: {path}\n"
+            f"받은 번들을 tools/normalize_physics_bundle.py로 표준 배치로 옮겨야 한다.")
+    with path.open(encoding="utf-8") as stream:
+        doc = json.load(stream)
+    for section in ("contact", "sampling"):
+        if section not in doc:
+            raise RuntimeError(f"{path}에 {section} 항목이 없다")
+    return doc
+
+
+def _draw(rng, spec: dict, count: int) -> np.ndarray:
+    """파라미터 파일이 적어 둔 분포에서 뽑는다."""
+    kind = spec.get("dist", "uniform")
+    if kind == "triangular":
+        return rng.triangular(spec["low"], spec["mode"], spec["high"], count)
+    return rng.uniform(spec["low"], spec["high"], count)
 
 
 class apply_fr3_cube_calibration_bundle(ManagerTermBase):
@@ -53,10 +92,17 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         if self.profile not in {"nominal", "posterior_stochastic", "robust_stochastic"}:
             raise ValueError(f"Unsupported SysID profile: {self.profile}")
         self.robot: Articulation = env.scene[cfg.params.get("robot_cfg", SceneEntityCfg("robot")).name]
+        # 장면 물체를 이름이 아니라 역할로 받는다. 큐브 태스크에서는 주된 물체가 큐브 셋과
+        # 책상이고, peg 태스크에서는 핀 하나와 데스크다. 예전에는 cube_1부터 cube_3을
+        # 코드가 직접 찾아서, 그 이름이 없는 장면에서는 시작하자마자 죽었다.
         self.cubes: dict[str, RigidObject] = {
-            name: env.scene[name] for name in cfg.params.get("cube_names", tuple(CUBE_MASSES_KG))
+            name: env.scene[name]
+            for name in cfg.params.get("object_names", cfg.params.get("cube_names",
+                                                                      tuple(CUBE_MASSES_KG)))
         }
-        self.work_surface: RigidObject = env.scene[cfg.params.get("work_surface_name", "work_surface")]
+        surface_name = cfg.params.get("surface_name",
+                                      cfg.params.get("work_surface_name", "work_surface"))
+        self.work_surface: RigidObject = env.scene[surface_name]
         self.arm_joint_ids = self.robot.find_joints(list(JOINT_NAMES))[0]
         self.finger_joint_ids = self.robot.find_joints(["fr3_finger_joint.*"])[0]
         self.arm_actuator_name = str(cfg.params.get("arm_actuator_name", "arm"))
@@ -64,6 +110,19 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
             self.bundle_root / "modules/dynamics_controller/domain_randomization_samples.csv"
         )
         self._contact_rows = _read_csv(self.bundle_root / "modules/contact/posterior_samples.csv")
+        self._params = _read_params(self.bundle_root / "parameters.json")
+        self._nominal = self._params["contact"].get("nominal", {})
+        self._range = self._params["contact"].get("range", {})
+        self._constraint = self._params["contact"].get("constraint", {})
+        self._sampling = self._params.get("sampling", {})
+        self._joint_nominal = (self._params.get("joint") or {}).get("nominal", {})
+        # 물체 질량. 번들이 물체별 질량을 주면 그것을 쓰고, 아니면 표준 항목 하나를
+        # 모든 주된 물체에 같이 쓴다. 큐브 번들은 물체별로 주므로 예전과 같은 값이 된다.
+        self._object_masses = dict(cfg.params.get("object_masses", CUBE_MASSES_KG))
+        shared_mass = self._nominal.get("object_mass_kg")
+        if shared_mass is not None:
+            for name in self.cubes:
+                self._object_masses.setdefault(name, float(shared_mass))
         self.applied_summary: dict[str, object] = {}
 
     @staticmethod
@@ -130,22 +189,23 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
 
     def _sample(self, count: int, seed: int) -> dict[str, np.ndarray]:
         rng = np.random.default_rng(seed)
+        nom, joint_nom = self._nominal, self._joint_nominal
         if self.profile == "nominal":
-            armature = np.full((count, 7), 0.1)
-            static = np.tile([0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5], (count, 1))
-            dynamic = np.tile([0.2, 0.2, 0.2, 0.2, 0.4, 0.4, 0.4], (count, 1))
-            viscous = np.zeros((count, 7))
-            delay = np.zeros(count, dtype=np.int64)
-            table_static = np.full(count, 1.9)
-            table_dynamic = np.full(count, 1.6753858178)
-            table_restitution = np.full(count, 0.1301685272)
-            cube_static = np.full(count, 0.651759882)
-            cube_dynamic = np.full(count, 0.5539958997)
-            linear_damping = np.full(count, 0.0682659557)
-            angular_damping = np.full(count, 0.0766774104)
-            finger_static = np.full(count, 0.8)
-            finger_dynamic = np.full(count, 0.68)
-            force_scale = np.full(count, 1.6)
+            armature = np.tile(joint_nom["armature"], (count, 1))
+            static = np.tile(joint_nom["static_friction"], (count, 1))
+            dynamic = np.tile(joint_nom["dynamic_friction"], (count, 1))
+            viscous = np.tile(joint_nom["viscous_friction"], (count, 1))
+            delay = np.full(count, int(joint_nom["motor_delay_steps"]), dtype=np.int64)
+            table_static = np.full(count, nom["surface_static_friction"])
+            table_dynamic = np.full(count, nom["surface_dynamic_friction"])
+            table_restitution = np.full(count, nom["surface_restitution"])
+            cube_static = np.full(count, nom["pair_primary_static_friction"])
+            cube_dynamic = np.full(count, nom["pair_primary_dynamic_friction"])
+            linear_damping = np.full(count, nom["object_linear_damping"])
+            angular_damping = np.full(count, nom["object_angular_damping"])
+            finger_static = np.full(count, nom["finger_static_friction"])
+            finger_dynamic = np.full(count, nom["finger_dynamic_friction"])
+            force_scale = np.full(count, nom["gripper_force_scale"])
             posterior_near = np.ones(count, dtype=bool)
         else:
             dyn_ids = rng.integers(0, len(self._dynamics_rows), count)
@@ -156,42 +216,56 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
             viscous = np.asarray([[row[f"viscous_friction_j{i}"] for i in range(1, 8)] for row in dyn])
             delay = np.asarray([int(row["motor_delay_steps_120hz"]) for row in dyn], dtype=np.int64)
 
+            near_fraction = float(self._sampling.get("posterior_near_fraction", 0.8))
             posterior_near = (
                 np.ones(count, dtype=bool)
                 if self.profile == "posterior_stochastic"
-                else rng.random(count) < 0.8
+                else rng.random(count) < near_fraction
             )
             post_ids = rng.integers(0, len(self._contact_rows), count)
             post = [self._contact_rows[index] for index in post_ids]
-            table_restitution = np.asarray([row["table_cube_restitution"] for row in post])
-            cube_static = np.asarray([row["cube_cube_static_friction"] for row in post])
-            cube_ratio = np.asarray([row["cube_cube_dynamic_ratio"] for row in post])
-            linear_damping = np.asarray([row["cube_linear_damping"] for row in post])
-            angular_damping = np.asarray([row["cube_angular_damping"] for row in post])
+            rng_range = self._range
+
+            def column(name: str, standard: str) -> np.ndarray:
+                """표본 행에서 한 열을 꺼낸다. 그 번들이 재지 않은 열이면 대표값으로 채운다."""
+                if all(name in row for row in post):
+                    return np.asarray([row[name] for row in post], dtype=float)
+                return np.full(count, float(nom[standard]))
+
+            table_restitution = column("surface_restitution", "surface_restitution")
+            cube_static = column("pair_primary_static_friction", "pair_primary_static_friction")
+            cube_ratio = column("pair_primary_dynamic_ratio", "pair_primary_dynamic_ratio")
+            linear_damping = column("object_linear_damping", "object_linear_damping")
+            angular_damping = column("object_angular_damping", "object_angular_damping")
             full = ~posterior_near
-            table_restitution[full] = rng.uniform(0.0, 0.225, full.sum())
-            cube_static[full] = rng.uniform(0.4443944345, 0.8159016711, full.sum())
-            cube_ratio[full] = rng.uniform(0.6, 0.98, full.sum())
-            linear_damping[full] = rng.uniform(0.0, 0.15, full.sum())
-            angular_damping[full] = rng.uniform(0.0, 0.15, full.sum())
+            n_full = int(full.sum())
+            table_restitution[full] = _draw(rng, rng_range["surface_restitution"], n_full)
+            cube_static[full] = _draw(rng, rng_range["pair_primary_static_friction"], n_full)
+            cube_ratio[full] = _draw(rng, rng_range["pair_primary_dynamic_ratio"], n_full)
+            linear_damping[full] = _draw(rng, rng_range["object_linear_damping"], n_full)
+            angular_damping[full] = _draw(rng, rng_range["object_angular_damping"], n_full)
             cube_dynamic = cube_static * cube_ratio
 
-            table_static = rng.uniform(1.25, 2.6, count)
-            table_dynamic = rng.triangular(1.1, 1.6753858178, 2.15, count)
+            table_static = _draw(rng, rng_range["surface_static_friction"], count)
+            table_dynamic = _draw(rng, rng_range["surface_dynamic_friction"], count)
             table_dynamic = np.minimum(table_dynamic, table_static)
-            force_scale = rng.uniform(1.0, 2.0, count)
-            finger_static = rng.uniform(0.65, 1.3, count)
-            invalid = finger_static * force_scale < 1.241946
-            while invalid.any():
-                finger_static[invalid] = rng.uniform(0.65, 1.3, invalid.sum())
-                force_scale[invalid] = rng.uniform(1.0, 2.0, invalid.sum())
-                invalid = finger_static * force_scale < 1.241946
-            finger_dynamic = finger_static * rng.uniform(0.6, 0.98, count)
+            force_scale = _draw(rng, rng_range["gripper_force_scale"], count)
+            finger_static = _draw(rng, rng_range["finger_static_friction"], count)
+            # 그리퍼가 물체를 놓치지 않을 조건. 번들이 부등식으로 적어 둔 하한이다.
+            product_min = self._constraint.get("finger_force_product_min")
+            if product_min is not None:
+                invalid = finger_static * force_scale < product_min
+                while invalid.any():
+                    n_bad = int(invalid.sum())
+                    finger_static[invalid] = _draw(rng, rng_range["finger_static_friction"], n_bad)
+                    force_scale[invalid] = _draw(rng, rng_range["gripper_force_scale"], n_bad)
+                    invalid = finger_static * force_scale < product_min
+            finger_dynamic = finger_static * _draw(rng, rng_range["finger_dynamic_ratio"], count)
 
             # PhysX supports at most 64K unique materials.  Quantize contact
             # tuples to a shared 256-bucket ensemble while retaining per-env
             # joint dynamics/delay samples.
-            num_buckets = min(256, count)
+            num_buckets = min(int(self._sampling.get("material_buckets", 256)), count)
             bucket_ids = rng.integers(0, num_buckets, count)
             for array in (
                 table_static,
