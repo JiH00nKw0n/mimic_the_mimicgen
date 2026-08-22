@@ -446,6 +446,12 @@ def base_env(cfg: dict, extra_pythonpath: list) -> dict:
         "LEROBOT_SITE": os.environ.get("LEROBOT_SITE",
                                        os.environ.get("HF80K_LEROBOT_PATH", "")),
     })
+    # 태스크 프로필이 정한 추가 환경변수. peg는 여기로 핀 구멍과 책상 USD 경로를 받는다.
+    # 생성·변환·렌더가 모두 같은 장면을 만들어야 하므로 한 곳에서 넣는다. 예전에는
+    # 어노테이션 단계에만 넣어서, 생성이 기본 경로 /work/assets/peg_hole_env.usd를 찾다가
+    # FileNotFoundError로 25초 만에 죽었다.
+    for key, value in (PROFILE.get("generate.extra_env", {}) or {}).items():
+        env.setdefault(str(key), str(value))
     parts = [p for p in extra_pythonpath if p]
     if env.get("PYTHONPATH"):
         parts.append(env["PYTHONPATH"])
