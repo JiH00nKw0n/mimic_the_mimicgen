@@ -156,7 +156,9 @@ def peg_inserted(
     result = (radial < radial_success) & (depth > depth_success) & (upright > upright_success)
     # 재생이 왜 실패하는지 보려면 LAB_PEG_DEBUG=1로 둔다. 판정에 들어간 세 값을 그대로 찍는다.
     if os.environ.get("LAB_PEG_DEBUG", "") == "1":
-        print(f"[peg_inserted] 반경={radial[0]:.4f}(<{radial_success}) "
+        print(f"[peg_inserted] quat={[round(float(v), 4) for v in quat[0]]} "
+              f"rot22={float(rot[0, 2, 2]):.3f} "
+              f"반경={radial[0]:.4f}(<{radial_success}) "
               f"깊이={depth[0]:.4f}(>{depth_success}) 수직도={upright[0]:.3f}"
               f"(>{upright_success}) 핀위치={[round(float(v), 4) for v in pos[0]]} "
               f"-> {bool(result[0])}", flush=True)
