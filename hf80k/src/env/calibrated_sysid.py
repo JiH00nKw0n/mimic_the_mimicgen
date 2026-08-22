@@ -118,7 +118,9 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         self._joint_nominal = (self._params.get("joint") or {}).get("nominal", {})
         # 물체 질량. 번들이 물체별 질량을 주면 그것을 쓰고, 아니면 표준 항목 하나를
         # 모든 주된 물체에 같이 쓴다. 큐브 번들은 물체별로 주므로 예전과 같은 값이 된다.
-        self._object_masses = dict(cfg.params.get("object_masses", CUBE_MASSES_KG))
+        self._object_masses = dict(cfg.params.get("object_masses") or CUBE_MASSES_KG)
+        self.object_size_m = float(cfg.params.get("object_size_m", 0.0507))
+        self.gripper_actuator_name = cfg.params.get("gripper_actuator_name", "gripper")
         shared_mass = self._nominal.get("object_mass_kg")
         if shared_mass is not None:
             for name in self.cubes:
@@ -311,6 +313,15 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         cube_names: tuple[str, str, str] = ("cube_1", "cube_2", "cube_3"),
         work_surface_name: str = "work_surface",
         arm_actuator_name: str = "arm",
+        # 아래 다섯은 태스크마다 다른 것들이다. 기본값은 전부 큐브가 지금 쓰는 값이라
+        # 아무것도 넘기지 않으면 예전과 똑같이 동작한다. EventManager가 이 함수를
+        # term_cfg.params로 그대로 부르므로, 여기에 이름이 없으면 프로필이 값을 넘기는
+        # 순간 TypeError로 죽는다.
+        object_names: tuple[str, ...] | None = None,
+        surface_name: str | None = None,
+        object_masses: dict | None = None,
+        object_size_m: float = 0.0507,
+        gripper_actuator_name: str | None = "gripper",
         sample_seed_offset: int = 73000,
         log_samples: bool = False,
     ) -> None:
@@ -373,17 +384,20 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
         self._set_materials(self.work_surface, env_ids_cpu, table_material)
         self._set_finger_materials(env_ids_cpu, finger_material)
 
-        # Exact measured identity masses and uniform-cube inertia at 50.7 mm.
-        size = 0.0507
+        # 실측 질량과, 그 질량과 크기에서 계산한 정육면체 관성.
+        # size와 질량 표를 인자로 받는다. 예전에는 둘 다 코드에 박혀 있어서 큐브가 아닌
+        # 물체에는 쓸 수 없었다.
+        size = self.object_size_m
         for name, cube in self.cubes.items():
+            mass = float(self._object_masses[name])
             masses = self._get_as_torch(cube.root_physx_view.get_masses)
             if masses.ndim == 1:
-                masses[env_ids_cpu] = CUBE_MASSES_KG[name]
+                masses[env_ids_cpu] = mass
             else:
-                masses[env_ids_cpu, 0] = CUBE_MASSES_KG[name]
+                masses[env_ids_cpu, 0] = mass
             self._put(cube.root_physx_view.set_masses, masses, env_ids_cpu)
             inertias = self._get_as_torch(cube.root_physx_view.get_inertias)
-            moment = CUBE_MASSES_KG[name] * size * size / 6.0
+            moment = mass * size * size / 6.0
             if inertias.ndim == 2:
                 inertias[env_ids_cpu] = 0.0
                 inertias[env_ids_cpu, 0] = moment
@@ -417,12 +431,22 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
 
         # Gripper force scale is represented by its implicit position actuator
         # stiffness. Speed scale is not explicitly modeled by this task.
-        gripper = self.robot.actuators["gripper"]
-        force_scale = dev("force_scale").unsqueeze(-1)
-        base_stiffness = self.robot.data.default_joint_stiffness[env_ids[:, None], self.finger_joint_ids]
-        stiffness = base_stiffness * force_scale
-        gripper.stiffness[env_ids] = stiffness
-        self.robot.write_joint_stiffness_to_sim(stiffness, joint_ids=self.finger_joint_ids, env_ids=env_ids)
+        # 액추에이터 묶음 이름이 태스크마다 다르다. 큐브 환경은 "gripper"이고 peg 환경은
+        # "h"다. 예전에는 "gripper"를 직접 찾아서 peg 장면에서는 KeyError로 죽었다.
+        gripper = self.robot.actuators.get(self.gripper_actuator_name) \
+            if self.gripper_actuator_name else None
+        if gripper is not None:
+            force_scale = dev("force_scale").unsqueeze(-1)
+            base_stiffness = self.robot.data.default_joint_stiffness[
+                env_ids[:, None], self.finger_joint_ids]
+            stiffness = base_stiffness * force_scale
+            gripper.stiffness[env_ids] = stiffness
+            self.robot.write_joint_stiffness_to_sim(
+                stiffness, joint_ids=self.finger_joint_ids, env_ids=env_ids)
+        else:
+            carb.log_warn(
+                f"[sysid] 액추에이터 {self.gripper_actuator_name!r}가 없어 그리퍼 힘 배율을 "
+                f"적용하지 않는다. 있는 것: {sorted(self.robot.actuators)}")
 
         # Damping is authored at nominal in the receiving RigidBodyCfg because
         # the Isaac 5.1 tensor API has no per-environment damping setter.
@@ -431,7 +455,8 @@ class apply_fr3_cube_calibration_bundle(ManagerTermBase):
             "seed": seed,
             "num_envs": len(env_ids),
             "posterior_near_fraction": float(np.mean(values["posterior_near"])),
-            "cube_mass_mapping_kg": CUBE_MASSES_KG,
+            "object_mass_mapping_kg": self._object_masses,
+            "cube_mass_mapping_kg": self._object_masses,   # 옛 이름을 읽는 곳을 위해 남긴다
             "cube_size_m": size,
             "payload_body": payload_body,
             "payload_previous_mass_mean_kg": float(old_payload_mass.float().mean()),
