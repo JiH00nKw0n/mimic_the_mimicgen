@@ -30,9 +30,13 @@ DEFAULT_PROFILE = "cube_stack_fr3"
 
 # 절마다 받을 수 있는 키. 여기 없는 키가 파일에 있으면 오타로 보고 거부한다.
 ALLOWED = {
+    # sart는 선택 사항이라 REQUIRED에 넣지 않는다. 이 절이 없는 태스크는 SART를 돌지
+    # 않는다. 아래 검사는 절 안의 첫 단계 이름만 보므로, sart 아래에 중첩된 키의 오타는
+    # 여기서 잡히지 않는다. render.success도 사정이 같다. 그 오타는 preflight.py의
+    # check_sart와 src/tests/test_profile_keys_used.py가 잡는다.
     "generate": {"task_id", "register_modules", "module_dir", "source_hdf5",
                  "source_yield_json", "arm_scale", "subtask_offsets", "action_noise",
-                 "num_interpolation_steps", "extra_env"},
+                 "num_interpolation_steps", "extra_env", "sart"},
     "convert": {"object_states"},
     "render": {"task_id", "register_modules", "cameras", "overlay_yaml", "binding_yaml",
                "success"},

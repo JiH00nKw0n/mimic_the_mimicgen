@@ -17,6 +17,9 @@ generate:
   source_yield_json: source_yield.json
   arm_scale: "0.5"
   subtask_offsets: "10,20"
+  # 이 태스크에는 sart 절이 없다. 일부러 없는 것이다. SART 증강은 태스크 프로필이
+  # 켜 줄 때만 도는 선택 단계이고, 큐브 쌓기는 돌지 않는다. 빈 절이라도 적어 두면
+  # 실행 전 검사가 "SART를 켰는데 설정이 없다"로 판단해 실행을 막는다.
   extra_env: {}
 
 convert:

@@ -208,10 +208,66 @@ def check_vrand_package(cfg):
 def check_stage_scripts(cfg):
     needed = [orch.RENDER_SCRIPT, orch.CONVERT_SCRIPT,
               orch.LEROBOT_WRITER, orch.HF_UPLOAD]
+    if cfg.get("sart_enable"):
+        # 증강 단계 스크립트가 없으면 생성에 GPU 시간을 다 쓰고 나서야 알게 된다.
+        needed.append(orch.SART_SCRIPT)
     missing = [p for p in needed if not os.path.isfile(p)]
     if missing:
         return "FAIL", "missing: " + ", ".join(os.path.basename(p) for p in missing)
     return "PASS", "generate/convert/render/lerobot/upload entry points present"
+
+
+def check_sart(cfg):
+    """SART 증강 설정을 본다.
+
+    프로필 로더는 절 안의 첫 단계 이름만 검사하므로, generate.sart 아래의 오타는
+    로더를 그냥 통과한다. 그 오타는 값이 조용히 기본값으로 돌아가는 결과만 낳는다.
+    여기서 이름 하나하나를 대조해 막는다.
+    """
+    if not cfg.get("sart_enable"):
+        why = ("SART_ENABLE=0으로 껐다" if os.environ.get("SART_ENABLE", "") else
+               "이 태스크 프로필에 generate.sart 절이 없거나 enable이 거짓이다")
+        return "PASS", f"SART를 돌지 않는다 ({why})"
+
+    # 절을 통째로 꺼낸다. 점으로 이은 경로 문자열을 여기 쓰면, 죽은 키 검사가 그 한
+    # 문자열로 절 아래 모든 키를 통과시켜 버린다. 그래서 사전을 두 단계로 따라간다.
+    block = (orch.PROFILE.doc.get("generate") or {}).get("sart")
+    if not isinstance(block, dict):
+        return "FAIL", ("SART를 켰는데 태스크 프로필에 generate.sart 절이 없다. "
+                        "끄려면 SART_ENABLE=0으로 둔다")
+    unknown = sorted(set(block) - set(orch.SART_KEYS))
+    if unknown:
+        return "FAIL", ("generate.sart 절에 모르는 키가 있다: " + ", ".join(unknown)
+                        + ". 받을 수 있는 이름은 " + ", ".join(orch.SART_KEYS) + "이다")
+
+    p = orch.SART_PROFILE
+    problems = []
+    if not p["converge_object"]:
+        problems.append("converge_object가 비어 있다. 옮기는 물체 이름을 적는다")
+    if not p["converge_target"]:
+        problems.append("converge_target이 비어 있다. 고정 목표 좌표계 이름을 적는다")
+    if cfg["sart_samples"] < 1:
+        problems.append(f"소스당 시도 횟수가 {cfg['sart_samples']}회다. 1 이상이어야 한다")
+    if cfg["sart_radius_m"] <= 0:
+        problems.append(f"공의 반지름이 {cfg['sart_radius_m']} m다. 0보다 커야 한다")
+    if p["converge_steps"] < 1:
+        problems.append(f"되돌아오는 스텝이 {p['converge_steps']}이다. 1 이상이어야 한다")
+    if p["converge_rule"] not in ("radial_gate", "descent_onset", "tail_offset"):
+        problems.append(f"수렴 규칙 {p['converge_rule']!r}은 radial_gate, descent_onset, "
+                        f"tail_offset 중 하나가 아니다")
+    if p["on_failure"] not in ("continue", "fail"):
+        problems.append(f"실패 처리 {p['on_failure']!r}는 continue나 fail이어야 한다")
+    if not 0.0 < cfg["sart_source_frac"] <= 1.0:
+        problems.append(f"생성 요청 비율이 {cfg['sart_source_frac']}이다. "
+                        f"0보다 크고 1 이하여야 한다")
+    if problems:
+        return "FAIL", "; ".join(problems)
+
+    asked = max(1, round(cfg["chunk_size"] * cfg["sart_source_frac"]))
+    return "PASS", (f"규칙 {p['converge_rule']} / 소스당 {cfg['sart_samples']}회 / "
+                    f"반지름 {cfg['sart_radius_m']} m / 청크 {cfg['chunk_size']}편 중 "
+                    f"생성에 {asked}편을 요청하고 나머지를 증강이 채운다 / "
+                    f"프로세스 {cfg['sart_procs']}개")
 
 
 def check_isaaclab(cfg):
@@ -248,7 +304,13 @@ def check_gpu(cfg):
 def check_disk(cfg):
     per_ep = (_rgb_mb_per_episode(cfg["image_width"], cfg["image_height"])
               + EST_GEN_MB + EST_CONTRACT_MB + EST_LEROBOT_MB)
-    shard_eps = math.ceil(cfg["chunk_size"] / cfg["render_procs"])
+    episodes = cfg["chunk_size"]
+    if cfg.get("sart_enable") and cfg["sart_source_frac"] >= 1.0:
+        # 생성에 할당량을 다 요청한 채로 증강을 얹으면 청크가 그만큼 커진다. 소스 한
+        # 편이 자기 자신과 증강 시도 수만큼을 낳으므로 최대 (1 + 시도 수)배가 된다.
+        # 비율이 1보다 작으면 증강이 할당량에서 멈추므로 청크 크기가 그대로다.
+        episodes = cfg["chunk_size"] * (1 + cfg["sart_samples"])
+    shard_eps = math.ceil(episodes / cfg["render_procs"])
     need_gb = cfg["render_procs"] * shard_eps * per_ep * DISK_SAFETY / 1000.0
     try:
         free_gb = shutil.disk_usage(cfg["work_dir"]).free / 1e9
@@ -361,6 +423,7 @@ CHECKS = [
     ("source demo filter", check_source_filter),
     ("visual randomization pkg", check_vrand_package),
     ("stage entry points", check_stage_scripts),
+    ("sart augmentation", check_sart),
     ("isaac lab install", check_isaaclab),
     ("gpu", check_gpu),
     ("disk space", check_disk),
