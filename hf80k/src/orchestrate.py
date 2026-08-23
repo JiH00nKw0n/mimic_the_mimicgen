@@ -114,6 +114,69 @@ STATE_SCHEMA = PROFILE.get("dataset.schema_prefix", "fr3_cube.hf80k") + ".state.
 REGISTER_MODULES = list(PROFILE.get("generate.register_modules",
                                     ["lab_register", "clean_success_hook", "provenance_hooks"]))
 
+# 생성기 조정값. 태스크마다 달라서 프로필에 적고, 환경변수를 주면 그쪽이 이긴다.
+#
+#   arm_scale                 IK 상대 제어에서 한 스텝에 허용하는 이동량의 배율.
+#                             큐브는 0.5이고 핀 꽂기는 1.0이다. 핀은 집은 자리에서
+#                             구멍까지 최대 25 cm를 옮겨야 해서 0.5로는 도달하지 못한다.
+#   subtask_offsets           구간 경계를 원래 자리보다 몇 스텝 뒤로 옮길지 정하는
+#                             "최소,최대"다. 매번 그 범위에서 하나를 무작위로 뽑는다.
+#   action_noise              매 스텝 행동에 더하는 잡음의 크기. 0이면 넣지 않는다.
+#                             핀과 구멍의 틈이 0.7 mm라 잡음이 크면 테두리에 걸린다.
+#   num_interpolation_steps   구간이 바뀔 때 지금 손 위치에서 다음 구간 시작 자세까지
+#                             몇 스텝에 걸쳐 옮길지 정한다. 짧으면 도달하지 못한 채
+#                             다음 구간이 시작되고, 그 어긋남이 끝까지 남는다.
+GEN_ARM_SCALE = str(PROFILE.get("generate.arm_scale", "0.5"))
+GEN_SUBTASK_OFFSETS = str(PROFILE.get("generate.subtask_offsets", "10,20"))
+GEN_ACTION_NOISE = PROFILE.get("generate.action_noise", None)
+GEN_NUM_INTERP = PROFILE.get("generate.num_interpolation_steps", None)
+
+# 계약 형식으로 바꿀 때 자세를 기록할 강체 이름. 큐브 쌓기는 큐브 3개, 핀 삽입은 핀 하나다.
+# 시연 파일의 states/rigid_object/<이름>/root_pose에서 읽는다. 예전에는 이 이름이 변환
+# 코드에 박혀 있어서 큐브가 아닌 태스크에서 `component not found`로 죽었다.
+CONVERT_OBJECTS = list(PROFILE.get("convert.object_states",
+                                   ["cube_1", "cube_2", "cube_3"]))
+
+# 렌더가 재생하면서 매기는 성공 판정. 태스크마다 기준이 달라 모듈과 함수 이름을 프로필이
+# 정한다. 기록 단계는 여기서 적은 속성 이름을 읽어 성공한 에피소드만 남긴다. 이 배선이
+# 없으면 렌더가 성공 표시를 남기지 않고, 기록 단계가 모든 에피소드를 버린다.
+RENDER_SUCCESS_MODULE = PROFILE.get("render.success.module", "success_criteria")
+RENDER_SUCCESS_FUNCTION = PROFILE.get("render.success.function", "replay_verdict")
+RENDER_SUCCESS_ATTR = PROFILE.get("render.success.verdict_attr", "replay_success_any_order")
+
+# 시각 규격의 물체 이름을 이 장면의 프림 경로에 잇는 표. 규격은 물체를 큐브 쌓기 장면의
+# 이름으로 부르므로, 다른 태스크는 여기서 이어 줘야 색과 재질 랜덤화가 실제로 적용된다.
+VRAND_OBJECT_PRIMS = dict(PROFILE.get("visual.object_prims", {}) or {})
+
+# 물리 절을 환경변수로 옮긴다. Isaac 환경 모듈은 시뮬레이터가 뜬 뒤에 임포트되고 프로필
+# 로더를 쓰지 않으므로, 여기서 이름을 붙여 넘긴다. 값이 비어 있으면 넘기지 않고 환경
+# 모듈의 기본값을 쓴다.
+def _physics_env() -> dict:
+    """프로필의 physics 절을 환경 모듈이 읽는 이름으로 바꾼다."""
+    import json as _json
+
+    out = {}
+    bundle = PROFILE.get("physics.bundle_dir", "")
+    if bundle:
+        out["LAB_SYSID_BUNDLE_ROOT"] = os.path.join(ASSETS_DIR, str(bundle))
+    objects = PROFILE.get("physics.primary_objects", None)
+    if objects:
+        out["LAB_PHYS_OBJECTS"] = ",".join(str(n) for n in objects)
+    for key, name in (("physics.surface", "LAB_PHYS_SURFACE"),
+                      ("physics.arm_actuator", "LAB_PHYS_ARM_ACTUATOR"),
+                      ("physics.gripper_actuator", "LAB_PHYS_GRIPPER_ACTUATOR"),
+                      ("physics.object_size_m", "LAB_PHYS_OBJECT_SIZE")):
+        value = PROFILE.get(key, None)
+        if value not in (None, ""):
+            out[name] = str(value)
+    masses = PROFILE.get("physics.object_masses_kg", None)
+    if masses:
+        out["LAB_PHYS_OBJECT_MASSES"] = _json.dumps(masses)
+    return out
+
+
+PHYSICS_ENV = _physics_env()
+
 # Memory guard. An Isaac Sim process (generation or RTX render) sits around
 # 6-8 GB resident; we refuse to add another one below this much MemAvailable.
 MEM_HEADROOM_MB = 9000
@@ -198,7 +261,14 @@ def load_config() -> dict:
         "source_demo_filter": env_str("SOURCE_DEMO_FILTER", "exclude_zero_yield"),
         # raw get, not env_str: SUBTASK_OFFSETS="" means "leave the env module's
         # own default alone" (INTERFACE §1), which is not the same as "10,20"
-        "subtask_offsets": os.environ.get("SUBTASK_OFFSETS", "10,20"),
+        "subtask_offsets": os.environ.get("SUBTASK_OFFSETS", GEN_SUBTASK_OFFSETS),
+        "arm_scale": env_str("LAB_ARM_SCALE", GEN_ARM_SCALE),
+        # 값이 없으면 빈 문자열로 두고, 아래에서 환경변수를 아예 넘기지 않는다.
+        # 그러면 환경 모듈이 자기 기본값을 그대로 쓴다.
+        "action_noise": os.environ.get(
+            "LAB_ACTION_NOISE", "" if GEN_ACTION_NOISE is None else str(GEN_ACTION_NOISE)),
+        "num_interpolation_steps": os.environ.get(
+            "LAB_NUM_INTERP", "" if GEN_NUM_INTERP is None else str(GEN_NUM_INTERP)),
         "work_dir": env_str("WORK_DIR", "/work"),
         "keep_intermediate": env_flag("KEEP_INTERMEDIATE", "0"),
         "upload_each_chunk": env_flag("UPLOAD_EACH_CHUNK", "1"),
@@ -446,6 +516,10 @@ def base_env(cfg: dict, extra_pythonpath: list) -> dict:
         "LEROBOT_SITE": os.environ.get("LEROBOT_SITE",
                                        os.environ.get("HF80K_LEROBOT_PATH", "")),
     })
+    # 프로필의 물리 절. 번들 경로와 장면 물체의 역할 이름이 여기로 간다. 밖에서 같은
+    # 이름을 주면 그쪽이 이긴다.
+    for key, value in PHYSICS_ENV.items():
+        env.setdefault(key, value)
     # 태스크 프로필이 정한 추가 환경변수. peg는 여기로 핀 구멍과 책상 USD 경로를 받는다.
     # 생성·변환·렌더가 모두 같은 장면을 만들어야 하므로 한 곳에서 넣는다. 예전에는
     # 어노테이션 단계에만 넣어서, 생성이 기본 경로 /work/assets/peg_hole_env.usd를 찾다가
@@ -453,6 +527,12 @@ def base_env(cfg: dict, extra_pythonpath: list) -> dict:
     for key, value in (PROFILE.get("generate.extra_env", {}) or {}).items():
         env.setdefault(str(key), str(value))
     parts = [p for p in extra_pythonpath if p]
+    # 태스크와 무관하게 함께 쓰는 모듈이 src/env에 있다. 실측 물리 항(calibrated_sysid)이
+    # 그것이고, 큐브 환경과 핀 환경이 같은 파일을 부른다. 태스크 디렉터리 뒤에 붙이므로
+    # 같은 이름의 파일이 태스크 쪽에 있으면 그쪽이 이긴다.
+    shared = os.path.join(SRC_DIR, "env")
+    if shared not in parts:
+        parts.append(shared)
     if env.get("PYTHONPATH"):
         parts.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = ":".join(parts)
@@ -663,11 +743,12 @@ def already_has_demos(path: str, want: int) -> bool:
         return False
 
 
-def _generate_failure_hint(log_path: str, lines: int = 25) -> str:
+def _last_traceback_hint(log_path: str, lines: int = 25) -> str:
     """청크 로그에서 마지막 파이썬 예외를 찾아 돌려준다.
 
-    생성이 종료 코드 0으로 끝나 놓고 아무것도 안 만드는 경우가 있어서, 오케스트레이터가
-    내는 메시지만으로는 원인을 알 수 없다. 로그에서 마지막 Traceback 이후를 잘라 붙인다.
+    Isaac Sim 위에서 도는 단계는 파이썬이 예외로 죽어도 종료 코드가 0으로 끝나는 경우가
+    있다. 생성과 변환 둘 다 그렇다. 오케스트레이터가 내는 메시지만으로는 원인을 알 수
+    없으므로, 로그에서 마지막 Traceback 이후를 잘라 붙인다.
     """
     try:
         with open(log_path, errors="replace") as fh:
@@ -711,14 +792,19 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
             cmd += ["--seed", str(seed)]
         env = base_env(cfg, [ENV_DIR, RENDER_DIR])
         env.update({
-            # generation IK-rel scale 0.5 is the official setting (run_generate.sh)
-            "LAB_ARM_SCALE": env.get("LAB_ARM_SCALE", "0.5"),
+            # IK 상대 제어의 이동량 배율. 프로필에서 오고, 환경변수를 주면 그쪽이 이긴다.
+            "LAB_ARM_SCALE": cfg["arm_scale"],
             "LAB_KEEP_FAILED": "0",          # INTERFACE §2: gen.hdf5 holds successes only
             "LAB_SUBTASK_OFFSETS": cfg["subtask_offsets"],
             "LAB_PROVENANCE_INPUT": cfg["source_dataset"],
             "LAB_PROVENANCE_OUT": prov,
             "LAB_GEN_SEED": str(seed),       # chosen name for env-side seeding hooks
         })
+        # 빈 문자열은 "정하지 않았다"는 뜻이라 넘기지 않는다.
+        if cfg["action_noise"] != "":
+            env["LAB_ACTION_NOISE"] = cfg["action_noise"]
+        if cfg["num_interpolation_steps"] != "":
+            env["LAB_NUM_INTERP"] = cfg["num_interpolation_steps"]
         jobs.append({"name": f"generate[{i}] quota={quota}", "cmd": cmd, "env": env})
         shards.append(shard)
         provs.append(prov)
@@ -730,19 +816,19 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
     missing = [s for s in shards if not os.path.isfile(s)]
     if missing:
         raise StageError(f"generation produced no file: {missing}"
-                         + _generate_failure_hint(log_path))
+                         + _last_traceback_hint(log_path))
     import h5py
     for s in shards:
         try:
             with h5py.File(s, "r") as h:
                 if len(h.get("data", {})) == 0:
                     raise StageError(f"generation wrote no demos into {s}"
-                                     + _generate_failure_hint(log_path))
+                                     + _last_traceback_hint(log_path))
         except StageError:
             raise
         except Exception as exc:
             raise StageError(f"generation output {s} is unreadable ({exc})"
-                             + _generate_failure_hint(log_path)) from exc
+                             + _last_traceback_hint(log_path)) from exc
     n = merge_hdf5_shards(shards, os.path.join(cdir, "gen.hdf5"), renumber=True, log=log)
     prov = merge_provenance(provs, os.path.join(cdir, "gen.provenance.json"))
     if n == 0:
@@ -765,11 +851,25 @@ def stage_convert(cfg: dict, chunk: dict, log, log_path: str) -> float:
            "--dataset", os.path.join(cdir, "gen.hdf5"), "--output", out,
            "--count", str(chunk["produced"]),
            "--report", os.path.join(cdir, "contract_report.json"),
-           "--table_usd", TABLE_USD]
+           "--table_usd", TABLE_USD,
+           "--objects", ",".join(CONVERT_OBJECTS)]
     env = base_env(cfg, [CONVERT_DIR, RENDER_DIR, ENV_DIR])
     secs = run_parallel([{"name": "convert", "cmd": cmd, "env": env}], 1, log, log_path)
+    # 생성 단계와 같은 함정이 여기에도 있다. 변환 스크립트는 Isaac Sim 위에서 도는데,
+    # 파이썬이 예외로 죽어도 종료 코드가 0으로 나오는 경우가 있다. 종료 코드만 믿으면
+    # 잘려 나간 파일을 들고 다음 단계로 넘어가고, 기록 단계에서 "truncated file"이라는
+    # 엉뚱한 오류가 나서 진짜 원인이 가려진다. 그래서 산출물을 직접 열어 확인한다.
     if not os.path.isfile(out):
-        raise StageError("convert produced no contract.hdf5")
+        raise StageError("convert produced no contract.hdf5" + _last_traceback_hint(log_path))
+    try:
+        names = _demo_names(out)
+    except Exception as exc:
+        raise StageError(f"convert output {out} is unreadable ({exc})"
+                         + _last_traceback_hint(log_path)) from exc
+    if len(names) < chunk["produced"]:
+        raise StageError(
+            f"convert wrote {len(names)} demos but generation produced "
+            f"{chunk['produced']}" + _last_traceback_hint(log_path))
     return secs
 
 
@@ -803,7 +903,12 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
                "--vrand", chunk["profile"],
                "--vrand_config", cfg["vrand_config"], "--vrand_root", cfg["vrand_root"],
                "--vrand_seed", str(chunk["seed"] * 100 + i),
-               "--vrand_log", vlog]
+               "--vrand_log", vlog,
+               "--success-module", RENDER_SUCCESS_MODULE,
+               "--success-function", RENDER_SUCCESS_FUNCTION,
+               "--success-verdict-attr", RENDER_SUCCESS_ATTR]
+        if VRAND_OBJECT_PRIMS:
+            cmd += ["--vrand-object-prims", json.dumps(VRAND_OBJECT_PRIMS)]
         # 렌더는 기본 환경이 큐브 장면이다. 다른 태스크는 자기 환경을 명시해야 한다.
         # 렌더 스크립트에 --task와 --register가 이미 있는데 넘기지 않고 있었다.
         render_task = PROFILE.get("render.task_id", "")
@@ -846,6 +951,9 @@ def stage_lerobot(cfg: dict, chunk: dict, log, log_path: str) -> float:
            "--task-string", PROFILE.get("dataset.task_string",
                                         "Stack three cubes into a three-level tower"),
            "--robot-type", PROFILE.get("dataset.robot_type", "franka_fr3_osc"),
+           # 초당 프레임 수. 계약 형식이 초당 10개이고 렌더도 --every 2로 그 수를
+           # 맞추므로 두 값이 어긋나면 영상과 행동의 시각이 맞지 않는다.
+           "--fps", str(PROFILE.get("dataset.fps", 10)),
            # 걸러진 에피소드는 기록으로 남기고 청크는 살린다. 기본값 0.9로 두면
            # 10%만 걸려도 종료 코드가 1이 되고, 오케스트레이터가 청크를 통째로
            # 버려 이미 쓴 몇 시간의 GPU 시간을 날린다. 실제 개수는 MANIFEST.json의

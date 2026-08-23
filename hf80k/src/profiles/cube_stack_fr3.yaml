@@ -20,8 +20,12 @@ generate:
   extra_env: {}
 
 convert:
-  task_id: ""
-  register_modules: []
+  # 변환 단계는 관절 각도에서 손끝 자세를 계산하는 데만 시뮬레이터를 쓴다.
+  # 로봇은 태스크와 무관하게 같은 FR3라 장면을 따로 만들 필요가 없다.
+  # 그래서 태스크 이름과 등록 모듈은 여기에 적지 않는다.
+  # 계약 형식에 자세를 기록할 강체다. 시연 파일의 states/rigid_object/<이름>/root_pose에서
+  # 읽는다. 큐브 쌓기는 큐브 세 개를 모두 기록한다.
+  object_states: [cube_1, cube_2, cube_3]
 
 render:
   # 비우면 렌더가 자기 기본 환경을 쓴다. 큐브는 그것이 맞다.
@@ -30,13 +34,13 @@ render:
   cameras: [third_person_0, third_person_1, wrist]
   overlay_yaml: fr3_camera_overlay_v2/overlay.yaml
   binding_yaml: fr3_binding_v2.yaml
-  table_usd_env: LAB_TABLE_USD
   success:
     # 재생하며 다시 매기는 판정. 세 큐브가 탑으로 서고 그리퍼를 놓았는지 본다.
+    # 렌더가 마지막 기록 상태만 보고 매긴다. 함수는 물체 자세와 손가락 관절을 받아
+    # 성공 여부와 함께 적을 항목(쌓인 순서)을 돌려준다.
     module: success_criteria
-    function: tower_status
+    function: replay_verdict
     verdict_attr: replay_success_any_order
-    extra_attrs: [stack_order]
 
 physics:
   # assets 아래의 표준 번들 디렉터리. tools/normalize_physics_bundle.py가 만든 것이다.
@@ -44,7 +48,9 @@ physics:
   # 물리를 적용할 주된 물체들과 그것이 놓인 작업면.
   primary_objects: [cube_1, cube_2, cube_3]
   surface: work_surface
-  arm_actuator: arm
+  # 이 환경의 팔 액추에이터 묶음 이름은 a1이다(1번부터 4번 관절). 번들 문서의
+  # 기본값 arm과 다르므로 여기서 바로잡아 적는다.
+  arm_actuator: a1
   gripper_actuator: gripper
   # 실측 질량. 물체마다 다르므로 번들의 공통 질량 대신 이 표를 쓴다.
   object_masses_kg:

@@ -56,11 +56,11 @@ def _final_insert_ok(env, env_id: int) -> bool:
         org = env.scene.env_origins[env_id]
         peg = env.scene["peg"].data
         pos = peg.root_pos_w[env_id] - org
-        quat = peg.root_quat_w[env_id]          # wxyz
+        quat = peg.root_quat_w[env_id]          # XYZW (이 컨테이너에서 확인함)
         speed = float(torch.linalg.vector_norm(peg.root_lin_vel_w[env_id]))
 
-        # 쿼터니언에서 핀의 위쪽 축을 뽑는다.
-        w, x, y, z = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
+        # 쿼터니언에서 핀의 위쪽 축을 뽑는다. 순서는 XYZW이므로 x가 0번, y가 1번이다.
+        x, y, z, w = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
         up_z = 1.0 - 2.0 * (x * x + y * y)
 
         hole_xy = getattr(peg_mdp, "HOLE_XY", (0.0, 0.0))

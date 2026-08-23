@@ -24,7 +24,8 @@ def write_episode(
     joint_position,          # [T,9]
     joint_velocity,          # [T,9]
     gripper_state,           # [T,2]
-    cube_pose,               # [T,3,7] robot_base
+    cube_pose,               # [T, 물체수, 7] robot_base. 이름은 큐브지만
+                             # 태스크가 추적하는 물체의 자세가 들어간다.
     success: bool,
     source_human_demo_id: str,
     retarget_version: str,
@@ -79,8 +80,12 @@ def validate_file(path: str) -> list[str]:
         "commanded_target_pose": (2, 7), "actual_ee_pose": (2, 7),
         "joint_position": (2, 9), "joint_velocity": (2, 9),
         "gripper_state": (2, 2), "cube_pose": (3, 7), "timestamps": (1, None),
+        # cube_pose는 [T, 물체수, 7]이다. 물체 수는 태스크마다 다르므로 아래에서 개수를
+        # 고정하지 않고, 한 파일 안의 모든 시연이 같은 개수인지만 본다.
     }
     problems: list[str] = []
+    # 파일 안 모든 시연의 물체 개수를 모은다. 두 종류 이상이면 섞인 파일이다.
+    object_counts: set = set()
     with h5py.File(path, "r") as handle:
         data = handle.get("data")
         if data is None:
@@ -104,8 +109,12 @@ def validate_file(path: str) -> list[str]:
                 if len(shape) != ndim or (last is not None and shape[-1] != last):
                     problems.append(f"{demo_name}: {key} shape {shape}")
                 if key == "cube_pose":
-                    if shape[1:] != (3, 7):
-                        problems.append(f"{demo_name}: cube_pose shape {shape}")
+                    if len(shape) != 3 or shape[2] != 7 or shape[1] < 1:
+                        problems.append(
+                            f"{demo_name}: cube_pose 모양이 {shape}다. "
+                            f"[시간, 물체수, 7]이어야 하고 물체가 하나 이상이어야 한다.")
+                    else:
+                        object_counts.add(int(shape[1]))
                 lengths.add(shape[0])
             if len(lengths) > 1:
                 problems.append(f"{demo_name}: unequal T across datasets {lengths}")
@@ -121,6 +130,11 @@ def validate_file(path: str) -> list[str]:
                         problems.append(
                             f"{demo_name}: {pose_key} quat norm off by "
                             f"{np.max(np.abs(norms - 1.0)):.2e}")
+    if len(object_counts) > 1:
+        problems.append(
+            "한 파일 안에서 시연마다 물체 개수가 다르다: "
+            + ", ".join(str(c) for c in sorted(object_counts))
+            + "개. 서로 다른 태스크의 결과가 섞였다는 뜻이다.")
     return problems
 
 

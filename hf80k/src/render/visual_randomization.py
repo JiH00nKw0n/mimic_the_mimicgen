@@ -138,7 +138,19 @@ class VisualRandomizer:
         # instead of saying nothing.
     }
 
-    def __init__(self, config_dir: str, package_root: str, profile: str, seed: int):
+    def __init__(self, config_dir: str, package_root: str, profile: str, seed: int,
+                 object_prims: dict | None = None):
+        """``object_prims``는 태스크마다 다른 장면 물체를 규격의 이름에 잇는 표다.
+
+        시각 규격은 물체를 큐브 쌓기 장면의 이름으로 부른다(cube_1, table 등). 다른
+        태스크는 그 이름에 해당하는 프림 경로가 다르다. 핀 삽입에서는 cube_1 자리에
+        핀이 있고 cube_2와 cube_3은 아예 없다. 그래서 프로필이 아래 모양으로 적어 준다.
+
+            {"cube_1": "{ENV}/Peg", "cube_2": "", "cube_3": ""}
+
+        값이 빈 문자열이면 이 장면에 없는 물체라는 뜻이고, 없는 물체는 매 에피소드
+        건너뛴 항목으로 기록된다. 조용히 사라지지 않는다.
+        """
         if profile not in PROFILE_NAMES:
             raise ValueError(f"unknown profile {profile!r}; expected {PROFILE_NAMES}")
         cfg = load_config(config_dir)
@@ -158,8 +170,17 @@ class VisualRandomizer:
         # contract objects with no prim in our scene, derived from the YAML rather
         # than hardcoded so a newly added handoff object cannot slip through
         # unrecorded (today: curtain_side_back, curtain_front)
+        # 태스크별 프림 표를 적용한다. 클래스 기본표를 그대로 두고 사본을 고친다.
+        self.material_targets = dict(self.MATERIAL_TARGETS)
+        for name, prim in (object_prims or {}).items():
+            base = self.MATERIAL_TARGETS.get(name)
+            mat_key = base[1] if base else "gripper_and_cubes"
+            if str(prim).strip():
+                self.material_targets[name] = (str(prim), mat_key)
+            else:
+                self.material_targets.pop(name, None)
         self.absent_targets = sorted(n for n in self.nominal_colors
-                                     if n not in self.MATERIAL_TARGETS)
+                                     if n not in self.material_targets)
         # calibrated nominal camera transform/focal, captured on first touch and
         # never overwritten — see _jitter_camera for why this must not be the
         # CURRENT stage value
@@ -252,7 +273,7 @@ class VisualRandomizer:
         self.skipped = []
         lo, hi = float(self.spec["color_scales"][0]), float(self.spec["color_scales"][-1])
         objects = {}
-        for name, (prim_tmpl, mat_key) in self.MATERIAL_TARGETS.items():
+        for name, (prim_tmpl, mat_key) in self.material_targets.items():
             prim_path = prim_tmpl.replace("{ENV}", env_prefix)
             prim = stage.GetPrimAtPath(prim_path)
             if not prim or not prim.IsValid():

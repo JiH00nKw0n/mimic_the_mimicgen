@@ -45,9 +45,16 @@ parser.add_argument("--time_stretch", type=float, default=1.0,
                          "side reparameterization, no contract knob touched)")
 parser.add_argument("--table_usd", default="/nonexistent.usdc")
 parser.add_argument("--retarget_version", default="offline_fk_v1")
+parser.add_argument("--objects", default="cube_1,cube_2,cube_3",
+                    help="이 태스크가 추적하는 강체 이름을 쉼표로 이어 적는다. "
+                         "시연 파일의 states/rigid_object/<이름>/root_pose에서 읽는다. "
+                         "큐브 쌓기는 cube_1,cube_2,cube_3이고 핀 삽입은 peg다.")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.headless = True
+OBJECT_NAMES = [n.strip() for n in args.objects.split(",") if n.strip()]
+if not OBJECT_NAMES:
+    raise SystemExit("--objects가 비었다. 추적할 물체 이름을 적어야 한다.")
 args.enable_cameras = False
 app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
@@ -86,15 +93,28 @@ GRIPPER_OPEN_THRESHOLD = 0.02  # finger joint > 2 cm -> open
 HAND_T_TCP = (0.0, 0.0, -0.1034)
 
 
-def episode_arrays(group):
+def episode_arrays(group, object_names):
+    """한 에피소드에서 관절과 받침과 물체 자세를 꺼낸다.
+
+    ``object_names``는 이 태스크가 추적하는 강체의 이름 목록이다. 큐브 쌓기는
+    ``cube_1, cube_2, cube_3``이고 핀 삽입은 ``peg`` 하나다. 예전에는 이 이름이 코드에
+    박혀 있어서 큐브가 아닌 태스크에서 `component not found`로 죽었다.
+    """
     states = group["states"]
     joints = states["articulation/robot/joint_position"][()]
     joint_vel = states["articulation/robot/joint_velocity"][()]
     root = states["articulation/robot/root_pose"][()]
-    cubes = np.stack(
-        [states[f"rigid_object/cube_{i}/root_pose"][()] for i in (1, 2, 3)],
-        axis=1)  # [T,3,7]
-    return joints, joint_vel, root, cubes
+    missing = [n for n in object_names if f"rigid_object/{n}/root_pose" not in states]
+    if missing:
+        available = sorted(states["rigid_object"].keys()) if "rigid_object" in states else []
+        raise KeyError(
+            f"이 시연에 없는 물체를 요청했다: {', '.join(missing)}. "
+            f"파일에 있는 물체는 {', '.join(available) or '없음'}이다. "
+            f"프로필의 convert.object_states를 고쳐라.")
+    objects = np.stack(
+        [states[f"rigid_object/{name}/root_pose"][()] for name in object_names],
+        axis=1)  # [T, 물체수, 7]
+    return joints, joint_vel, root, objects
 
 
 def to_base(pos_w, quat_w, root_pos_w, root_quat_w):
@@ -131,7 +151,7 @@ def main():
                  else list(src["data"].keys())[: args.count])
         for name in names:
             group = src[f"data/{name}"]
-            joints, joint_vel, root, cubes = episode_arrays(group)
+            joints, joint_vel, root, cubes = episode_arrays(group, OBJECT_NAMES)
             T = len(joints)
             source_hz = args.source_hz or (1.0 / step_dt)
             times = np.arange(T) / source_hz * args.time_stretch
@@ -185,7 +205,7 @@ def main():
                 root_pos_rec = torch.tensor(root[t, :3], dtype=torch.float32)
                 root_quat_rec = torch.tensor(root[t, 3:7], dtype=torch.float32)
                 row = []
-                for c in range(3):
+                for c in range(len(OBJECT_NAMES)):
                     cp, cq = to_base(
                         torch.tensor(cubes[t, c, :3], dtype=torch.float32),
                         torch.tensor(cubes[t, c, 3:7], dtype=torch.float32),

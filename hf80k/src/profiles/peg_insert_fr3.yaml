@@ -13,16 +13,36 @@ generate:
   module_dir: env_peg
   source_hdf5: peg_annotated.hdf5
   source_yield_json: ""
+  # IK 상대 제어에서 한 스텝에 허용하는 이동량의 배율이다. 큐브는 0.5로 충분하지만
+  # 핀은 집은 자리에서 구멍까지 최대 25 cm를 옮겨야 해서 1.0이 필요하다.
   arm_scale: "1.0"
-  # peg는 2구간이다. 핀을 집고, 구멍에 넣는다. 경계가 하나뿐이라 흔들림 범위도 하나다.
+  # peg는 2구간이다. 핀을 집고, 구멍에 넣는다. 경계가 하나뿐이라 범위도 하나만 적는다.
   subtask_offsets: "10,20"
+  # 매 스텝 행동에 더하는 잡음의 크기다. 0이면 넣지 않는다.
+  #
+  # 큐브는 0.03을 쓴다. 잡음이 있어야 같은 시연에서 서로 다른 궤적이 나오기 때문이다.
+  # 핀 꽂기에서는 그 값이 성공을 0으로 만든다. 핀과 구멍의 틈이 0.7 mm인데 잡음이
+  # 그보다 훨씬 커서, 핀이 구멍 축에서 1.6 mm까지 다가가고도 23도 기울어진 채
+  # 테두리에 걸렸다. 실제로 잰 값은 이렇다.
+  #   잡음 0.03  성공 0/697
+  #   잡음 0.01  성공 0/40
+  #   잡음 0.0   성공 나옴 (아래 보간 스텝과 함께)
+  action_noise: 0.0
+  # 구간이 바뀔 때 손을 다음 구간의 시작 자세까지 몇 스텝에 걸쳐 옮길지는 여기서 정하지
+  # 않는다. 5스텝과 25스텝을 40회씩 비교했더니 5스텝이 46.2%(18/39), 25스텝이
+  # 34.4%(11/32)로 오히려 5스텝이 나았고, 이 정도 횟수에서는 두 값의 차이를 우연과
+  # 구분할 수 없다. 값을 적지 않으면 환경 모듈의 기본값 5가 그대로 쓰인다.
   extra_env:
     LAB_PEG_ENV_USD: /opt/hf80k/assets/peg_hole_env.usd
     LAB_PEG_HOLE_USD: /opt/hf80k/assets/hole_01.usd
 
 convert:
-  task_id: Isaac-PegInsert-LabFR3-IK-Rel-Mimic-v0
-  register_modules: [peg_register]
+  # 변환 단계는 관절 각도에서 손끝 자세를 계산하는 데만 시뮬레이터를 쓴다.
+  # 로봇은 태스크와 무관하게 같은 FR3라 장면을 따로 만들 필요가 없다.
+  # 그래서 태스크 이름과 등록 모듈은 여기에 적지 않는다.
+  # 계약 형식에 자세를 기록할 강체다. 핀 삽입에서 움직이는 물체는 핀 하나뿐이다.
+  # 구멍은 움직이지 않는 정적 물체라 강체 목록에 없고, 그래서 여기에 적을 수 없다.
+  object_states: [peg]
 
 render:
   # 렌더는 기본 환경이 큐브 장면이므로 peg에서는 태스크를 명시해야 한다.
@@ -31,13 +51,13 @@ render:
   cameras: [third_person_0, third_person_1, wrist]
   overlay_yaml: fr3_camera_overlay_v2/overlay.yaml
   binding_yaml: fr3_binding_v2.yaml
-  table_usd_env: LAB_TABLE_USD
   success:
     # 삽입 판정. 핀 중심이 구멍 축에서 1 cm 안, 깊이 2 cm 이상, 수직도 0.9 이상이다.
+    # 렌더가 궤적을 다시 재생한 뒤 마지막 기록 상태만 보고 매긴다. 함수는 물체 자세와
+    # 손가락 관절을 받아 성공 여부와 함께 적을 항목을 돌려준다.
     module: peg_success_criteria
-    function: insertion_status
+    function: replay_verdict
     verdict_attr: replay_success_any_order
-    extra_attrs: [insert_depth_m]
 
 physics:
   bundle_dir: fr3_peg_in_hole_physics_bundle_v1_normalized
@@ -54,10 +74,16 @@ physics:
 
 visual:
   package_dir: fr3_visual_randomization_v1
-  # 시각 랜덤화 규격은 물체를 큐브 이름으로 부른다. peg 장면 물체로 잇는다.
+  # 시각 랜덤화 규격은 물체를 큐브 쌓기 장면의 이름으로 부른다. 이 장면의 프림 경로로
+  # 잇는다. {ENV}는 렌더가 환경 하나의 경로로 바꿔 넣는다.
+  #
+  # cube_1 자리에 핀이 있고, cube_2와 cube_3은 이 장면에 없다. 값이 빈 문자열이면
+  # 없는 물체라는 뜻이고, 없는 물체는 매 에피소드 건너뛴 항목으로 기록된다.
+  # table은 큐브 장면과 같은 프림 이름이라 적지 않아도 그대로 맞는다.
   object_prims:
-    cube_1: peg
-    table: desk_surface
+    cube_1: "{ENV}/Peg"
+    cube_2: ""
+    cube_3: ""
 
 dataset:
   task_string: Insert the peg into the hole

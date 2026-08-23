@@ -110,6 +110,9 @@ def _as_torch(value):
         return torch.as_tensor(value)
 
 
+from peg_geom import upright_z_from_quat  # noqa: E402
+
+
 def peg_inserted(
     env,
     peg_cfg: SceneEntityCfg = SceneEntityCfg("peg"),
@@ -131,21 +134,26 @@ def peg_inserted(
         upright  = peg body z-axis . world z
         SUCCESS  = radial < 0.010 AND depth > 0.020 AND upright > 0.9
 
-    ON-BOX TODO(quat): reads peg ``.data.root_quat_w`` as WXYZ (Isaac Lab math convention, per
-    the task facts) and takes the world-z component of the peg's body z-axis for uprightness.
-    The peg teleop compat shim instead assumed ``.data.*`` quats are XYZW in this 3.0 container
-    — if that holds here, reorder to WXYZ before ``matrix_from_quat``. THIS IS THE #1 THING TO
-    VERIFY ON-BOX (see the summary's ranked risks).
+    쿼터니언 순서는 확인을 마쳤다. 이 컨테이너의 ``.data.root_quat_w``는 XYZW로 온다.
+    회전이 없으면 [0, 0, 0, 1]이다. 아래 수직도 식은 그 순서를 전제로 한다.
     """
     peg = env.scene[peg_cfg.name]
     pos = _as_torch(peg.data.root_pos_w) - _as_torch(env.scene.env_origins)
-    quat = _as_torch(peg.data.root_quat_w)               # WXYZ (num_envs, 4)
+    quat = _as_torch(peg.data.root_quat_w)               # XYZW (num_envs, 4)
     # warp의 quatf 배열은 (N,) 모양으로 오므로 (N, 4)로 펴 준다.
     if quat.ndim == 1 or quat.shape[-1] != 4:
         quat = quat.reshape(-1, 4)
 
-    rot = PoseUtils.matrix_from_quat(quat)               # (num_envs, 3, 3), body->world
-    upright = rot[:, 2, 2]                                # peg body z-axis . world z
+    # 수직도를 쿼터니언에서 직접 계산한다. 라이브러리 규약에 의존하지 않기 위해서다.
+    #
+    # 이 컨테이너에서 실제로 확인한 사실: isaaclab.utils.math의 회전 함수와 자산의
+    # .data.root_quat_w는 모두 XYZW 순서다. 회전이 없으면 [0, 0, 0, 1]이다. 확인 방법은
+    # 두 가지였다. 첫째로 컨테이너 안에서 quat_from_matrix(단위행렬)이 [0,0,0,1]을
+    # 돌려주었다. 둘째로 사람 시연 파일의 initial_state에 기록된 로봇 받침 자세가
+    # [0, 0, 1, 0]인데, 이 값이 180도 요 회전이 되려면 XYZW여야 한다. 받침이 180도
+    # 돌아가 있다는 것은 이미 확인된 사실이다.
+    #
+    upright = upright_z_from_quat(quat)
 
     radial = torch.hypot(pos[:, 0] - hole_xy[0], pos[:, 1] - hole_xy[1])
     rim_z = desk_z + hole_height
@@ -157,7 +165,6 @@ def peg_inserted(
     # 재생이 왜 실패하는지 보려면 LAB_PEG_DEBUG=1로 둔다. 판정에 들어간 세 값을 그대로 찍는다.
     if os.environ.get("LAB_PEG_DEBUG", "") == "1":
         print(f"[peg_inserted] quat={[round(float(v), 4) for v in quat[0]]} "
-              f"rot22={float(rot[0, 2, 2]):.3f} "
               f"반경={radial[0]:.4f}(<{radial_success}) "
               f"깊이={depth[0]:.4f}(>{depth_success}) 수직도={upright[0]:.3f}"
               f"(>{upright_success}) 핀위치={[round(float(v), 4) for v in pos[0]]} "
@@ -186,10 +193,8 @@ def randomize_peg_xy(
     ``write_root_velocity_to_sim`` (env_ids). The beta2 container's teleop used the
     ``write_root_*_to_sim_index`` variants because the combined ``write_root_state_to_sim`` raised
     NotImplementedError there; switch to the index variants if these raise.
-    ON-BOX TODO(quat): writes upright as WXYZ ``(1,0,0,0)`` per the task facts. The teleop wrote
-    XYZW ``(0,0,0,1)`` for the same upright peg — if the peg spawns UPSIDE-DOWN, flip this to
-    ``(0,0,0,1)`` (same convention question as ``peg_inserted``; both are driven by whether this
-    container's runtime quats are WXYZ or XYZW).
+    자세는 XYZW 항등 회전 ``(0,0,0,1)``로 쓴다. 사람 시연도 같은 값을 썼고, 이 컨테이너의
+    쿼터니언 순서가 XYZW라는 것은 확인을 마쳤다.
     """
     peg = env.scene[asset_cfg.name]
     device = env.device
@@ -220,7 +225,12 @@ def randomize_peg_xy(
     origins = env.scene.env_origins[env_ids]
     pos = torch.stack([xs, ys, torch.full((n,), spawn_z, device=device)], dim=1) + origins
     quat = torch.zeros((n, 4), device=device)
-    quat[:, 0] = 1.0                                     # WXYZ upright — see ON-BOX TODO(quat)
+    # XYZW 항등 회전. 사람 시연 파일에 기록된 핀의 초기 자세도 [0, 0, 0, 1]이다.
+    # 여기에 WXYZ로 [1,0,0,0]을 쓰면 핀이 x축으로 180도 돌아간 채로 놓인다. 핀은
+    # 원기둥이라 눈으로는 똑같아 보이지만, MimicGen이 사람 시연의 핀 자세와 지금 핀
+    # 자세의 차이로 손 궤적을 옮기기 때문에 그 180도가 궤적 전체를 엉뚱한 곳으로
+    # 보낸다. 실제로 그 상태에서는 697번 시도 내내 로봇이 핀을 건드리지도 못했다.
+    quat[:, 3] = 1.0
     root_pose = torch.cat([pos, quat], dim=1)
     peg.write_root_pose_to_sim(root_pose, env_ids=env_ids)
     peg.write_root_velocity_to_sim(torch.zeros((n, 6), device=device), env_ids=env_ids)
