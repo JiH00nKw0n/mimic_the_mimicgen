@@ -73,6 +73,48 @@ hook_src = open(os.path.join(ENV_PEG, "peg_success_hook.py"), encoding="utf-8").
 check("성공 판정 훅이 쿼터니언을 x, y, z, w 순으로 푼다",
       "x, y, z, w = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))" in hook_src)
 
+# 5) SART 증강 코드가 회전 순서를 손으로 바꾸지 않는지 확인한다.
+#    증강 실행기는 명령한 손 자세를 기록에서 되살릴 때 회전을 다룬다. 그 계산은 전부
+#    isaaclab.utils.math를 거쳐야 하고, 자리를 옮기는 코드가 끼어들면 안 된다.
+SART_DIR = os.path.join(HERE, "..", "sart")
+if os.path.isdir(SART_DIR):
+    reorder = re.compile(r"\[\s*\[?\s*3\s*,\s*0\s*,\s*1\s*,\s*2\s*\]?\s*\]"
+                         r"|\[\s*\[?\s*1\s*,\s*2\s*,\s*3\s*,\s*0\s*\]?\s*\]")
+    offenders = []
+    for name in sorted(os.listdir(SART_DIR)):
+        if not name.endswith(".py"):
+            continue
+        body = open(os.path.join(SART_DIR, name), encoding="utf-8").read()
+        if reorder.search(body):
+            offenders.append(name)
+    check("src/sart 아래에 쿼터니언 자리를 옮기는 코드가 없다",
+          not offenders, ", ".join(offenders) if offenders else "검사한 파일 %d개"
+          % len([n for n in os.listdir(SART_DIR) if n.endswith(".py")]))
+
+    # 기하 계산만 담은 sart_core는 쿼터니언을 아예 다루지 않기로 했다. 순서 규약이
+    # 두 곳에 있으면 한쪽만 고치는 일이 생긴다.
+    core = os.path.join(SART_DIR, "sart_core.py")
+    if os.path.isfile(core):
+        check("sart_core.py는 쿼터니언을 전혀 다루지 않는다",
+              "quat" not in open(core, encoding="utf-8").read().lower())
+
+# 6) 회전이 없는 상태와 받침의 180도 회전이 XYZW 규약대로 읽히는지 확인한다.
+#    한 번 반대로 읽었다가 생성 697회가 모두 실패했다. 계산이 한 줄이라 여기서 막는다.
+try:
+    import torch
+
+    from peg_geom import upright_z_from_quat
+
+    ident = torch.tensor([[0.0, 0.0, 0.0, 1.0]])          # 회전 없음
+    yaw180 = torch.tensor([[0.0, 0.0, 1.0, 0.0]])         # z축 180도. FR3 받침 자세
+    check("회전이 없는 상태 (0,0,0,1)의 수직도가 1이다",
+          abs(float(upright_z_from_quat(ident)[0]) - 1.0) < 1e-5)
+    check("받침의 z축 180도 (0,0,1,0)도 수직도가 1이다(z축 회전이라 눕지 않는다)",
+          abs(float(upright_z_from_quat(yaw180)[0]) - 1.0) < 1e-5,
+          "값 %.4f" % float(upright_z_from_quat(yaw180)[0]))
+except ImportError as exc:
+    print("  건너뜀  받침 회전 검사 (torch를 불러오지 못했다: %s)" % exc)
+
 print()
 if failures:
     print("실패 %d건: %s" % (len(failures), ", ".join(failures)))

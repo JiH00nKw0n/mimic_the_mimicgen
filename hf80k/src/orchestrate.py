@@ -85,6 +85,9 @@ CONVERT_DIR = os.path.join(SRC_DIR, "convert")
 RENDER_SCRIPT = os.path.join(RENDER_DIR, "render_viewpoints.py")
 CONVERT_SCRIPT = os.path.join(CONVERT_DIR, "convert_demo.py")
 LEROBOT_WRITER = os.path.join(SRC_DIR, "lerobot_writer.py")
+# SART 증강 단계. 태스크 프로필이 켜 준 태스크에서만 돈다.
+SART_DIR = os.path.join(SRC_DIR, "sart")
+SART_SCRIPT = os.path.join(SART_DIR, "sart_augment.py")
 HF_UPLOAD = os.path.join(SRC_DIR, "hf_upload.py")
 SOURCE_HDF5 = os.path.join(ASSETS_DIR, "fwd_annotated.hdf5")
 SOURCE_YIELD_JSON = os.path.join(ASSETS_DIR, "source_yield.json")
@@ -143,6 +146,45 @@ CONVERT_OBJECTS = list(PROFILE.get("convert.object_states",
 RENDER_SUCCESS_MODULE = PROFILE.get("render.success.module", "success_criteria")
 RENDER_SUCCESS_FUNCTION = PROFILE.get("render.success.function", "replay_verdict")
 RENDER_SUCCESS_ATTR = PROFILE.get("render.success.verdict_attr", "replay_success_any_order")
+
+
+# SART 증강 설정. 생성과 변환 사이에 들어가는 선택 단계이고, 프로필에 generate.sart 절이
+# 있는 태스크에서만 돈다. 큐브 쌓기 프로필에는 그 절이 없으므로 값이 전부 아래 기본값이
+# 되고 enable이 거짓이라 단계가 즉시 0초를 돌려주고 끝난다.
+#
+# 키를 하나씩 제 이름으로 읽는다. 절 이름만 적어 통째로 읽으면 안 된다. 죽은 키 검사
+# (src/tests/test_profile_keys_used.py)는 프로필의 잎 키를 점으로 이은 문자열이 소스
+# 어딘가에 따옴표째 나타나는지를 보는데, 절 이름 하나만 적어 두면 그 한 문자열이 절
+# 아래 모든 키를 대신 통과시켜서 오타 난 키가 조용히 무시된다.
+def _sart_profile() -> dict:
+    """프로필의 generate.sart 절을 읽어 사전 하나로 돌려준다."""
+    return {
+        "enable": bool(PROFILE.get("generate.sart.enable", False)),
+        "samples_per_source": int(PROFILE.get("generate.sart.samples_per_source", 4)),
+        "radius_m": float(PROFILE.get("generate.sart.radius_m", 0.05)),
+        "rotation_deg": float(PROFILE.get("generate.sart.rotation_deg", 10.0)),
+        "fix_position": bool(PROFILE.get("generate.sart.fix_position", False)),
+        "divert_steps": int(PROFILE.get("generate.sart.divert_steps", 10)),
+        "converge_steps": int(PROFILE.get("generate.sart.converge_steps", 20)),
+        "settle_steps": int(PROFILE.get("generate.sart.settle_steps", 5)),
+        "tail_steps": int(PROFILE.get("generate.sart.tail_steps", 25)),
+        "converge_rule": str(PROFILE.get("generate.sart.converge_rule", "radial_gate")),
+        "converge_object": str(PROFILE.get("generate.sart.converge_object", "")),
+        "converge_target": str(PROFILE.get("generate.sart.converge_target", "")),
+        "converge_radius_m": float(PROFILE.get("generate.sart.converge_radius_m", 0.016)),
+        "floor_margin_m": float(PROFILE.get("generate.sart.floor_margin_m", 0.005)),
+        "grip_closed_m": float(PROFILE.get("generate.sart.grip_closed_m", 0.035)),
+        "source_frac": float(PROFILE.get("generate.sart.source_frac", 1.0)),
+        "on_failure": str(PROFILE.get("generate.sart.on_failure", "continue")),
+        "max_consecutive_failures": int(
+            PROFILE.get("generate.sart.max_consecutive_failures", 3)),
+        "seed_offset": int(PROFILE.get("generate.sart.seed_offset", 7717)),
+    }
+
+
+SART_PROFILE = _sart_profile()
+# 프로필에 sart 절 아래로 적을 수 있는 키 전부. 실행 전 검사가 오타를 잡는 데 쓴다.
+SART_KEYS = tuple(sorted(SART_PROFILE))
 
 # 시각 규격의 물체 이름을 이 장면의 프림 경로에 잇는 표. 규격은 물체를 큐브 쌓기 장면의
 # 이름으로 부르므로, 다른 태스크는 여기서 이어 줘야 색과 재질 랜덤화가 실제로 적용된다.
@@ -203,6 +245,19 @@ def env_int(name: str, default: int) -> int:
         return int(v)
     except ValueError:
         raise SystemExit(f"[orch] {name}={v!r} is not an integer")
+
+
+def env_float(name: str, default: float) -> float:
+    """소수 환경변수를 읽는다. 잘못된 값이면 어느 변수가 문제인지 한 줄로 말하고 멈춘다.
+
+    맨 float()로 읽으면 소수점 대신 쉼표를 쓴 0,06 같은 흔한 오타에서 파이썬 역추적만
+    쏟아지고 어느 변수가 잘못됐는지는 나오지 않는다.
+    """
+    v = env_str(name, str(default))
+    try:
+        return float(v)
+    except ValueError:
+        raise SystemExit(f"[orch] {name}={v!r}는 숫자가 아니다")
 
 
 _FALSEY = ("0", "false", "no", "off")
@@ -279,10 +334,32 @@ def load_config() -> dict:
         "resume": env_flag("RESUME", "1"),
         "seed_base": env_int("SEED_BASE", 42000),
         "log_level": env_str("LOG_LEVEL", "INFO"),
+        # SART 증강. 기본값은 태스크 프로필이 정하고, 환경변수를 주면 그쪽이 이긴다.
+        # SART_ENABLE=0이면 어떤 태스크에서도 꺼진다.
+        "sart_enable": env_flag("SART_ENABLE", "1" if SART_PROFILE["enable"] else "0"),
+        "sart_procs": env_int("SART_PROCS", 1),
+        "sart_samples": env_int("SART_SAMPLES", int(SART_PROFILE["samples_per_source"])),
+        "sart_radius_m": env_float("SART_RADIUS_M", float(SART_PROFILE["radius_m"])),
+        "sart_source_frac": env_float("SART_SOURCE_FRAC", float(SART_PROFILE["source_frac"])),
     }
     for key in ("chunk_size", "num_envs", "gen_procs", "render_procs"):
         if cfg[key] < 1:
             raise SystemExit(f"[orch] {key.upper()} must be >= 1 (got {cfg[key]})")
+    # SART 값 검사는 SART를 켠 실행에서만 한다.
+    #
+    # 이 검사를 늘 돌리면 쓰지도 않는 값 때문에 실행이 시작조차 못 한다. GPU 네 대로 돌릴 때
+    # .env 한 장을 네 컨테이너가 함께 읽는데, 거기에 SART_SAMPLES=0을 적어 두면 SART를 쓰지
+    # 않는 큐브 컨테이너까지 멈춘다. 쓰지 않는 값이 실행을 막아서는 안 된다.
+    if cfg["sart_enable"]:
+        if cfg["sart_procs"] < 1:
+            raise SystemExit(f"[orch] SART_PROCS는 1 이상이어야 한다 (받은 값 {cfg['sart_procs']})")
+        if cfg["sart_samples"] < 1:
+            raise SystemExit(f"[orch] SART_SAMPLES는 1 이상이어야 한다 (받은 값 {cfg['sart_samples']})")
+        if cfg["sart_radius_m"] <= 0:
+            raise SystemExit(f"[orch] SART_RADIUS_M는 0보다 커야 한다 (받은 값 {cfg['sart_radius_m']})")
+        if not 0.0 < cfg["sart_source_frac"] <= 1.0:
+            raise SystemExit("[orch] SART_SOURCE_FRAC는 0보다 크고 1 이하여야 한다 "
+                             f"(받은 값 {cfg['sart_source_frac']})")
     if cfg["target_episodes"] < 1:
         raise SystemExit("[orch] TARGET_EPISODES must be >= 1")
     cfg["chunks_dir"] = os.path.join(cfg["work_dir"], "chunks")
@@ -646,6 +723,73 @@ def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log) -> int:
     return n
 
 
+def merge_sart_into_gen(gen_path: str, shards: list, out_path: str, log) -> tuple:
+    """생성 결과와 SART 조각들을 외부 링크 파일 하나로 묶는다.
+
+    두 가지 규칙이 있다. 첫째, 생성 결과의 데모는 아무 검사 없이 전부 옮긴다. SART가
+    MimicGen이 만든 편을 줄이는 일이 절대 없어야 하기 때문이다. 둘째, SART 조각의
+    데모는 세 가지를 통과해야 들어간다. 열려야 하고, success 속성이 참이어야 하고,
+    num_samples가 4 이상이어야 한다. 4 미만이면 초당 10개로 다시 뽑을 때 기록 단계가
+    요구하는 2스텝이 나오지 않는다. 통과하지 못한 편은 세어만 두고 넘어간다.
+
+    gen.hdf5 자체가 외부 링크 파일일 수 있다. 생성 프로세스를 둘 이상 띄우면 그렇게
+    된다. 그때는 링크가 가리키는 곳을 그대로 옮겨 링크가 두 겹이 되지 않게 한다.
+
+    (전체 데모 수, 받아들인 SART 편수)를 돌려준다.
+    """
+    import h5py
+
+    accepted = 0
+    with h5py.File(out_path, "w") as out:
+        data = out.create_group("data")
+        n = 0
+        with h5py.File(gen_path, "r") as src:
+            for k, v in src["data"].attrs.items():
+                data.attrs[k] = v
+            names = sorted(src["data"].keys(), key=natural_key)
+            links = {}
+            for name in names:
+                link = src["data"].get(name, getlink=True)
+                if isinstance(link, h5py.ExternalLink):
+                    links[name] = (link.filename, link.path)
+                else:
+                    links[name] = (os.path.abspath(gen_path), f"data/{name}")
+        for name in names:
+            filename, path = links[name]
+            data[f"demo_{n}"] = h5py.ExternalLink(filename, path)
+            n += 1
+        base_demos = n
+
+        for shard in shards:
+            try:
+                with h5py.File(shard, "r") as src:
+                    shard_names = sorted(src["data"].keys(), key=natural_key)
+                    keep = []
+                    for name in shard_names:
+                        grp = src["data"][name]
+                        ok = bool(grp.attrs.get("success", False))
+                        samples = int(grp.attrs.get("num_samples", 0))
+                        if samples == 0 and "actions" in grp:
+                            samples = int(grp["actions"].shape[0])
+                        if ok and samples >= 4:
+                            keep.append(name)
+            except Exception as exc:                      # noqa: BLE001
+                log(f"sart: 조각 {os.path.basename(shard)}을 읽지 못해 통째로 뺀다 ({exc})")
+                continue
+            for name in keep:
+                data[f"demo_{n}"] = h5py.ExternalLink(os.path.abspath(shard), f"data/{name}")
+                n += 1
+                accepted += 1
+
+        total = 0
+        for name in data:
+            total += int(data[name].attrs.get("num_samples", 0))
+        data.attrs["total"] = total
+    log(f"sart: 생성 {base_demos}편 + 증강 {accepted}편 -> "
+        f"{os.path.basename(out_path)} ({n}편)")
+    return n, accepted
+
+
 def merge_provenance(paths: list, out_path: str) -> dict:
     """Sum attempts/successes across generation processes (yield needs both)."""
     merged = {"n_success": 0, "n_attempts": 0, "input_file": "",
@@ -743,6 +887,32 @@ def already_has_demos(path: str, want: int) -> bool:
         return False
 
 
+def sart_source_quota(cfg: dict, chunk: dict) -> int:
+    """MimicGen에 요청할 성공 편수. SART가 꺼져 있으면 청크 할당량 그대로다.
+
+    SART를 켜면 생성이 할당량의 일부만 만들고 나머지는 증강이 채운다. 비율은 프로필의
+    generate.sart.source_frac이 정하고 SART_SOURCE_FRAC으로 덮을 수 있다.
+    """
+    if not cfg["sart_enable"]:
+        return chunk["episodes"]
+    return max(1, round(chunk["episodes"] * cfg["sart_source_frac"]))
+
+
+def gen_dataset_path(chunk: dict) -> str:
+    """convert와 render가 읽을 생성 결과 파일.
+
+    SART가 성공했다고 보고서에 적혀 있을 때만 증강본을 가리킨다. 보고서가 없거나 ok가
+    아니면 원래의 gen.hdf5를 그대로 돌려준다. 판단을 청크 딕셔너리가 아니라 디스크에서
+    하므로, stage.py로 단계를 따로 돌려도 같은 답이 나온다.
+    """
+    cdir = chunk["dir"]
+    merged = os.path.join(cdir, "gen_sart.hdf5")
+    doc = read_json(os.path.join(cdir, "sart_report.json"))
+    if isinstance(doc, dict) and doc.get("ok") and os.path.isfile(merged):
+        return merged
+    return os.path.join(cdir, "gen.hdf5")
+
+
 def _last_traceback_hint(log_path: str, lines: int = 25) -> str:
     """청크 로그에서 마지막 파이썬 예외를 찾아 돌려준다.
 
@@ -770,11 +940,16 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
     """
     cdir = chunk["dir"]
     merged = os.path.join(cdir, "gen.hdf5")
-    if already_has_demos(merged, chunk["episodes"]):
-        log(f"generate: {merged} 이미 {chunk['episodes']}개를 담고 있어 건너뛴다")
-        chunk["produced"] = chunk["episodes"]
+    want = sart_source_quota(cfg, chunk)
+    if already_has_demos(merged, want):
+        # 파일에 실제로 몇 편이 들어 있는지 세서 넣는다. 요청한 개수를 그대로 넣으면
+        # 안 된다. 뒤 단계가 이 값만큼만 처리하므로, 파일이 더 많이 담고 있을 때
+        # 나머지가 조용히 버려진다.
+        chunk["produced"] = len(_demo_names(merged))
+        chunk["mimicgen_produced"] = chunk["produced"]
+        log(f"generate: {merged} 이미 {chunk['produced']}개를 담고 있어 건너뛴다")
         return 0.0
-    quotas = largest_remainder(chunk["episodes"], [1.0] * cfg["gen_procs"])
+    quotas = largest_remainder(want, [1.0] * cfg["gen_procs"])
     quotas = [q for q in quotas if q > 0]
     jobs, shards, provs = [], [], []
     has_seed = script_supports(cfg["gen_script"], "--seed")
@@ -834,9 +1009,242 @@ def stage_generate(cfg: dict, chunk: dict, log, log_path: str) -> float:
     if n == 0:
         raise StageError("generation produced 0 episodes")
     chunk["produced"] = n
+    # SART가 뒤에서 편수를 늘리므로, MimicGen이 만든 편수를 따로 남긴다. 매니페스트의
+    # 수율은 이 값으로 계산해야 "생성이 몇 번 시도해 몇 번 성공했는가"라는 뜻을 지킨다.
+    chunk["mimicgen_produced"] = n
     chunk["attempts"] = int(prov.get("n_attempts", 0))
     log(f"generate: {n} episodes from {chunk['attempts']} attempts "
         f"(yield {n / max(1, chunk['attempts']):.3f})")
+    return secs
+
+
+def stage_sart(cfg: dict, chunk: dict, log, log_path: str) -> float:
+    """MimicGen 결과를 소스로 삼아 접근 구간만 다양화한 에피소드를 더 만든다.
+
+    이 단계는 gen.hdf5를 읽기로만 연다. 새 파일만 쓰고, 마지막에 보고서를 통째로 바꿔
+    쓴 뒤에야 뒤 단계가 증강본을 읽기 시작한다. 그래서 증강이 어떻게 실패하든 이미
+    만들어 둔 MimicGen 에피소드는 한 편도 잃지 않는다.
+    """
+    # 이 한 줄이 큐브 쪽 보장의 전부다. 꺼져 있으면 파일도 경로도 건드리지 않는다.
+    if not cfg["sart_enable"]:
+        return 0.0
+
+    cdir = chunk["dir"]
+    gen_path = os.path.join(cdir, "gen.hdf5")
+    merged_path = os.path.join(cdir, "gen_sart.hdf5")
+    report_path = os.path.join(cdir, "sart_report.json")
+    t0 = time.time()
+
+    try:
+        source_n = len(_demo_names(gen_path))
+    except Exception as exc:                              # noqa: BLE001
+        raise StageError(f"sart: {gen_path}를 읽지 못했다 ({exc})") from exc
+
+    # 이미 해 둔 일이면 다시 하지 않는다. 실패로 끝난 기록도 그대로 존중한다. 그래야
+    # 청크를 다시 시도할 때 방금 실패한 일에 GPU 시간을 또 쓰지 않는다. 살아 있는
+    # 소스 편수와 비교하므로, 생성을 다시 돌려 편수가 달라졌으면 옛 보고서는 버린다.
+    doc = read_json(report_path)
+    if isinstance(doc, dict) and int(doc.get("source_demos", -1)) == source_n:
+        if doc.get("ok") and already_has_demos(merged_path, int(doc.get("total_demos", 0))):
+            chunk["produced"] = int(doc["total_demos"])
+            chunk["mimicgen_produced"] = source_n
+            chunk["sart_added"] = int(doc.get("added", 0))
+            log(f"sart: 이미 {chunk['sart_added']}편을 더해 두었다. 건너뛴다")
+            return 0.0
+        if not doc.get("ok"):
+            chunk["produced"] = source_n
+            chunk["mimicgen_produced"] = source_n
+            reason = doc.get("reason", "적혀 있지 않다")
+            # on_failure=fail은 "증강이 실패하면 이 청크를 실패로 처리하라"는 뜻이다.
+            # 기록된 실패를 그냥 넘기면 첫 시도에서 청크가 재시도로 넘어갔다가 두 번째
+            # 시도에서 이 자리를 그대로 통과해 버린다. 그러면 증강이 하나도 안 붙은 청크가
+            # 성공으로 표시되고, 설정은 지켜지지 않는다.
+            if SART_PROFILE["on_failure"] == "fail":
+                raise StageError(f"sart: 앞선 시도가 실패로 기록돼 있다 (이유: {reason}). "
+                                 f"generate.sart.on_failure가 fail이라 청크를 실패로 둔다. "
+                                 f"증강 없이 넘어가려면 프로필을 continue로 바꾸거나 "
+                                 f"{report_path} 파일을 지운다")
+            log(f"sart: 앞선 시도가 실패로 기록돼 있어 다시 하지 않는다 (이유: {reason}). "
+                f"다시 시도하려면 {report_path} 파일을 지운다")
+            return 0.0
+
+    # 남아 있는 옛 산출물을 지운다. 이 단계는 덧붙이지 않고 항상 처음부터 다시 만든다.
+    for name in sorted(os.listdir(cdir)):
+        if name == "gen_sart.hdf5" or (name.startswith("sart_")
+                                       and (name.endswith(".hdf5") or name.endswith(".json"))):
+            try:
+                os.remove(os.path.join(cdir, name))
+            except OSError:
+                pass
+
+    def give_up(reason: str, secs: float) -> float:
+        """증강을 포기하고 MimicGen 편수 그대로 뒤 단계로 넘긴다."""
+        log(f"sart: {reason}")
+        chunk["produced"] = source_n
+        chunk["mimicgen_produced"] = source_n
+        chunk["sart_added"] = 0
+        atomic_write_json(report_path, {"ok": False, "reason": reason,
+                                        "source_demos": source_n,
+                                        "total_demos": source_n, "added": 0,
+                                        "seconds": round(secs, 1)})
+        if SART_PROFILE["on_failure"] == "fail":
+            raise StageError(f"sart: {reason}")
+        return secs
+
+    # 청크 할당량을 넘기지 않게 할 때만 상한을 준다. source_frac이 1.0이면 상한이 없고
+    # 증강분이 그대로 더해지므로 청크가 할당량보다 커진다.
+    room = max(0, chunk["episodes"] - source_n)
+    # 프로세스마다 소스를 이어지는 구간으로 나눠 맡는다. 남은 자리가 프로세스 수보다 적으면
+    # 프로세스를 그만큼만 띄운다. 안 그러면 상한이 0인 프로세스가 생기는데, 그 프로세스는
+    # 시뮬레이터를 다 띄우고 한 편도 만들지 않고 끝난다. 시작 비용만 60초에서 90초다.
+    procs = max(1, min(cfg["sart_procs"], source_n))
+    if cfg["sart_source_frac"] < 1.0 and room > 0:
+        procs = max(1, min(procs, room))
+    counts = largest_remainder(source_n, [1.0] * procs)
+    caps = largest_remainder(room, [1.0] * procs) if cfg["sart_source_frac"] < 1.0 else None
+    if caps is not None and room == 0:
+        # 생성이 이미 청크 할당량을 채웠다. 더 만들면 넘치므로 시뮬레이터를 띄우지 않는다.
+        # 보고서를 쓰지 않으므로 뒤 단계는 원래의 gen.hdf5를 읽고, 청크를 다시 시도하면
+        # 이 확인만 다시 한다.
+        log(f"sart: 생성이 이미 {source_n}편을 만들어 청크 할당량 {chunk['episodes']}편을 "
+            f"채웠다. 증강을 돌리지 않는다")
+        chunk["produced"] = source_n
+        chunk["mimicgen_produced"] = source_n
+        chunk["sart_added"] = 0
+        return 0.0
+
+    jobs, shards, reports, start = [], [], [], 0
+    for i, count in enumerate(counts):
+        if count == 0:
+            continue
+        if caps is not None and caps[i] == 0:
+            # 만들 자리가 없는 몫이다. 시뮬레이터를 띄워도 한 편도 못 만든다.
+            log(f"sart[{i}]: 남은 자리가 0이라 띄우지 않는다")
+            start += count
+            continue
+        shard = os.path.join(cdir, f"sart_{i:02d}.hdf5")
+        # 이름에 ".part"를 넣지 않는다. cleanup_intermediates가 ".part"가 든 파일을
+        # 모두 지우므로, 보고서가 사라지고 gen_dataset_path가 증강본을 못 찾게 된다.
+        report = os.path.join(cdir, f"sart_{i:02d}.json")
+        seed = chunk["seed"] * 100 + i + SART_PROFILE["seed_offset"]
+        cmd = [ISAACLAB_SH, "-p", SART_SCRIPT,
+               "--task", TASK_ID, "--headless", "--device", PHYSICS_DEVICE,
+               "--dataset", gen_path, "--output", shard, "--report", report,
+               "--register", ",".join(REGISTER_MODULES),
+               "--source-start", str(start), "--source-count", str(count),
+               "--samples-per-source", str(cfg["sart_samples"]),
+               "--radius-m", str(cfg["sart_radius_m"]),
+               "--rotation-deg", str(SART_PROFILE["rotation_deg"]),
+               "--divert-steps", str(SART_PROFILE["divert_steps"]),
+               "--converge-steps", str(SART_PROFILE["converge_steps"]),
+               "--settle-steps", str(SART_PROFILE["settle_steps"]),
+               "--tail-steps", str(SART_PROFILE["tail_steps"]),
+               "--floor-margin-m", str(SART_PROFILE["floor_margin_m"]),
+               "--converge-rule", SART_PROFILE["converge_rule"],
+               "--converge-object", SART_PROFILE["converge_object"],
+               "--converge-target", SART_PROFILE["converge_target"],
+               "--converge-radius-m", str(SART_PROFILE["converge_radius_m"]),
+               "--grip-closed-m", str(SART_PROFILE["grip_closed_m"]),
+               "--max-consecutive-failures", str(SART_PROFILE["max_consecutive_failures"]),
+               "--seed", str(seed)]
+        if SART_PROFILE["fix_position"]:
+            cmd += ["--fix-position"]
+        if caps is not None:
+            cmd += ["--max-total-demos", str(caps[i])]
+        env = base_env(cfg, [SART_DIR, ENV_DIR, CONVERT_DIR, RENDER_DIR])
+        env.update({
+            # 소스를 만들 때 쓴 값과 같아야 한다. 다르면 같은 명령이 다른 거리를 간다.
+            "LAB_ARM_SCALE": cfg["arm_scale"],
+            "LAB_KEEP_FAILED": "0",
+            "LAB_GEN_SEED": str(chunk["seed"] * 100 + i),
+        })
+        jobs.append({"name": f"sart[{i}] sources {start}..{start + count - 1}",
+                     "cmd": cmd, "env": env})
+        shards.append(shard)
+        reports.append(report)
+        start += count
+
+    try:
+        secs = run_parallel(jobs, cfg["sart_procs"], log, log_path)
+    except StageError as exc:
+        return give_up(f"증강 프로세스가 실패했다 ({exc})", time.time() - t0)
+    except Exception as exc:                              # noqa: BLE001
+        return give_up(f"증강 프로세스가 죽었다 ({exc!r})", time.time() - t0)
+
+    # 조각 하나가 죽어도 나머지는 살린다. 열리지 않거나 비어 있는 조각만 뺀다.
+    import h5py
+    usable = []
+    for shard in shards:
+        if not os.path.isfile(shard):
+            log(f"sart: {os.path.basename(shard)}이 없다. 그 몫만 뺀다")
+            continue
+        try:
+            with h5py.File(shard, "r") as fh:
+                if len(fh.get("data", {})) == 0:
+                    log(f"sart: {os.path.basename(shard)}에 편이 없다. 그 몫만 뺀다")
+                    continue
+        except Exception as exc:                          # noqa: BLE001
+            log(f"sart: {os.path.basename(shard)}을 읽지 못했다 ({exc}). 그 몫만 뺀다")
+            continue
+        usable.append(shard)
+    if not usable:
+        return give_up("쓸 수 있는 증강 조각이 하나도 없다", secs)
+
+    try:
+        total, added = merge_sart_into_gen(gen_path, usable, merged_path, log)
+    except Exception as exc:                              # noqa: BLE001
+        return give_up(f"증강본을 묶지 못했다 ({exc!r})", secs)
+    if added == 0:
+        return give_up("성공 판정을 통과한 증강 편이 하나도 없다", secs)
+    if total != source_n + added:
+        raise StageError(f"sart: 묶은 파일이 {total}편인데 생성 {source_n}편에 증강 "
+                         f"{added}편을 더하면 {source_n + added}편이어야 한다")
+
+    chunk["produced"] = total
+    chunk["mimicgen_produced"] = source_n
+    chunk["sart_added"] = added
+
+    merged_report = {"ok": True, "reason": "", "source_demos": source_n,
+                     "total_demos": total, "added": added,
+                     "seconds": round(secs, 1),
+                     "processes": [read_json(p) for p in reports]}
+    for key in ("attempts", "successes", "degenerate_offsets", "reset_pose_mismatch",
+                "errors"):
+        merged_report[key] = sum(int((read_json(p) or {}).get(key, 0)) for p in reports)
+    merged_report["dgr_pct"] = round(
+        100.0 * merged_report["successes"] / max(1, merged_report["attempts"]), 1)
+    # 접근 다양성. 재지 못한 프로세스는 None을 돌려주므로 평균에서 빼고 센다.
+    # 0.0과 "재지 못했다"를 같은 값으로 묶으면 증강이 원본 복사로 무너진 실행을 놓친다.
+    # 접근 다양성. 접근 구간이 삽입 구간보다 몇 배 흩어져 있는지를 본다. 삽입 구간은
+    # 원본을 그대로 재생하므로 거의 0이어야 하고, 접근 구간은 그보다 훨씬 커야 한다.
+    # 재지 못한 프로세스는 None을 돌려주므로 빼고 센다. 0.0과 "재지 못했다"를 같은 값으로
+    # 묶으면 증강이 원본 복사로 무너진 실행을 놓친다.
+    peaks, tails, ratios = [], [], []
+    for path in reports:
+        doc = read_json(path) or {}
+        if doc.get("approach_std_peak_m") is not None:
+            peaks.append(float(doc["approach_std_peak_m"]))
+        if doc.get("approach_std_tail_m") is not None:
+            tails.append(float(doc["approach_std_tail_m"]))
+        if doc.get("approach_std_peak_over_tail") is not None:
+            ratios.append(float(doc["approach_std_peak_over_tail"]))
+    merged_report["approach_std_peak_m"] = round(max(peaks), 6) if peaks else None
+    merged_report["approach_std_tail_m"] = round(min(tails), 6) if tails else None
+    merged_report["approach_std_peak_over_tail"] = round(max(ratios), 1) if ratios else None
+    if peaks:
+        diversity = (f"접근 구간 다양성 {merged_report['approach_std_peak_m'] * 1000:.1f} mm, "
+                     f"삽입 구간 {(merged_report['approach_std_tail_m'] or 0.0) * 1000:.2f} mm")
+        if merged_report["approach_std_peak_over_tail"] is not None:
+            diversity += f", 대비 {merged_report['approach_std_peak_over_tail']}배"
+            if merged_report["approach_std_peak_over_tail"] < 3.0:
+                diversity += " (대비가 작다. 증강이 원본 복사로 무너졌는지 확인해야 한다)"
+    else:
+        diversity = ("접근 다양성은 재지 못했다. 같은 소스에서 두 편 이상 성공해야 잴 수 "
+                     "있으므로 samples_per_source를 늘린다")
+    log(f"sart: {merged_report['attempts']}번 시도해 {added}편을 더했다 "
+        f"(성공률 {merged_report['dgr_pct']}%, {diversity})")
+    # 보고서를 맨 마지막에 쓴다. 이 파일이 자리에 놓인 뒤에야 뒤 단계가 증강본을 읽는다.
+    atomic_write_json(report_path, merged_report)
     return secs
 
 
@@ -848,7 +1256,8 @@ def stage_convert(cfg: dict, chunk: dict, log, log_path: str) -> float:
         log(f"convert: {out} 이미 완성돼 있어 건너뛴다")
         return 0.0
     cmd = [ISAACLAB_SH, "-p", CONVERT_SCRIPT, "--device", PHYSICS_DEVICE,
-           "--dataset", os.path.join(cdir, "gen.hdf5"), "--output", out,
+           # SART가 성공했으면 증강본을, 아니면 원래 생성 결과를 읽는다.
+           "--dataset", gen_dataset_path(chunk), "--output", out,
            "--count", str(chunk["produced"]),
            "--report", os.path.join(cdir, "contract_report.json"),
            "--table_usd", TABLE_USD,
@@ -893,7 +1302,8 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
         shard = os.path.join(cdir, f"rgb.part{i:02d}.hdf5")
         vlog = os.path.join(cdir, f"vrand_log.part{i:02d}.json")
         cmd = [ISAACLAB_SH, "-p", RENDER_SCRIPT, "--device", PHYSICS_DEVICE,
-               "--dataset", os.path.join(cdir, "gen.hdf5"), "--output", shard,
+               # SART가 성공했으면 증강본을, 아니면 원래 생성 결과를 읽는다.
+               "--dataset", gen_dataset_path(chunk), "--output", shard,
                "--overlay", OVERLAY_YAML, "--binding", BINDING_YAML,
                "--table_usd", TABLE_USD,
                "--start", str(start), "--count", str(count),
@@ -1014,6 +1424,12 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
     durations["generate"] = round(stage_generate(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after generate")
+    # SART 증강. 꺼져 있으면 첫 줄에서 0.0을 돌려주고 끝난다. 그래도 항상 부르는 이유는
+    # durations_s에 키가 빠지면 이 파일을 읽는 쪽이 KeyError로 죽기 때문이다. upload가
+    # 같은 이유로 늘 0.0을 적는다.
+    durations["sart"] = round(stage_sart(cfg, chunk, log, log_path), 1)
+    if STOP.is_set():
+        raise StageError("interrupted after sart")
     durations["convert"] = round(stage_convert(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after convert")
@@ -1045,6 +1461,9 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
     if not cfg["keep_intermediate"]:
         cleanup_intermediates(chunk, log)
     attempts = int(chunk.get("attempts", 0))
+    # 수율은 MimicGen이 몇 번 시도해 몇 번 성공했는지를 뜻한다. SART가 더한 편수를 넣으면
+    # 그 뜻이 사라지고 1을 넘는 값이 나오므로, 생성이 만든 편수로만 계산한다.
+    generated = int(chunk.get("mimicgen_produced", chunk["produced"]))
     manifest = {
         "schema_version": CHUNK_SCHEMA,
         "chunk_index": chunk["chunk_index"],
@@ -1054,7 +1473,7 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
         "frames": frames,
         "attempts": attempts,
         # generation yield: successes out of MimicGen attempts, the 0.152 figure
-        "yield": round(chunk["produced"] / attempts, 4) if attempts else 0.0,
+        "yield": round(generated / attempts, 4) if attempts else 0.0,
         "seed": chunk["seed"],
         "physics_profile": cfg["physics_profile"],
         "image_size": [cfg["image_width"], cfg["image_height"]],
@@ -1064,10 +1483,21 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
         "finished_at": utcnow(),
         "durations_s": durations,
     }
+    if cfg["sart_enable"]:
+        # 증강을 켠 청크만 이 항목을 붙인다. 끄면 durations_s["sart"]가 0.0인 것 외에
+        # 매니페스트에 아무 흔적도 남지 않는다.
+        manifest["sart"] = read_json(os.path.join(chunk["dir"], "sart_report.json")) or {
+            "ok": False, "reason": "보고서가 없다"}
     chunk["written"] = episodes
     atomic_write_json(manifest_path(chunk), manifest)
     log(f"chunk {chunk['chunk_index']:05d} done in {time.time() - t0:.0f}s: "
         f"{manifest['episodes']} episodes, {manifest['frames']} frames")
+    if episodes < 0.9 * chunk["episodes"]:
+        # 목표에 크게 못 미친 청크를 로그에서 바로 보이게 한다. SART를 켜면 생성에
+        # 요청하는 편수가 줄어들기 때문에, 증강 성공률이 예상보다 낮으면 청크가
+        # 조용히 작아진다. 그 상태를 마지막 합계에서야 알게 되면 늦다.
+        log(f"chunk {chunk['chunk_index']:05d} 경고: 계획한 {chunk['episodes']}편 중 "
+            f"{episodes}편만 기록했다")
     return manifest
 
 

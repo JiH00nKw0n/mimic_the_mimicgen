@@ -48,16 +48,25 @@ STAGES = {
         "needs": ["--episodes", "--seed"],
         "note": "Isaac Sim 안에서 MimicGen이 돈다. 성공한 궤적만 남는다.",
     },
+    "sart": {
+        "func": "stage_sart",
+        "inputs": ["<청크>/gen.hdf5"],
+        "outputs": ["<청크>/gen_sart.hdf5 (생성분 + 증강분을 묶은 링크 파일)",
+                    "<청크>/sart_report.json"],
+        "needs": [],
+        "note": ("생성된 에피소드마다 장면을 되돌려 다시 굴리되 접근 구간만 다양화하고, "
+                 "성공한 것을 더한다. 태스크 프로필이 켠 태스크에서만 돈다."),
+    },
     "convert": {
         "func": "stage_convert",
-        "inputs": ["<청크>/gen.hdf5"],
+        "inputs": ["<청크>/gen.hdf5 또는 <청크>/gen_sart.hdf5"],
         "outputs": ["<청크>/contract.hdf5", "<청크>/contract_report.json"],
         "needs": [],
         "note": "손끝 상대 명령 7개를 초당 10개로 다시 계산한다. 물리는 돌리지 않는다.",
     },
     "render": {
         "func": "stage_render",
-        "inputs": ["<청크>/gen.hdf5"],
+        "inputs": ["<청크>/gen.hdf5 또는 <청크>/gen_sart.hdf5"],
         "outputs": ["<청크>/rgb.hdf5", "<청크>/vrand_log.json"],
         "needs": ["--profile"],
         "note": "궤적을 다시 재생하며 카메라 3대로 찍고, 성공 판정을 한 번 더 한다.",
@@ -164,13 +173,33 @@ def main(argv=None) -> int:
     # generate가 청크에 남기는 값을 뒤 단계가 읽는다. 단계를 따로 부르면 그 값이 없으므로,
     # 이미 만들어져 있는 gen.hdf5를 열어 몇 편인지 세서 채운다. 이것이 없으면 convert가
     # "이미 다 됐다"를 잘못 판정하거나 render가 0편을 렌더한다.
-    if args.stage in ("convert", "render"):
-        chunk["produced"] = args.episodes if args.episodes > 0 else count_demos(
-            os.path.join(chunk_dir, "gen.hdf5"))
+    if args.stage in ("sart", "convert", "render"):
+        # sart는 gen.hdf5를 읽고, convert와 render는 증강이 끝났으면 gen_sart.hdf5를
+        # 읽는다. 어느 쪽인지는 orchestrate가 보고서를 보고 정한다.
+        source = (os.path.join(chunk_dir, "gen.hdf5") if args.stage == "sart"
+                  else orch.gen_dataset_path(chunk))
+        chunk["produced"] = args.episodes if args.episodes > 0 else count_demos(source)
         if chunk["produced"] <= 0:
             log(f"stage {args.stage}: {chunk_dir}/gen.hdf5 에 데모가 없다")
             return 1
         log(f"stage {args.stage}: 앞 단계가 만든 {chunk['produced']}편을 이어받는다")
+
+    if args.stage == "sart" and chunk["episodes"] <= 0:
+        # 증강 단계는 청크 할당량에서 이미 만든 편수를 뺀 만큼만 더 만든다. 단계를 따로
+        # 부르면 할당량(episodes)이 0이라 남은 자리도 0으로 계산되고, 시뮬레이터를 띄우지도
+        # 않은 채 "이미 할당량을 채웠다"로 끝나 버린다. 겉으로는 성공인데 한 편도 안 는다.
+        #
+        # 그래서 소스 비율에서 원래 할당량을 되짚어 준다. 생성이 할당량의 source_frac만큼
+        # 만들었으므로, 지금 있는 편수를 그 비율로 나누면 원래 할당량이 나온다. 비율이
+        # 1.0이면 상한 자체가 없으므로 지금 편수를 그대로 두면 된다.
+        frac = float(cfg.get("sart_source_frac", 1.0))
+        if 0.0 < frac < 1.0:
+            chunk["episodes"] = int(round(chunk["produced"] / frac))
+        else:
+            chunk["episodes"] = chunk["produced"]
+        log(f"stage sart: --episodes를 주지 않아 소스 비율 {frac}에서 청크 할당량을 "
+            f"{chunk['episodes']}편으로 되짚었다 (증강으로 더 만들 자리는 "
+            f"{max(0, chunk['episodes'] - chunk['produced'])}편이다)")
 
     func = getattr(orch, spec["func"])
     try:

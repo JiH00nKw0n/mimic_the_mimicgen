@@ -31,6 +31,12 @@
 | `SEED_BASE` | `42000` | 청크마다 `SEED_BASE + chunk_index`를 시드로 쓴다. 컨테이너끼리 달라야 한다. 같으면 같은 데이터를 여러 벌 만든다 |
 | `SHARD_ID` | 비어 있음 | 저장소에서 이 컨테이너가 쓸 자리 이름. 청크는 `chunks/<SHARD_ID>/chunk_00000`에 올라간다. 청크 번호는 컨테이너마다 0부터 다시 시작하므로, 이름이 겹치면 네 대가 서로를 덮어써서 4분의 1만 남는다. 비우면 `SEED_BASE`에서 이름을 만든다(`seed42000`) |
 | `LOG_LEVEL` | `INFO` | |
+| `TASK_PROFILE` | `cube_stack_fr3` | 어느 태스크로 돌릴지 고른다. `src/profiles/<이름>.yaml`의 파일 이름이다. 지금 있는 것은 `cube_stack_fr3`(큐브 세 개 쌓기)와 `peg_insert_fr3`(핀을 구멍에 꽂기)다. 잘못 적으면 실행 전 검사가 막는다 |
+| `SART_ENABLE` | 태스크 프로필이 정한다 | SART 증강 단계를 돌릴지 여부. 비워 두면 핀 삽입은 켜지고 큐브 쌓기는 꺼진다. `0`으로 두면 어떤 태스크에서도 꺼진다 |
+| `SART_PROCS` | `1` | 동시에 띄울 증강 프로세스 수 |
+| `SART_SAMPLES` | 태스크 프로필이 정한다 | 소스 에피소드 한 편당 증강을 몇 번 시도할지. 핀 삽입은 4회다 |
+| `SART_RADIUS_M` | 태스크 프로필이 정한다 | 접근 자세를 뽑는 공의 반지름, 미터. 핀 삽입은 0.06이다 |
+| `SART_SOURCE_FRAC` | 태스크 프로필이 정한다 | 청크 할당량 중 MimicGen에 요청할 비율. 핀 삽입은 0.5라서 생성이 절반을 만들고 증강이 나머지를 채운다. `1.0`이면 생성이 할당량을 다 만들고 증강분이 그 위에 더해진다 |
 
 ### 1b. 내부 조절 변수
 
@@ -64,6 +70,10 @@ $WORK_DIR/
     chunk_00000/
       gen.hdf5                 생성 산출물 (성공만)
       gen.provenance.json      소스별 사용 기록
+      sart_00.hdf5             SART 증강 조각. 프로세스마다 하나씩
+      sart_00.json             그 프로세스의 증강 보고서
+      gen_sart.hdf5            생성분과 증강분을 함께 가리키는 링크 파일
+      sart_report.json         증강 결과 요약. ok가 참일 때만 뒤 단계가 gen_sart.hdf5를 읽는다
       contract.hdf5            계약 형식 변환 결과
       rgb.hdf5                 렌더 결과
       vrand_log.json           에피소드별 적용된 시각 랜덤화 값
@@ -124,9 +134,13 @@ $WORK_DIR/
   "uploaded": true,
   "started_at": "2026-08-12T00:00:00Z",
   "finished_at": "2026-08-12T01:00:00Z",
-  "durations_s": {"generate": 1200, "convert": 60, "render": 4000, "lerobot": 300, "upload": 120}
+  "durations_s": {"generate": 1200, "sart": 0, "convert": 60, "render": 4000, "lerobot": 300, "upload": 120}
 }
 ```
+
+`durations_s`의 `sart`는 SART 증강 단계에 쓴 초다. 그 단계를 돌지 않는 태스크에서도 키는 항상 있고 값이 0이다. 이 파일을 읽는 쪽이 키가 없어 죽지 않게 하려는 것이고, `upload`가 같은 이유로 늘 들어 있다.
+
+SART를 켠 청크는 최상위에 `sart` 항목이 하나 더 붙는다. 안에는 소스 편수(`source_demos`), 묶은 뒤의 전체 편수(`total_demos`), 더한 편수(`added`), 시도 횟수와 성공률(`attempts`, `dgr_pct`), 그리고 접근 경로가 얼마나 다양해졌는지(`approach_std_peak_m`, 미터)가 들어간다. `yield`는 SART를 켜도 뜻이 그대로다. MimicGen이 몇 번 시도해 몇 번 성공했는지만 세고 증강분은 넣지 않는다.
 
 ## 4. LeRobot 특성 규격
 
@@ -166,13 +180,16 @@ features = {
 | 단계 | 실행 파일 | 입력 | 출력 |
 |---|---|---|---|
 | 생성 | `src/env` + Isaac Lab `generate_dataset.py` | `assets/fwd_annotated.hdf5` | `gen.hdf5`, `gen.provenance.json` |
-| 변환 | `src/convert/convert_demo.py` | `gen.hdf5` | `contract.hdf5` |
-| 렌더 | `src/render/render_viewpoints.py` | `gen.hdf5` | `rgb.hdf5`, `vrand_log.json` |
+| 증강 (선택) | `src/sart/sart_augment.py` | `gen.hdf5` | `sart_NN.hdf5`, `gen_sart.hdf5`, `sart_report.json` |
+| 변환 | `src/convert/convert_demo.py` | `gen.hdf5` 또는 `gen_sart.hdf5` | `contract.hdf5` |
+| 렌더 | `src/render/render_viewpoints.py` | `gen.hdf5` 또는 `gen_sart.hdf5` | `rgb.hdf5`, `vrand_log.json` |
 | 기록 | `src/lerobot_writer.py` | `contract.hdf5`, `rgb.hdf5`, `vrand_log.json` | `lerobot/` |
 | 업로드 | `src/hf_upload.py` | `lerobot/` | 허깅페이스 |
 
 렌더는 생성 산출물을 직접 읽는다. 계약 변환 결과가 아니라 생성 결과를 읽는 이유는
 렌더러가 관절 상태를 되돌려 재생하는 방식이고 그 상태가 `gen.hdf5`에만 있기 때문이다.
+
+증강 단계는 태스크 프로필의 `generate.sart` 절이 켜 준 태스크에서만 돈다. 이 단계는 `gen.hdf5`를 읽기로만 열고 새 파일만 쓴다. 변환과 렌더가 어느 파일을 읽을지는 `sart_report.json`이 정한다. 그 파일의 `ok`가 참이고 `gen_sart.hdf5`가 있으면 증강본을 읽고, 아니면 원래의 `gen.hdf5`를 읽는다. 보고서는 증강이 다 끝난 뒤 마지막에 한 번에 쓰므로, 증강이 중간에 죽으면 뒤 단계는 원래 생성 결과로 그대로 진행한다.
 
 ## 6. 영상과 행동의 시각 맞춤
 
