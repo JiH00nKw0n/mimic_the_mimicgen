@@ -146,22 +146,32 @@ def check_assets(cfg):
     needed = [orch.SOURCE_HDF5, orch.OVERLAY_YAML, orch.BINDING_YAML]
     if cfg["source_demo_filter"] == "exclude_zero_yield":
         needed.append(orch.SOURCE_YIELD_JSON)
-    # 물리 랜덤화를 켜면 lab_mimic_cfg가 이 두 파일을 반드시 읽는다. 없으면 첫 생성
-    # 프로세스 안에서야 RuntimeError가 나므로, 여기서 미리 잡는다.
+    # 프로필이 적어 둔 자산 목록. 파일일 수도 폴더일 수도 있어서 따로 센다. 태스크를
+    # 바꿀 때 빠뜨린 파일을 여기서 잡는 것이 이 목록의 존재 이유다.
+    listed = [os.path.join(orch.ASSETS_DIR, str(name))
+              for name in (orch.PROFILE.get("assets.required", []) or [])]
+    # 물리 랜덤화를 켜면 환경 설정이 이 세 파일을 반드시 읽는다. 없으면 첫 생성
+    # 프로세스 안에서야 RuntimeError가 나므로, 여기서 미리 잡는다. 번들 경로는
+    # 프로필의 physics.bundle_dir에서 오고, 밖에서 환경변수를 주면 그쪽이 이긴다.
     if cfg["physics_profile"] != "off":
         bundle = os.environ.get(
             "LAB_SYSID_BUNDLE_ROOT",
-            os.path.join(orch.ASSETS_DIR, "fr3_cube_system_calibration_bundle_v1"))
+            orch.PHYSICS_ENV.get(
+                "LAB_SYSID_BUNDLE_ROOT",
+                os.path.join(orch.ASSETS_DIR, "fr3_cube_system_calibration_bundle_v1")))
         needed += [
             os.path.join(bundle, "modules", "dynamics_controller",
                          "domain_randomization_samples.csv"),
             os.path.join(bundle, "modules", "contact", "posterior_samples.csv"),
+            os.path.join(bundle, "parameters.json"),
         ]
     missing = [p for p in needed if not os.path.isfile(p)]
+    missing += [p for p in listed if not os.path.exists(p)]
     if missing:
-        return "FAIL", "missing: " + ", ".join(missing)
+        return "FAIL", "없는 자산: " + ", ".join(missing)
     size_gb = os.path.getsize(orch.SOURCE_HDF5) / 1e9
-    return "PASS", f"{len(needed)} files, source {size_gb:.2f} GB"
+    return "PASS", (f"{len(needed)}개 파일 + 프로필 목록 {len(listed)}개, "
+                    f"소스 {size_gb:.2f} GB")
 
 
 def check_source_filter(cfg):

@@ -19,9 +19,11 @@ What is peg-specific:
   * success termination = ``peg_inserted`` (peg_mdp), referencing the CONSTANT HOLE_XY.
   * a ``mode="reset"`` peg xy randomization event (generation only; annotation uses reset_to).
 
-Isaac Lab 3.0 CONFIG note: ``InitialStateCfg.rot`` is XYZW in this container (identity =
-``(0,0,0,1)``; the FR3 base yaw-180 is ``(0,0,1,0)``), matching the teleop script. This is the
-config convention only — runtime ``.data`` / math is authored WXYZ (see peg_mdp).
+Isaac Lab 3.0 쿼터니언 순서: 이 컨테이너는 설정과 실행 시각 모두 XYZW다. 회전이 없으면
+``(0,0,0,1)``이고 FR3 받침의 180도 요 회전은 ``(0,0,1,0)``이다. 설정 쪽은 사람 시연 스크립트와
+같고, 실행 시각도 같다는 것을 두 가지로 확인했다. 첫째로 컨테이너 안에서
+``quat_from_matrix(단위행렬)``이 ``(0,0,0,1)``을 돌려주었다. 둘째로 사람 시연 파일의
+``initial_state``에 기록된 로봇 받침 자세가 ``(0,0,1,0)``이었다.
 
 Imported only after Isaac Sim launches (see run_peg_annotate.sh / run_peg_generate.sh).
 """
@@ -82,6 +84,32 @@ SUBTASK_OFFSET = (10, 20)             # +10..20-step boundary jitter for the gra
 # deltas saturate and the FR3 wrist whips into a boundary singularity (0% DGR), the same failure
 # documented for the stack. See lab_stack_mimic/lab_mimic_cfg.py for the full rationale.
 ARM_SCALE = float(os.environ.get("LAB_ARM_SCALE", "1.0"))
+
+# ---------------------------------------------------------------------- 실측 물리 번들
+# 큐브 환경과 같은 항을 쓴다. 오케스트레이터가 태스크 프로필의 physics 절을 읽어 아래
+# 환경변수로 넣어 준다. PHYSICS_PROFILE=off면 항을 아예 붙이지 않는다.
+import json as _json  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+import calibrated_sysid  # noqa: E402
+
+PHYSICS_PROFILE = os.environ.get("PHYSICS_PROFILE", "robust_stochastic").strip().lower()
+PHYSICS_PROFILES = ("nominal", "posterior_stochastic", "robust_stochastic")
+_HF80K_ROOT = _Path(__file__).resolve().parents[2]
+SYSID_BUNDLE_ROOT = os.environ.get(
+    "LAB_SYSID_BUNDLE_ROOT",
+    str(_HF80K_ROOT / "assets" / "fr3_peg_in_hole_physics_bundle_v1_normalized"),
+)
+SYSID_SEED_OFFSET = int(os.environ.get("LAB_SYSID_SEED_OFFSET", "73000"))
+SYSID_LOG_SAMPLES = os.environ.get("LAB_SYSID_LOG_SAMPLES", "0") == "1"
+SYSID_OBJECTS = tuple(n for n in os.environ.get("LAB_PHYS_OBJECTS", "peg").split(",") if n)
+SYSID_SURFACE = os.environ.get("LAB_PHYS_SURFACE", "desk_surface")
+SYSID_ARM_ACTUATOR = os.environ.get("LAB_PHYS_ARM_ACTUATOR", "a1")
+SYSID_GRIPPER_ACTUATOR = os.environ.get("LAB_PHYS_GRIPPER_ACTUATOR", "h")
+_masses_json = os.environ.get("LAB_PHYS_OBJECT_MASSES", "").strip()
+SYSID_OBJECT_MASSES = _json.loads(_masses_json) if _masses_json else {"peg": 0.0636}
+_size = os.environ.get("LAB_PHYS_OBJECT_SIZE", "").strip()
+SYSID_OBJECT_SIZE = float(_size) if _size else 0.02
 
 # Small per-reset arm-joint jitter (rad std) on top of the home pose (generation start diversity).
 ARM_JITTER_STD = float(os.environ.get("LAB_ARM_JITTER", "0.02"))
@@ -226,12 +254,21 @@ def _apply_lab_overrides(self):
     )
     # invisible physics slab flush with the desk top — the imported desk meshes don't cook into
     # working static collision, so this box is what actually stops the peg (teleop desk_surface).
-    self.scene.desk_surface = AssetBaseCfg(
+    # 예전에는 AssetBaseCfg, 즉 충돌만 있는 프림이었다. Isaac Lab은 RigidObject로 감싼
+    # 자산에만 물리 뷰를 만들어 주는데, 실측 번들은 그 뷰를 통해 작업면과 물체 사이 마찰을
+    # 쓴다. 그래서 AssetBaseCfg 상태에서는 접촉 쌍의 작업면 쪽에 손을 댈 방법이 아예 없었다.
+    # kinematic_enabled=True를 준 RigidObjectCfg로 바꾸면 뷰가 생기면서도 움직이지 않는다.
+    # 중력도 접촉 충격량도 받지 않으므로 고정된 책상으로 그대로 동작한다. 크기와 위치와
+    # 보이지 않는 성질은 예전과 같다. 큐브 환경의 work_surface도 같은 이유로 같은 모양이다.
+    self.scene.desk_surface = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/DeskSurface",
         collision_group=-1,
-        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.30, 0.10, DESK_Z - 0.01)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.30, 0.10, DESK_Z - 0.01)),
         spawn=sim_utils.CuboidCfg(
-            size=(0.9, 0.9, 0.02), visible=False, collision_props=sim_utils.CollisionPropertiesCfg()
+            size=(0.9, 0.9, 0.02), visible=False,
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
         ),
     )
     self.scene.robot = FR3_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -310,6 +347,8 @@ def _apply_lab_overrides(self):
             },
         )
 
+    _apply_physics_randomization(self)
+
     # --- observations (replace wholesale) ------------------------------------------------
     self.observations = PegObservationsCfg()
 
@@ -358,7 +397,83 @@ def _apply_lab_overrides(self):
     insert_st.action_noise = ACTION_NOISE
     insert_st.num_interpolation_steps = NUM_INTERP
 
-    self.subtask_configs[eef] = [grasp_st, insert_st]
+    # 구간을 셋으로 나눌지 정한다.
+    #
+    # 둘로 나누면(기본) 핀을 집은 뒤 구멍에 넣기까지가 한 구간이다. MimicGen이 그 구간
+    # 전체를 구멍 기준으로 한 번에 옮긴다. 실제로 돌려 보니 697회 시도에 성공이 0이었고,
+    # 핀이 구멍에서 7 cm에서 25 cm 사이에 흩어져 남았다. 옮기는 도중 넘어지는 시도도 섞였다.
+    #
+    # 셋으로 나누면 집기, 구멍 위로 가져가기, 넣기가 각각 따로 옮겨진다. 마지막 구간은
+    # 구멍 기준이고 짧아서, 틈이 0.7 mm인 삽입에서 오차가 쌓일 여지가 준다. 소스에
+    # insert 신호가 있어야 쓸 수 있다(peg_annotated_sg.hdf5).
+    if os.environ.get("LAB_PEG_THREE_SUBTASKS", "") == "1":
+        import copy
+
+        transport_st = copy.deepcopy(insert_st)
+        transport_st.object_ref = "socket"
+        transport_st.subtask_term_signal = "insert"
+        # 마지막 넣기 구간이 12스텝에서 38스텝밖에 안 된다. 여기에 경계를 뒤로 옮기는 범위를 주면
+        # MimicGen의 구간 겹침 검사에 걸려 실행이 죽는다(subtask sanity check violation).
+        transport_st.subtask_term_offset_range = (0, 0)
+        transport_st.action_noise = ACTION_NOISE
+        transport_st.num_interpolation_steps = NUM_INTERP
+        self.subtask_configs[eef] = [grasp_st, transport_st, insert_st]
+        print("[peg_mimic_cfg] 구간 3개: 집기(grasp_peg) -> 가져가기(insert) -> 넣기(끝)")
+    else:
+        self.subtask_configs[eef] = [grasp_st, insert_st]
+
+
+def _apply_physics_randomization(self):
+    """실측 물리 번들을 시작 이벤트로 붙인다.
+
+    큐브 환경(src/env/lab_mimic_cfg.py)과 같은 항이고 이름만 핀 장면에 맞춘다. 왜
+    시작(startup)이고 리셋이 아닌가. 번들이 쓰는 값은 관절 마찰과 관성, 접촉 재질, 물체
+    질량, 손목 하중, 그리퍼 힘 배율인데 이것들은 에피소드마다가 아니라 환경마다 정해지는
+    성질이다. 그래서 동시에 도는 환경 하나하나가 보정된 분포에서 물리 한 벌을 뽑아 청크가
+    끝날 때까지 유지한다. 데이터 전체의 다양성은 청크마다 바뀌는 씨앗값에서 온다.
+
+    PHYSICS_PROFILE=off면 항을 아예 붙이지 않는다. 손대지 않은 기본 물리로 되돌리는
+    유일한 방법이다. 붙여 놓고 끄면 이벤트 목록에는 남아서 실행 기록을 헷갈리게 한다.
+    """
+    if PHYSICS_PROFILE in ("off", "none", "0", "false"):
+        print("[peg_mimic_cfg] PHYSICS_PROFILE=off: 실측 물리 항을 붙이지 않는다")
+        return
+    if PHYSICS_PROFILE not in PHYSICS_PROFILES:
+        raise ValueError(
+            f"PHYSICS_PROFILE={PHYSICS_PROFILE!r}는 {PHYSICS_PROFILES} 중 하나이거나 off여야 한다")
+    root = _Path(SYSID_BUNDLE_ROOT).expanduser()
+    needed = [
+        root / "modules" / "dynamics_controller" / "domain_randomization_samples.csv",
+        root / "modules" / "contact" / "posterior_samples.csv",
+        root / "parameters.json",
+    ]
+    missing = [str(q) for q in needed if not q.is_file()]
+    if missing:
+        # 8만 편을 물리 한 벌로 조용히 만들어 버리는 것보다 여기서 멈추는 것이 낫다.
+        raise RuntimeError(
+            f"PHYSICS_PROFILE={PHYSICS_PROFILE}는 실측 번들이 있어야 하는데 다음 파일이 없다: "
+            f"{missing}. 번들을 마운트하거나 LAB_SYSID_BUNDLE_ROOT를 고쳐라"
+            f"(지금 값 {root}). 물리를 쓰지 않으려면 PHYSICS_PROFILE=off로 둔다.")
+    self.events.fr3_peg_calibration = EventTerm(
+        func=calibrated_sysid.apply_fr3_cube_calibration_bundle,
+        mode="startup",
+        params={
+            "bundle_root": str(root),
+            "profile": PHYSICS_PROFILE,
+            "robot_cfg": SceneEntityCfg("robot"),
+            "object_names": SYSID_OBJECTS,
+            "surface_name": SYSID_SURFACE,
+            "arm_actuator_name": SYSID_ARM_ACTUATOR,
+            "gripper_actuator_name": SYSID_GRIPPER_ACTUATOR,
+            "object_masses": SYSID_OBJECT_MASSES,
+            "object_size_m": SYSID_OBJECT_SIZE,
+            "sample_seed_offset": SYSID_SEED_OFFSET,
+            "log_samples": SYSID_LOG_SAMPLES,
+        },
+    )
+    print(f"[peg_mimic_cfg] PHYSICS_PROFILE={PHYSICS_PROFILE} 실측 물리 번들 {root} "
+          f"(씨앗 오프셋 {SYSID_SEED_OFFSET}, 물체 {', '.join(SYSID_OBJECTS)}, "
+          f"작업면 {SYSID_SURFACE})")
 
 
 @configclass

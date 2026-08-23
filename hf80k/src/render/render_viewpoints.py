@@ -71,6 +71,19 @@ parser.add_argument("--cameras", default=CONTRACT_CAMERAS,
                          "cameras). Each extra role is a separate RTX pass — adding the unused "
                          "third_person_2 costs about 25%% of the render time")
 parser.add_argument("--every", type=int, default=1, help="temporal subsample (VIEWING ONLY — breaks BC actions)")
+parser.add_argument("--success-module", default="success_criteria",
+                    help="재생 성공을 판정할 모듈 이름. 그 모듈의 replay_verdict(objects, "
+                         "fingers)를 부른다. 큐브 쌓기는 success_criteria, 핀 삽입은 "
+                         "peg_success_criteria다.")
+parser.add_argument("--success-function", default="replay_verdict",
+                    help="위 모듈에서 부를 함수 이름")
+parser.add_argument("--success-verdict-attr", default="replay_success_any_order",
+                    help="성공 여부를 적을 속성 이름. 기록 단계가 이 이름을 읽는다.")
+parser.add_argument("--vrand-object-prims", default="",
+                    help="시각 규격의 물체 이름을 이 장면의 프림 경로에 잇는 표를 JSON으로 "
+                         "적는다. 예: {\"cube_1\": \"{ENV}/Peg\", \"cube_2\": \"\"}. "
+                         "값이 빈 문자열이면 이 장면에 없는 물체라는 뜻이고, 매 에피소드 "
+                         "건너뛴 항목으로 기록된다.")
 parser.add_argument("--state_offset", choices=["pre", "post"], default="pre",
                     help="pre: image[t]=state before actions[t] (Isaac Lab recorder semantics); post: states[t] as-is")
 parser.add_argument("--warmup", type=int, default=6, help="extra renders at each demo's first frame")
@@ -123,7 +136,56 @@ from overlay_cameras import (
 
 # success_criteria.py는 이 폴더에 함께 복사해 뒀다. 원본은 lab_stack_mimic/에 있는데
 # 그 경로를 sys.path에 끼워 넣으면 컨테이너 안에서는 그 폴더가 없어 import가 깨진다.
-from success_criteria import tower_status
+from success_criteria import tower_status  # noqa: F401  (기본 태스크의 판정 함수)
+
+
+def _load_success_verdict(module_name: str, function_name: str):
+    """재생 성공을 판정할 함수를 이름으로 찾아 온다.
+
+    태스크마다 판정 기준이 다르다. 큐브는 세 개가 탑으로 쌓였는지 보고 핀은 구멍에
+    꽂혔는지 본다. 두 모듈 모두 replay_verdict(objects, fingers)라는 같은 이름의 함수를
+    두고, 어느 것을 부를지는 태스크 프로필이 정한다.
+
+    찾지 못하면 여기서 멈춘다. 조용히 건너뛰면 성공 표시가 없는 데이터가 만들어지고,
+    기록 단계가 그 에피소드를 전부 버려서 원인을 찾기 어려운 실패가 된다.
+    """
+    import importlib
+
+    if not module_name:
+        return None
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise SystemExit(
+            f"성공 판정 모듈 {module_name!r}을 불러오지 못했다: {exc}. "
+            f"프로필의 render.success.module을 확인해라.") from exc
+    fn = getattr(module, function_name, None)
+    if fn is None:
+        raise SystemExit(
+            f"{module_name}에 {function_name!r} 함수가 없다. "
+            f"프로필의 render.success.function을 확인해라.")
+    return fn
+
+
+SUCCESS_VERDICT = _load_success_verdict(args.success_module, args.success_function)
+
+
+def _parse_object_prims(text: str) -> dict:
+    """--vrand-object-prims에 온 JSON을 읽는다. 잘못돼 있으면 여기서 멈춘다."""
+    import json as _json
+
+    if not text.strip():
+        return {}
+    try:
+        table = _json.loads(text)
+    except ValueError as exc:
+        raise SystemExit(f"--vrand-object-prims를 읽지 못했다: {exc}") from exc
+    if not isinstance(table, dict):
+        raise SystemExit("--vrand-object-prims는 이름과 프림 경로를 잇는 사전이어야 한다")
+    return {str(k): str(v) for k, v in table.items()}
+
+
+VRAND_OBJECT_PRIMS = _parse_object_prims(args.vrand_object_prims)
 
 IMG_KEY = {r: f"{r}_image" for r in ALL_ROLES}
 
@@ -287,7 +349,8 @@ def main():
             process_profile = args.vrand
         vrand_plan = dict(zip(names, plan))
         randomizer = vrand_mod.VisualRandomizer(
-            args.vrand_config, args.vrand_root, process_profile, args.vrand_seed)
+            args.vrand_config, args.vrand_root, process_profile, args.vrand_seed,
+            object_prims=VRAND_OBJECT_PRIMS)
         proc = randomizer.apply_process_scope()
         print(f"[vrand] process profile={process_profile} {proc}", flush=True)
         data_grp.attrs["visual_randomization"] = json.dumps({
@@ -432,11 +495,12 @@ def main():
                       f"the matching column should be mm-level (state_offset={args.state_offset} — "
                       f"if only @t+1 is small, rerun with the other offset)")
 
-            # success tag from the demo's true final recorded state (stack scenes only)
+            # 성공 표시. 이 데모의 마지막 기록 상태만 보고 판정한다. 판정 함수는 태스크
+            # 프로필이 고른다(--success-module). 장면에 판정할 물체가 없으면 None이 온다.
             st = None
-            if {"cube_1", "cube_2", "cube_3"} <= set(rig_names):
-                cubes = [cp[f"cube_{i}"][T_s - 1].tolist() for i in (1, 2, 3)]
-                st = tower_status(cubes, jp[T_s - 1, finger_idx].tolist(), canonical=False)
+            if SUCCESS_VERDICT is not None:
+                final_objects = {n: cp[n][T_s - 1].tolist() for n in rig_names}
+                st = SUCCESS_VERDICT(final_objects, jp[T_s - 1, finger_idx].tolist())
 
             if name in data_grp:  # overwrite a partial demo from an interrupted run
                 del data_grp[name]
@@ -455,12 +519,14 @@ def main():
                         continue
                     og.create_dataset(key, data=ds[()][steps])
             if st is not None:
-                g.attrs["replay_success_any_order"] = bool(st["ok"])
-                g.attrs["stack_order"] = "->".join(f"c{o + 1}" for o in st["order"])
+                g.attrs[args.success_verdict_attr] = bool(st["ok"])
+                for _k, _v in (st.get("attrs") or {}).items():
+                    g.attrs[_k] = _v
             g.attrs["num_samples"] = len(steps)  # LAST: doubles as the completeness marker for --append
             total += len(steps)
             out.flush()
-            tag = f"  3-tower={'YES' if st['ok'] else 'no'}" if st is not None else ""
+            tag = (f"  {st.get('label', '성공')}={'YES' if st['ok'] else 'no'}"
+                   if st is not None else "")
             print(f"  [done] {name}: {len(steps)} frames x {len(roles)} cams{tag}")
 
             if previews_left > 0:

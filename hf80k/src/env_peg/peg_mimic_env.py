@@ -154,7 +154,11 @@ class LabFR3PegInsertIKRelMimicEnv(FrankaCubeStackIKRelMimicEnv):
 
         peg = self.scene["peg"]
         peg_pos = peg.data.root_pos_w[env_ids] - self.scene.env_origins[env_ids]
-        peg_rot = PoseUtils.matrix_from_quat(peg.data.root_quat_w[env_ids])  # WXYZ; see peg_mdp TODO(quat)
+        # root_quat_w는 이 컨테이너에서 XYZW로 온다. matrix_from_quat도 XYZW를 받는다.
+        # 그래서 순서를 바꾸지 않고 그대로 넘긴다. 한때 WXYZ라고 보고 순서를 바꿔 넘겼는데,
+        # 그러면 회전이 없는 핀이 180도 돌아간 것으로 읽혀 MimicGen이 손 궤적을 엉뚱한
+        # 곳으로 옮겼고, 697번 시도 동안 로봇이 핀을 한 번도 건드리지 못했다.
+        peg_rot = PoseUtils.matrix_from_quat(peg.data.root_quat_w[env_ids])
         poses = {"peg": PoseUtils.make_pose(peg_pos, peg_rot)}
 
         n = peg_pos.shape[0]

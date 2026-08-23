@@ -31,10 +31,11 @@ DEFAULT_PROFILE = "cube_stack_fr3"
 # 절마다 받을 수 있는 키. 여기 없는 키가 파일에 있으면 오타로 보고 거부한다.
 ALLOWED = {
     "generate": {"task_id", "register_modules", "module_dir", "source_hdf5",
-                 "source_yield_json", "arm_scale", "subtask_offsets", "extra_env"},
-    "convert": {"task_id", "register_modules"},
+                 "source_yield_json", "arm_scale", "subtask_offsets", "action_noise",
+                 "num_interpolation_steps", "extra_env"},
+    "convert": {"object_states"},
     "render": {"task_id", "register_modules", "cameras", "overlay_yaml", "binding_yaml",
-               "table_usd_env", "success"},
+               "success"},
     "physics": {"bundle_dir", "primary_objects", "surface", "arm_actuator",
                 "gripper_actuator", "object_masses_kg", "object_size_m"},
     "visual": {"package_dir", "object_prims"},

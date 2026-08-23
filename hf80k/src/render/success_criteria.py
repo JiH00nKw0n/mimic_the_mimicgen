@@ -74,3 +74,26 @@ def tower_status(cube_positions, finger_positions, *, canonical: bool = False):
         "xy_ok": xy_ok,
         "gaps_ok": gaps_ok,
     }
+
+
+def replay_verdict(objects: dict, fingers) -> dict:
+    """렌더가 부르는 통일된 진입점. 태스크마다 이 이름의 함수를 하나씩 둔다.
+
+    Args:
+        objects: 마지막 프레임의 강체 자세. 이름을 키로 하고 값은 (x, y, z, qx, qy, qz, qw)
+            일곱 숫자다. 쿼터니언 순서는 XYZW다.
+        fingers: 마지막 프레임의 그리퍼 손가락 관절 값.
+
+    Returns:
+        ok에 성공 여부를, attrs에 결과 파일에 함께 적을 추가 항목을 담은 사전.
+        판정할 물체가 장면에 없으면 None을 돌려준다.
+    """
+    need = ("cube_1", "cube_2", "cube_3")
+    if not all(n in objects for n in need):
+        return None
+    status = tower_status([list(objects[n])[:3] for n in need], list(fingers), canonical=False)
+    return {
+        "ok": bool(status["ok"]),
+        "attrs": {"stack_order": "->".join(f"c{o + 1}" for o in status["order"])},
+        "label": "3-tower",
+    }

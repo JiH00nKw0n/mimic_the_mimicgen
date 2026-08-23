@@ -57,3 +57,40 @@ def insertion_status(peg_position, peg_up_axis, hole_position, rim_z,
         "upright": round(upright, 4),
         "inside": bool(inside),
     }
+
+
+# 장면 상수. src/env_peg/peg_mdp.py와 같은 값이다. 렌더는 Isaac 장면을 만들지만 판정은
+# 기록된 마지막 상태만 보므로, 여기서 같은 숫자를 들고 있어야 한다.
+HOLE_XY = (0.091, 0.104)
+DESK_Z = 0.720
+HOLE_HEIGHT = 0.0406
+PEG_LEN = 0.060
+
+
+def replay_verdict(objects: dict, fingers) -> dict:
+    """렌더가 부르는 통일된 진입점. 큐브 쪽 success_criteria.replay_verdict와 짝이다.
+
+    Args:
+        objects: 마지막 프레임의 강체 자세. 이름을 키로 하고 값은 (x, y, z, qx, qy, qz, qw)
+            일곱 숫자다. 쿼터니언 순서는 XYZW다. 이 컨테이너가 그 순서로 기록한다.
+        fingers: 마지막 프레임의 그리퍼 손가락 관절 값. 핀 판정에는 쓰지 않는다.
+
+    Returns:
+        ok에 성공 여부를, attrs에 삽입 깊이와 반경을 담은 사전. 핀이 장면에 없으면 None.
+    """
+    if "peg" not in objects:
+        return None
+    pose = list(objects["peg"])
+    x, y, z, qx, qy, qz, qw = (float(v) for v in pose[:7])
+    # 핀 몸통 z축의 월드 성분. XYZW 쿼터니언에서 회전행렬 세 번째 열이다.
+    up = (2.0 * (qx * qz + qw * qy),
+          2.0 * (qy * qz - qw * qx),
+          1.0 - 2.0 * (qx * qx + qy * qy))
+    status = insertion_status((x, y, z), up, HOLE_XY, DESK_Z + HOLE_HEIGHT, PEG_LEN)
+    return {
+        "ok": bool(status["ok"]),
+        "attrs": {"insert_depth_m": float(status["depth"]),
+                  "insert_radial_m": float(status["radial"]),
+                  "peg_upright": float(status["upright"])},
+        "label": "삽입",
+    }

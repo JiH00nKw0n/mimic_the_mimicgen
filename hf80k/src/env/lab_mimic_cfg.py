@@ -30,6 +30,7 @@ hf80k additions on top of the working lab config (all opt-out, none change geome
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -125,6 +126,23 @@ SYSID_BUNDLE_ROOT = os.environ.get(
 )
 SYSID_SEED_OFFSET = int(os.environ.get("LAB_SYSID_SEED_OFFSET", "73000"))
 SYSID_LOG_SAMPLES = os.environ.get("LAB_SYSID_LOG_SAMPLES", "0") == "1"
+# 장면 물체의 역할 이름. 오케스트레이터가 태스크 프로필의 physics 절을 읽어 넣어 준다.
+# 값이 없으면 아래 기본값을 쓰는데, 이 기본값은 큐브 쌓기 장면의 실제 이름과 같다.
+SYSID_OBJECTS = tuple(
+    n for n in os.environ.get("LAB_PHYS_OBJECTS", "cube_1,cube_2,cube_3").split(",") if n
+)
+SYSID_SURFACE = os.environ.get("LAB_PHYS_SURFACE", "work_surface")
+# 이 환경의 팔 액추에이터 묶음 이름은 a1이다(1번부터 4번 관절). 번들 문서의 기본값은
+# arm이다. 이 이름은 액추에이터의 모터 지연 버퍼에 닿기 위한 것이고, ImplicitActuator에는
+# 그 버퍼가 없어 번들이 hasattr로 건너뛴다. 다만 이름 자체는 풀려야 KeyError가 나지 않는다.
+SYSID_ARM_ACTUATOR = os.environ.get("LAB_PHYS_ARM_ACTUATOR", "a1")
+# 그리퍼 액추에이터 묶음 이름. 번들이 이 묶음의 힘 배율을 곱한다.
+SYSID_GRIPPER_ACTUATOR = os.environ.get("LAB_PHYS_GRIPPER_ACTUATOR", "gripper")
+# 물체 질량(kg)과 관성 계산에 쓰는 대표 변 길이(m). 값이 없으면 물리 항의 기본값을 쓴다.
+_masses_json = os.environ.get("LAB_PHYS_OBJECT_MASSES", "").strip()
+SYSID_OBJECT_MASSES = json.loads(_masses_json) if _masses_json else None
+_size = os.environ.get("LAB_PHYS_OBJECT_SIZE", "").strip()
+SYSID_OBJECT_SIZE = float(_size) if _size else None
 
 # The lab desk USD is present on arpa and missing on aidas; both the scene build and the
 # contact-surface handling below branch on it, so resolve it once.
@@ -391,19 +409,20 @@ def _apply_physics_randomization(self):
             "bundle_root": str(root),
             "profile": PHYSICS_PROFILE,
             "robot_cfg": SceneEntityCfg("robot"),
-            "cube_names": ("cube_1", "cube_2", "cube_3"),
-            # work_surface is a kinematic RigidObject in this cfg precisely so the bundle
-            # has a physx view to write the table-cube material to (see _apply_lab_overrides).
-            "work_surface_name": "work_surface",
-            # The bundle's default arm actuator group is "arm"; ours is "a1" (joints 1-4).
-            # It is only used to reach the actuator's motor-delay buffers, which an
-            # ImplicitActuator does not have — the bundle skips that step via hasattr — but
-            # the name still has to resolve or the lookup raises KeyError.
-            "arm_actuator_name": "a1",
+            "object_names": SYSID_OBJECTS,
+            # 작업면은 이 설정에서 운동학 고정 RigidObject다. 그래야 번들이 물리 뷰를 통해
+            # 작업면과 물체 사이 마찰을 쓸 수 있다(_apply_lab_overrides 참고).
+            "surface_name": SYSID_SURFACE,
+            "arm_actuator_name": SYSID_ARM_ACTUATOR,
+            "gripper_actuator_name": SYSID_GRIPPER_ACTUATOR,
             "sample_seed_offset": SYSID_SEED_OFFSET,
             "log_samples": SYSID_LOG_SAMPLES,
         },
     )
+    if SYSID_OBJECT_MASSES:
+        self.events.fr3_cube_calibration.params["object_masses"] = SYSID_OBJECT_MASSES
+    if SYSID_OBJECT_SIZE is not None:
+        self.events.fr3_cube_calibration.params["object_size_m"] = SYSID_OBJECT_SIZE
     print(f"[lab_mimic_cfg] PHYSICS_PROFILE={PHYSICS_PROFILE} calibrated SysID bundle "
           f"from {root} (seed offset {SYSID_SEED_OFFSET})")
 
