@@ -86,6 +86,9 @@ parser.add_argument("--max-consecutive-failures", dest="max_consecutive_failures
                     help="연달아 이만큼 예외가 나면 증강을 멈추고 지금까지 것을 지킨다")
 parser.add_argument("--seed", type=int, default=0)
 AppLauncher.add_app_launcher_args(parser)
+parser.add_argument("--allow-legacy-quat", action="store_true",
+                    help="Isaac Lab 2.x가 기록한 옛 WXYZ 사원수 파일을 일부러 읽을 때만 켠다. "
+                         "이 파이프라인이 만든 파일에는 절대 쓰지 않는다.")
 args = parser.parse_args()
 args.headless = True
 simulation_app = AppLauncher(args).app
@@ -101,6 +104,7 @@ from isaaclab_mimic.datagen.waypoint import (MultiWaypoint, WaypointSequence,   
                                              WaypointTrajectory)
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 
+import dataset_format                                     # noqa: E402
 import sart_core                                          # noqa: E402
 import sart_metrics                                       # noqa: E402
 
@@ -479,6 +483,11 @@ def main() -> int:
     print(f"[sart] 소스 {len(names)}편 ({names[0]} ~ {names[-1]}), "
           f"편당 {args.samples_per_source}회 시도", flush=True)
 
+    # 파일 루트에 format_version이 없으면 Isaac Lab이 root_pose 사원수를 옛 WXYZ로
+    # 보고 한 번 더 변환한다. 로봇 받침이 z축 180도에서 y축 180도로 돌아가고 카메라가
+    # 책상 밑을 보게 되는데, 관절과 물체는 멀쩡해서 성공 판정으로는 잡히지 않는다.
+    dataset_format.assert_modern_quaternion_format(
+        args.dataset, "sart", allow_legacy=args.allow_legacy_quat)
     handler = HDF5DatasetFileHandler()
     handler.open(args.dataset)
 

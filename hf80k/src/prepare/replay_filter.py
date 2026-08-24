@@ -61,6 +61,9 @@ parser.add_argument("--max-steps", dest="max_steps", type=int, default=3000,
 parser.add_argument("--settle-steps", dest="settle_steps", type=int, default=0,
                     help="판정 전에 물리만 더 돌릴 스텝 수. 물체가 멈춘 뒤 판정하고 싶을 때 쓴다")
 AppLauncher.add_app_launcher_args(parser)
+parser.add_argument("--allow-legacy-quat", action="store_true",
+                    help="Isaac Lab 2.x가 기록한 옛 WXYZ 사원수 파일을 일부러 읽을 때만 켠다. "
+                         "이 파이프라인이 만든 파일에는 절대 쓰지 않는다.")
 args = parser.parse_args()
 args.headless = True
 args.enable_cameras = False
@@ -71,6 +74,8 @@ import gymnasium as gym                                   # noqa: E402
 import torch                                              # noqa: E402
 
 from isaaclab.utils.datasets import HDF5DatasetFileHandler  # noqa: E402
+
+import dataset_format                                     # noqa: E402
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 
 # 태스크 등록 모듈과 성공 판정 모듈을 이름으로 불러올 수 있게 경로를 붙인다.
@@ -186,6 +191,11 @@ def main() -> int:
             f"다른 환경에서 녹화된 파일은 재생하기 전에 우리 장면 형식으로 옮겨야 한다. "
             f"src/prepare/ 아래의 환경 변환 단계를 먼저 거쳐라.")
 
+    # 파일 루트에 format_version이 없으면 Isaac Lab이 root_pose 사원수를 옛 WXYZ로
+    # 보고 한 번 더 변환한다. 로봇 받침이 z축 180도에서 y축 180도로 돌아가고 카메라가
+    # 책상 밑을 보게 되는데, 관절과 물체는 멀쩡해서 성공 판정으로는 잡히지 않는다.
+    dataset_format.assert_modern_quaternion_format(
+        args.input, "replay-filter", allow_legacy=args.allow_legacy_quat)
     handler = HDF5DatasetFileHandler()
     handler.open(args.input)
     names = list(handler.get_episode_names())
