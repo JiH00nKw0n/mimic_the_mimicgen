@@ -233,6 +233,12 @@ def select_roles(spec: str) -> tuple[str, ...]:
     return roles
 
 
+def is_kinematic(asset) -> bool:
+    """이 물체가 운동학 강체인지 본다. 설정에 없으면 아니라고 본다."""
+    props = getattr(getattr(getattr(asset, "cfg", None), "spawn", None), "rigid_props", None)
+    return bool(getattr(props, "kinematic_enabled", False))
+
+
 def main():
     roles = select_roles(args.cameras)
     ov = load_overlay(args.overlay)
@@ -401,6 +407,11 @@ def main():
             # rigid objects discovered from the recording (stack: cube_1..3; peg: peg)
             rig_names = list(S.get("rigid_object", {}).keys())
             rigs = {n: env.scene[n] for n in rig_names}
+            # 운동학 강체는 속도를 가질 수 없다. 핀 장면의 책상이 그렇다. 실측 마찰을
+            # 받으려면 뷰가 필요해서 RigidObject로 두되 kinematic_enabled를 켜 두었는데,
+            # 거기에 속도를 쓰면 PhysX가 편마다 수백 줄씩 오류를 찍는다. 한 청크의 렌더
+            # 로그에 3,852줄이 쌓여 진짜 오류가 묻혔다. 자세만 쓰고 속도는 건너뛴다.
+            kinematic = {n: is_kinematic(rigs[n]) for n in rig_names}
             cp = {n: S["rigid_object"][n]["root_pose"] for n in rig_names}
             cv = {n: S["rigid_object"][n]["root_velocity"] for n in rig_names}
             acts = src["data"][name]["actions"][()]
@@ -428,7 +439,8 @@ def main():
                 for n in rig_names:
                     p = cp[n][s:s + 1].clone(); p[:, :3] += origin
                     rigs[n].write_root_pose_to_sim(p)
-                    rigs[n].write_root_velocity_to_sim(cv[n][s:s + 1])
+                    if not kinematic[n]:
+                        rigs[n].write_root_velocity_to_sim(cv[n][s:s + 1])
                 sync_step()
 
             def write_state_dict(sd):
@@ -449,7 +461,8 @@ def main():
                     ro = sd["rigid_object"][n]
                     p = ro["root_pose"].reshape(1, -1).clone(); p[:, :3] += origin
                     rigs[n].write_root_pose_to_sim(p)
-                    rigs[n].write_root_velocity_to_sim(ro["root_velocity"].reshape(1, -1))
+                    if not kinematic[n]:
+                        rigs[n].write_root_velocity_to_sim(ro["root_velocity"].reshape(1, -1))
                 sync_step()
 
             env.reset()
