@@ -114,6 +114,9 @@ parser.add_argument("--vrand_log", default="",
                          "output hdf5, the name INTERFACE.md fixes). Override it when several "
                          "render processes share one output directory")
 AppLauncher.add_app_launcher_args(parser)
+parser.add_argument("--allow-legacy-quat", action="store_true",
+                    help="Isaac Lab 2.x가 기록한 옛 WXYZ 사원수 파일을 일부러 읽을 때만 켠다. "
+                         "이 파이프라인이 만든 파일에는 절대 쓰지 않는다.")
 args = parser.parse_args()
 args.headless = True
 args.enable_cameras = True
@@ -126,6 +129,8 @@ import gymnasium as gym
 import imageio.v2 as imageio
 
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
+
+import dataset_format
 
 import lab_env
 import visual_randomization as vrand_mod
@@ -237,6 +242,11 @@ def main():
     out_path = args.output or os.path.join(
         os.path.dirname(args.dataset), os.path.splitext(os.path.basename(args.dataset))[0] + "_fr3cams.hdf5")
 
+    # 파일 루트에 format_version이 없으면 Isaac Lab이 root_pose 사원수를 옛 WXYZ로
+    # 보고 한 번 더 변환한다. 로봇 받침이 z축 180도에서 y축 180도로 돌아가고 카메라가
+    # 책상 밑을 보게 되는데, 관절과 물체는 멀쩡해서 성공 판정으로는 잡히지 않는다.
+    dataset_format.assert_modern_quaternion_format(
+        args.dataset, "render", allow_legacy=args.allow_legacy_quat)
     handler = HDF5DatasetFileHandler()
     handler.open(args.dataset)
     all_names = sorted(handler.get_episode_names(), key=natural_key)

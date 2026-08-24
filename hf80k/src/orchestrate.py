@@ -610,6 +610,10 @@ def base_env(cfg: dict, extra_pythonpath: list) -> dict:
     shared = os.path.join(SRC_DIR, "env")
     if shared not in parts:
         parts.append(shared)
+    # 단계와 무관하게 공유하는 모듈이 src 바로 아래에 있다. dataset_format이 그것이고,
+    # 재생·증강·렌더가 모두 같은 사원수 규약 검사를 부른다.
+    if SRC_DIR not in parts:
+        parts.append(SRC_DIR)
     if env.get("PYTHONPATH"):
         parts.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = ":".join(parts)
@@ -687,6 +691,28 @@ def _demo_names(path: str) -> list:
         return sorted(fh["data"].keys(), key=natural_key)
 
 
+def copy_dataset_file_attrs(out, src_path: str) -> None:
+    """원본 HDF5의 파일 루트 속성을 병합본에 그대로 옮긴다.
+
+    Isaac Lab의 HDF5DatasetFileHandler는 파일 루트에 format_version 속성이 없으면 그
+    파일을 옛 형식으로 판단하고, 읽을 때 root_pose의 사원수를 WXYZ 순서에서 XYZW
+    순서로 바꾼다. 우리가 기록하는 파일은 이미 XYZW다. 그래서 이 속성이 빠지면 로봇
+    받침의 회전이 z축 180도에서 y축 180도로 바뀌고, 받침 링크에 매달린 카메라 세 대가
+    전부 책상 밑을 보게 된다. 물리 재생은 멀쩡한데 영상만 망가지므로 수율 검사로는
+    잡히지 않는다. 병합은 새 파일을 만드는 일이라 이 속성을 반드시 손으로 옮겨야 한다.
+    """
+    import h5py
+
+    with h5py.File(src_path, "r") as src:
+        for key, value in src.attrs.items():
+            out.attrs[key] = value
+    if "format_version" not in out.attrs:
+        raise StageError(
+            f"{os.path.basename(src_path)}에 format_version 속성이 없다. 이 파일을 그대로 "
+            f"읽으면 Isaac Lab이 옛 형식으로 보고 로봇 받침의 사원수를 뒤집는다. "
+            f"생성 단계가 이 파일을 어떻게 만들었는지 먼저 확인해야 한다.")
+
+
 def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log) -> int:
     """Stitch per-process shards into one file of external links.
 
@@ -702,6 +728,7 @@ def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log) -> int:
         return len(_demo_names(out_path))
     n = 0
     with h5py.File(out_path, "w") as out:
+        copy_dataset_file_attrs(out, shards[0])
         data = out.create_group("data")
         for si, shard in enumerate(shards):
             with h5py.File(shard, "r") as src:
@@ -741,6 +768,7 @@ def merge_sart_into_gen(gen_path: str, shards: list, out_path: str, log) -> tupl
 
     accepted = 0
     with h5py.File(out_path, "w") as out:
+        copy_dataset_file_attrs(out, gen_path)
         data = out.create_group("data")
         n = 0
         with h5py.File(gen_path, "r") as src:
