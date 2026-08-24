@@ -691,7 +691,7 @@ def _demo_names(path: str) -> list:
         return sorted(fh["data"].keys(), key=natural_key)
 
 
-def copy_dataset_file_attrs(out, src_path: str) -> None:
+def copy_dataset_file_attrs(out, src_path: str, require_format_version: bool) -> None:
     """원본 HDF5의 파일 루트 속성을 병합본에 그대로 옮긴다.
 
     Isaac Lab의 HDF5DatasetFileHandler는 파일 루트에 format_version 속성이 없으면 그
@@ -700,20 +700,26 @@ def copy_dataset_file_attrs(out, src_path: str) -> None:
     받침의 회전이 z축 180도에서 y축 180도로 바뀌고, 받침 링크에 매달린 카메라 세 대가
     전부 책상 밑을 보게 된다. 물리 재생은 멀쩡한데 영상만 망가지므로 수율 검사로는
     잡히지 않는다. 병합은 새 파일을 만드는 일이라 이 속성을 반드시 손으로 옮겨야 한다.
+
+    require_format_version은 묶는 파일이 어떤 종류인지에 따라 다르다. 로봇의 관절과
+    물체 자세가 들어 있는 생성 결과는 Isaac Lab의 적재기가 읽으므로 참을 준다. 카메라
+    영상이 들어 있는 렌더 결과는 기록 단계가 h5py로 직접 읽고 자세를 해석하지 않으므로
+    거짓을 준다. 렌더 결과에는 이 속성이 처음부터 없다.
     """
     import h5py
 
     with h5py.File(src_path, "r") as src:
         for key, value in src.attrs.items():
             out.attrs[key] = value
-    if "format_version" not in out.attrs:
+    if require_format_version and "format_version" not in out.attrs:
         raise StageError(
             f"{os.path.basename(src_path)}에 format_version 속성이 없다. 이 파일을 그대로 "
             f"읽으면 Isaac Lab이 옛 형식으로 보고 로봇 받침의 사원수를 뒤집는다. "
             f"생성 단계가 이 파일을 어떻게 만들었는지 먼저 확인해야 한다.")
 
 
-def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log) -> int:
+def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log,
+                      require_format_version: bool = True) -> int:
     """Stitch per-process shards into one file of external links.
 
     Real copies are out of the question: one chunk of rendered RGB is tens of
@@ -728,7 +734,7 @@ def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log) -> int:
         return len(_demo_names(out_path))
     n = 0
     with h5py.File(out_path, "w") as out:
-        copy_dataset_file_attrs(out, shards[0])
+        copy_dataset_file_attrs(out, shards[0], require_format_version)
         data = out.create_group("data")
         for si, shard in enumerate(shards):
             with h5py.File(shard, "r") as src:
@@ -768,7 +774,7 @@ def merge_sart_into_gen(gen_path: str, shards: list, out_path: str, log) -> tupl
 
     accepted = 0
     with h5py.File(out_path, "w") as out:
-        copy_dataset_file_attrs(out, gen_path)
+        copy_dataset_file_attrs(out, gen_path, require_format_version=True)
         data = out.create_group("data")
         n = 0
         with h5py.File(gen_path, "r") as src:
@@ -1367,8 +1373,11 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
     missing = [s for s in shards if not os.path.isfile(s)]
     if missing:
         raise StageError(f"render produced no file: {missing}")
+    # 렌더 결과는 카메라 영상이다. 기록 단계가 h5py로 직접 읽고 로봇 자세를 해석하지
+    # 않으므로 사원수 형식 표시가 필요 없고, 렌더가 애초에 그 표시를 적지 않는다.
     rendered = merge_hdf5_shards(shards, os.path.join(cdir, "rgb.hdf5"),
-                                 renumber=False, log=log)
+                                 renumber=False, log=log,
+                                 require_format_version=False)
     merge_vrand_logs(vlogs, os.path.join(cdir, "vrand_log.json"))
     if rendered != n:
         raise StageError(f"render covered {rendered} of {n} episodes")

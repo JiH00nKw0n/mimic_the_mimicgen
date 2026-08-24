@@ -124,7 +124,26 @@ def main():
               dataset_format.read_format_version(out) == 1,
               f"실제 {dataset_format.read_format_version(out)}")
 
-        print("\n[6] 속성이 없는 조각은 병합 자체를 멈춘다")
+        print("\n[6] 렌더 결과처럼 표시가 없는 것이 정상인 파일")
+        # 렌더 산출물은 카메라 영상이고 기록 단계가 h5py로 직접 읽는다. 로봇 자세를
+        # 해석하지 않으므로 표시가 없는 것이 정상이며, 여기서 멈추면 파이프라인이
+        # 렌더 다음 단계로 가지 못한다. 실제로 한 번 그렇게 다섯 청크가 전부 멈췄다.
+        rgb_a = os.path.join(tmp, "rgb.part00.hdf5")
+        rgb_b = os.path.join(tmp, "rgb.part01.hdf5")
+        write_shard(rgb_a, ["demo_0", "demo_1"], stamp_version=False)
+        write_shard(rgb_b, ["demo_2"], stamp_version=False)
+        rgb_out = os.path.join(tmp, "rgb.hdf5")
+        try:
+            merged_n = merge_hdf5_shards([rgb_a, rgb_b], rgb_out, renumber=False,
+                                         log=lambda *_: None,
+                                         require_format_version=False)
+            ok = merged_n == 3
+            detail = f"실제 {merged_n}편"
+        except Exception as exc:                                  # noqa: BLE001
+            ok, detail = False, repr(exc)
+        check("표시를 요구하지 않으면 렌더 조각도 묶인다", ok, detail)
+
+        print("\n[7] 속성이 없는 조각은 생성 병합을 멈춘다")
         try:
             merge_hdf5_shards([bare, b], os.path.join(tmp, "x.hdf5"),
                               renumber=True, log=lambda *_: None)
