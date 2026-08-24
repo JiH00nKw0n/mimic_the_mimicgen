@@ -719,6 +719,24 @@ if __name__ == "__main__":
     code = 1
     try:
         code = main()
+    except SystemExit as exc:
+        # 여기서 직접 찍고 나간다. 아래 simulation_app.close()가 프로세스를 강제로
+        # 끝내기 때문에, 파이썬이 평소처럼 종료할 때 찍어 주는 오류 메시지가 화면에
+        # 나오지 못한다. 그러면 아무 말 없이 종료 코드 0으로 끝나서 원인을 알 수 없다.
+        message = str(exc.code) if not isinstance(exc.code, int) else ""
+        if message:
+            print(message, file=sys.stderr, flush=True)
+            print(message, flush=True)
+        code = exc.code if isinstance(exc.code, int) else 1
+    except Exception:                                     # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        sys.stderr.flush()
+        sys.stdout.flush()
+        code = 1
     finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
         simulation_app.close()
     sys.exit(code)

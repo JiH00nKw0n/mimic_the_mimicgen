@@ -41,13 +41,15 @@ ASSETS := $(HF80K_DIR)/assets/fwd_annotated.hdf5 \
           $(HF80K_DIR)/assets/fr3_cube_system_calibration_bundle_v1 \
           $(HF80K_DIR)/assets/fr3_visual_randomization_v1
 
-.PHONY: help assets check build smoke run run-4gpu logs progress state shell stop clean-work aggregate rebuild
+.PHONY: help assets check build smoke run run-4gpu logs progress state shell stop clean-work aggregate rebuild prepare annotate
 
 help:
 	@echo "hf80k — 사용할 수 있는 명령"
 	@echo ""
 	@echo "  make assets FROM=aidas   자산 90 MB를 가져온다. FROM은 ssh 별칭이나 로컬 경로"
 	@echo "  make check               .env와 자산이 갖춰졌는지 본다"
+	@echo "  make prepare IN=.. OUT=.. 녹화 원본을 재생해 거르고 구간 표시를 붙인다"
+	@echo "  make annotate IN=.. OUT=.. 구간 표시만 붙인다 (이미 걸러진 파일용)"
 	@echo "  make build               도커 이미지를 굽는다"
 	@echo "  make rebuild             캐시를 쓰지 않고 처음부터 굽는다"
 	@echo "  make smoke               100개로 동작 확인. 결과는 $(WORK)-smoke 에 쌓인다"
@@ -161,6 +163,35 @@ stop:
 #   make aggregate WORK='/data/hf80k/gpu*'
 # 하나만 넘기면 그 한 대분(2만 편)만 담긴 데이터셋이 조용히 만들어진다. 아래는 별표를
 # 셸이 풀게 두고, 풀린 디렉터리를 컨테이너 안 /work/0, /work/1 ...로 각각 붙인다.
+# 녹화 원본에서 파이프라인이 받을 수 있는 시연 파일까지 만든다. 파이프라인을 돌리기 전에
+# 한 번만 한다. 두 단계를 순서대로 수행한다. 먼저 시뮬레이터에서 다시 재생해 작업에 성공한
+# 편만 남기고, 그다음 구간 표시를 붙인다.
+#
+#   make prepare IN=/abs/raw.hdf5 OUT=$(HF80K_DIR)/assets/fwd_annotated.hdf5
+#
+# 이미 걸러진 파일이면 재생을 건너뛴다.
+#   make prepare IN=... OUT=... PREPARE_ARGS=--skip-replay
+prepare:
+	@test -n "$(IN)"  || { echo "IN=<원본 hdf5 절대경로> 를 줘야 한다"; exit 1; }
+	@test -n "$(OUT)" || { echo "OUT=<만들 파일 절대경로> 를 줘야 한다"; exit 1; }
+	@test -f "$(IN)"  || { echo "원본이 없다: $(IN)"; exit 1; }
+	@mkdir -p "$(dir $(OUT))"
+	docker run --rm --gpus all --init --env-file "$(ENV_FILE)" \
+	  -e CUDA_VISIBLE_DEVICES="$(GPU)" \
+	  -v "$(abspath $(dir $(IN)))":/prep_in:ro \
+	  -v "$(abspath $(dir $(OUT)))":/prep_out \
+	  -v "$(HF80K_DIR)/assets":/opt/hf80k/assets $(SRC_MOUNT) \
+	  --entrypoint /opt/hf80k/entrypoint.sh "$(IMAGE)" \
+	  shell -c "\$$HF80K_PYTHON /opt/hf80k/src/prepare/prepare_source.py \
+	    --input /prep_in/$(notdir $(IN)) --output /prep_out/$(notdir $(OUT)) \
+	    --work /prep_out/prepare_work --json $(PREPARE_ARGS)"
+
+# 구간 표시만 붙인다. 재생 거르기를 이미 마친 파일에 쓴다.
+annotate:
+	@test -n "$(IN)"  || { echo "IN=<입력 hdf5 절대경로> 를 줘야 한다"; exit 1; }
+	@test -n "$(OUT)" || { echo "OUT=<만들 파일 절대경로> 를 줘야 한다"; exit 1; }
+	@$(MAKE) prepare IN="$(IN)" OUT="$(OUT)" PREPARE_ARGS="--skip-replay $(PREPARE_ARGS)"
+
 aggregate:
 	@dirs="$$(echo $(WORK))" ; \
 	mounts="" ; inner="" ; i=0 ; \
