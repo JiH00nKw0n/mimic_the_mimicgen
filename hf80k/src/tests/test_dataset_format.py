@@ -144,13 +144,17 @@ def main():
         check("표시를 요구하지 않으면 렌더 조각도 묶인다", ok, detail)
 
         print("\n[7] 속성이 없는 조각은 생성 병합을 멈춘다")
+        halted_out = os.path.join(tmp, "x.hdf5")
         try:
-            merge_hdf5_shards([bare, b], os.path.join(tmp, "x.hdf5"),
+            merge_hdf5_shards([bare, b], halted_out,
                               renumber=True, log=lambda *_: None)
             stopped = False
         except Exception:
             stopped = True
         check("속성 없는 조각에서 멈춘다", stopped)
+        # 멈춘 자리에 반쯤 쓰인 파일이 남으면 다음 실행이 그것을 완성본으로 오인할 수 있다.
+        leftovers = [f for f in os.listdir(tmp) if f.startswith("x.hdf5")]
+        check("멈췄을 때 산출물을 남기지 않는다", leftovers == [], f"남은 것 {leftovers}")
 
     print()
     if FAILURES:

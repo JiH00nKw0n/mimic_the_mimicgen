@@ -733,25 +733,33 @@ def merge_hdf5_shards(shards: list, out_path: str, renumber: bool, log,
         os.replace(shards[0], out_path)
         return len(_demo_names(out_path))
     n = 0
-    with h5py.File(out_path, "w") as out:
-        copy_dataset_file_attrs(out, shards[0], require_format_version)
-        data = out.create_group("data")
-        for si, shard in enumerate(shards):
-            with h5py.File(shard, "r") as src:
-                if si == 0:
-                    for k, v in src["data"].attrs.items():
-                        data.attrs[k] = v
-                names = sorted(src["data"].keys(), key=natural_key)
-            for name in names:
-                target = f"demo_{n}" if renumber else name
-                if target in data:
-                    raise StageError(f"duplicate demo name {target} while merging shards")
-                data[target] = h5py.ExternalLink(os.path.abspath(shard), f"data/{name}")
-                n += 1
-        total = 0
-        for name in data:
-            total += int(data[name].attrs.get("num_samples", 0))
-        data.attrs["total"] = total
+    # 임시 이름에 쓰고 다 끝났을 때만 제자리로 옮긴다. 도중에 멈추면 반쯤 쓰인 파일이
+    # 남는데, 그 파일이 다음 실행에서 완성본으로 오인될 여지를 아예 없앤다.
+    tmp_path = f"{out_path}.tmp{os.getpid()}"
+    try:
+        with h5py.File(tmp_path, "w") as out:
+            copy_dataset_file_attrs(out, shards[0], require_format_version)
+            data = out.create_group("data")
+            for si, shard in enumerate(shards):
+                with h5py.File(shard, "r") as src:
+                    if si == 0:
+                        for k, v in src["data"].attrs.items():
+                            data.attrs[k] = v
+                    names = sorted(src["data"].keys(), key=natural_key)
+                for name in names:
+                    target = f"demo_{n}" if renumber else name
+                    if target in data:
+                        raise StageError(f"duplicate demo name {target} while merging shards")
+                    data[target] = h5py.ExternalLink(os.path.abspath(shard), f"data/{name}")
+                    n += 1
+            total = 0
+            for name in data:
+                total += int(data[name].attrs.get("num_samples", 0))
+            data.attrs["total"] = total
+        os.replace(tmp_path, out_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
     log(f"merge: {len(shards)} shards -> {os.path.basename(out_path)} ({n} demos)")
     return n
 
@@ -773,52 +781,58 @@ def merge_sart_into_gen(gen_path: str, shards: list, out_path: str, log) -> tupl
     import h5py
 
     accepted = 0
-    with h5py.File(out_path, "w") as out:
-        copy_dataset_file_attrs(out, gen_path, require_format_version=True)
-        data = out.create_group("data")
-        n = 0
-        with h5py.File(gen_path, "r") as src:
-            for k, v in src["data"].attrs.items():
-                data.attrs[k] = v
-            names = sorted(src["data"].keys(), key=natural_key)
-            links = {}
+    tmp_path = f"{out_path}.tmp{os.getpid()}"
+    try:
+        with h5py.File(tmp_path, "w") as out:
+            copy_dataset_file_attrs(out, gen_path, require_format_version=True)
+            data = out.create_group("data")
+            n = 0
+            with h5py.File(gen_path, "r") as src:
+                for k, v in src["data"].attrs.items():
+                    data.attrs[k] = v
+                names = sorted(src["data"].keys(), key=natural_key)
+                links = {}
+                for name in names:
+                    link = src["data"].get(name, getlink=True)
+                    if isinstance(link, h5py.ExternalLink):
+                        links[name] = (link.filename, link.path)
+                    else:
+                        links[name] = (os.path.abspath(gen_path), f"data/{name}")
             for name in names:
-                link = src["data"].get(name, getlink=True)
-                if isinstance(link, h5py.ExternalLink):
-                    links[name] = (link.filename, link.path)
-                else:
-                    links[name] = (os.path.abspath(gen_path), f"data/{name}")
-        for name in names:
-            filename, path = links[name]
-            data[f"demo_{n}"] = h5py.ExternalLink(filename, path)
-            n += 1
-        base_demos = n
-
-        for shard in shards:
-            try:
-                with h5py.File(shard, "r") as src:
-                    shard_names = sorted(src["data"].keys(), key=natural_key)
-                    keep = []
-                    for name in shard_names:
-                        grp = src["data"][name]
-                        ok = bool(grp.attrs.get("success", False))
-                        samples = int(grp.attrs.get("num_samples", 0))
-                        if samples == 0 and "actions" in grp:
-                            samples = int(grp["actions"].shape[0])
-                        if ok and samples >= 4:
-                            keep.append(name)
-            except Exception as exc:                      # noqa: BLE001
-                log(f"sart: 조각 {os.path.basename(shard)}을 읽지 못해 통째로 뺀다 ({exc})")
-                continue
-            for name in keep:
-                data[f"demo_{n}"] = h5py.ExternalLink(os.path.abspath(shard), f"data/{name}")
+                filename, path = links[name]
+                data[f"demo_{n}"] = h5py.ExternalLink(filename, path)
                 n += 1
-                accepted += 1
+            base_demos = n
 
-        total = 0
-        for name in data:
-            total += int(data[name].attrs.get("num_samples", 0))
-        data.attrs["total"] = total
+            for shard in shards:
+                try:
+                    with h5py.File(shard, "r") as src:
+                        shard_names = sorted(src["data"].keys(), key=natural_key)
+                        keep = []
+                        for name in shard_names:
+                            grp = src["data"][name]
+                            ok = bool(grp.attrs.get("success", False))
+                            samples = int(grp.attrs.get("num_samples", 0))
+                            if samples == 0 and "actions" in grp:
+                                samples = int(grp["actions"].shape[0])
+                            if ok and samples >= 4:
+                                keep.append(name)
+                except Exception as exc:                      # noqa: BLE001
+                    log(f"sart: 조각 {os.path.basename(shard)}을 읽지 못해 통째로 뺀다 ({exc})")
+                    continue
+                for name in keep:
+                    data[f"demo_{n}"] = h5py.ExternalLink(os.path.abspath(shard), f"data/{name}")
+                    n += 1
+                    accepted += 1
+
+            total = 0
+            for name in data:
+                total += int(data[name].attrs.get("num_samples", 0))
+            data.attrs["total"] = total
+        os.replace(tmp_path, out_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
     log(f"sart: 생성 {base_demos}편 + 증강 {accepted}편 -> "
         f"{os.path.basename(out_path)} ({n}편)")
     return n, accepted
