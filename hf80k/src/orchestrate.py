@@ -333,6 +333,15 @@ def load_config() -> dict:
         "hf_upload": env_flag("HF_UPLOAD", "1"),
         "resume": env_flag("RESUME", "1"),
         "seed_base": env_int("SEED_BASE", 42000),
+        # 최종 데이터셋의 초당 프레임 수. 이 값 하나가 세 단계를 함께 움직인다.
+        # 변환이 손끝 궤적을 이 주기로 다시 뽑고, 렌더가 원본에서 몇 스텝에 하나씩
+        # 뽑을지를 정하며, 기록이 이 값을 데이터셋 메타데이터에 적는다.
+        # 예전에는 세 자리에 10이 따로 박혀 있어서 하나만 바꾸면 영상과 행동의 시각이
+        # 어긋났다. dataset.fps는 예전 이름이라 hz가 없을 때만 읽는다.
+        "dataset_hz": env_int("DATASET_HZ", int(PROFILE.get(
+            "dataset.hz", PROFILE.get("dataset.fps", 10)))),
+        # 생성 결과가 기록된 초당 스텝 수. 물리 주기 0.01초에 데시메이션 5라 20이다.
+        "source_hz": env_int("SOURCE_HZ", int(PROFILE.get("dataset.source_hz", 20))),
         "log_level": env_str("LOG_LEVEL", "INFO"),
         # SART 증강. 기본값은 태스크 프로필이 정하고, 환경변수를 주면 그쪽이 이긴다.
         # SART_ENABLE=0이면 어떤 태스크에서도 꺼진다.
@@ -362,6 +371,21 @@ def load_config() -> dict:
                              f"(받은 값 {cfg['sart_source_frac']})")
     if cfg["target_episodes"] < 1:
         raise SystemExit("[orch] TARGET_EPISODES must be >= 1")
+    if cfg["dataset_hz"] < 1:
+        raise SystemExit(f"[orch] DATASET_HZ는 1 이상이어야 한다 (받은 값 {cfg['dataset_hz']})")
+    if cfg["source_hz"] < 1:
+        raise SystemExit(f"[orch] SOURCE_HZ는 1 이상이어야 한다 (받은 값 {cfg['source_hz']})")
+    # 렌더는 원본에서 몇 스텝에 하나씩 뽑을지로만 속도를 줄일 수 있다. 그래서 원본
+    # 초당 스텝 수가 목표 초당 프레임 수로 정확히 나누어떨어져야 한다. 20을 3으로
+    # 나누면 6.67이 되는데, 그런 값으로는 영상과 행동의 시각을 맞출 수 없다.
+    if cfg["source_hz"] % cfg["dataset_hz"] != 0:
+        raise SystemExit(
+            f"[orch] SOURCE_HZ({cfg['source_hz']})를 DATASET_HZ({cfg['dataset_hz']})로 "
+            f"나누면 정수가 아니다. 렌더는 원본에서 몇 스텝에 하나씩 뽑는 방식으로만 "
+            f"속도를 줄일 수 있으므로 나누어떨어지는 값을 써야 한다. "
+            f"원본이 초당 {cfg['source_hz']}스텝이면 쓸 수 있는 값은 "
+            f"{sorted(h for h in range(1, cfg['source_hz'] + 1) if cfg['source_hz'] % h == 0)}이다.")
+    cfg["render_every"] = cfg["source_hz"] // cfg["dataset_hz"]
     cfg["chunks_dir"] = os.path.join(cfg["work_dir"], "chunks")
     cfg["logs_dir"] = os.path.join(cfg["work_dir"], "logs")
     cfg["merged_dir"] = os.path.join(cfg["work_dir"], "merged")
@@ -1309,7 +1333,8 @@ def stage_convert(cfg: dict, chunk: dict, log, log_path: str) -> float:
            "--count", str(chunk["produced"]),
            "--report", os.path.join(cdir, "contract_report.json"),
            "--table_usd", TABLE_USD,
-           "--objects", ",".join(CONVERT_OBJECTS)]
+           "--objects", ",".join(CONVERT_OBJECTS),
+           "--policy-hz", str(cfg["dataset_hz"])]
     env = base_env(cfg, [CONVERT_DIR, RENDER_DIR, ENV_DIR])
     secs = run_parallel([{"name": "convert", "cmd": cmd, "env": env}], 1, log, log_path)
     # 생성 단계와 같은 함정이 여기에도 있다. 변환 스크립트는 Isaac Sim 위에서 도는데,
@@ -1333,8 +1358,8 @@ def stage_convert(cfg: dict, chunk: dict, log, log_path: str) -> float:
 def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
     """RTX render, RENDER_PROCS processes over disjoint episode ranges.
 
-    --every 2 makes the renderer emit 10 fps from the 20 Hz source directly
-    (INTERFACE §6), so no frame is rendered that the dataset will not use.
+    --every는 DATASET_HZ와 SOURCE_HZ에서 계산한다. 원본이 초당 20스텝이고 목표가
+    초당 10장이면 2가 되어, 데이터셋이 쓰지 않을 프레임은 아예 만들지 않는다.
     """
     cdir = chunk["dir"]
     n = chunk["produced"]
@@ -1356,7 +1381,9 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
                "--table_usd", TABLE_USD,
                "--start", str(start), "--count", str(count),
                "--width", str(cfg["image_width"]), "--height", str(cfg["image_height"]),
-               "--every", "2", "--preview_video", "0",
+               "--every", str(cfg["render_every"]),
+               "--output-hz", str(cfg["dataset_hz"]),
+               "--preview_video", "0",
                "--cameras", ",".join(CAMERAS),
                "--vrand", chunk["profile"],
                "--vrand_config", cfg["vrand_config"], "--vrand_root", cfg["vrand_root"],
@@ -1414,7 +1441,7 @@ def stage_lerobot(cfg: dict, chunk: dict, log, log_path: str) -> float:
            "--robot-type", PROFILE.get("dataset.robot_type", "franka_fr3_osc"),
            # 초당 프레임 수. 계약 형식이 초당 10개이고 렌더도 --every 2로 그 수를
            # 맞추므로 두 값이 어긋나면 영상과 행동의 시각이 맞지 않는다.
-           "--fps", str(PROFILE.get("dataset.fps", 10)),
+           "--fps", str(cfg["dataset_hz"]),
            # 걸러진 에피소드는 기록으로 남기고 청크는 살린다. 기본값 0.9로 두면
            # 10%만 걸려도 종료 코드가 1이 되고, 오케스트레이터가 청크를 통째로
            # 버려 이미 쓴 몇 시간의 GPU 시간을 날린다. 실제 개수는 MANIFEST.json의

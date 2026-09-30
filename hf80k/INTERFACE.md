@@ -22,6 +22,8 @@
 | `IMAGE_WIDTH` | `320` | 렌더 가로 픽셀 |
 | `IMAGE_HEIGHT` | `180` | 렌더 세로 픽셀 |
 | `PHYSICS_PROFILE` | `robust_stochastic` | `nominal`, `posterior_stochastic`, `robust_stochastic`, `off` |
+| `DATASET_HZ` | `10` | 최종 데이터셋의 초당 프레임 수. 변환의 재추출 주기와 렌더의 건너뛰기 간격과 기록 값이 모두 이 값을 따른다 |
+| `SOURCE_HZ` | `20` | 생성 결과가 기록된 초당 스텝 수. `SOURCE_HZ`를 `DATASET_HZ`로 나눈 값이 정수여야 한다 |
 | `SOURCE_DEMO_FILTER` | `exclude_zero_yield` | `all`이면 전체, `exclude_zero_yield`면 수율 0인 소스 제외, `0,1,2`처럼 직접 지정도 된다 |
 | `SUBTASK_OFFSETS` | `10,20` | MimicGen 구간 경계 오프셋. 비우면 기본값 유지 |
 | `WORK_DIR` | `/work` | 중간 파일과 청크가 쌓이는 곳. 컨테이너에 마운트한다 |
@@ -171,7 +173,7 @@ features = {
 (7, x y z qw qx qy qz), 직전 스텝의 `actions`(7)다. 첫 스텝의 직전 행동은 0으로 채운다.
 프로파일 번호는 `nominal_lab=0`, `lab_variation=1`, `stress_tail=2`다.
 
-`fps`는 10, `robot_type`은 `"franka_fr3_osc"`, `use_videos`는 `True`다. `add_frame`에 넘기는
+`fps`는 `dataset.hz`의 값이고 기본이 10이다. `robot_type`은 `"franka_fr3_osc"`, `use_videos`는 `True`다. `add_frame`에 넘기는
 사전에는 `task` 키가 반드시 있어야 하고, 값은
 `"Stack three cubes into a three-level tower"`로 고정한다. 둘 다 재익님 수집기와 같은 값이다.
 
@@ -193,8 +195,12 @@ features = {
 
 ## 6. 영상과 행동의 시각 맞춤
 
-생성 데이터는 초당 20스텝, 계약 행동은 초당 10개다. 렌더를 `--every 2`로 돌려 처음부터
-초당 10장만 만든다. 두 길이가 1 이내로 다를 수 있으므로 프레임 번호가 아니라 **시간으로**
+생성 데이터는 초당 20스텝이고, 계약 행동과 최종 데이터셋은 초당 10개가 기본이다. 렌더는
+원본에서 두 스텝에 하나씩 뽑아 처음부터 초당 10장만 만든다. 이 두 숫자는 설정으로 정한다.
+태스크 프로필의 `dataset.hz`가 최종 초당 프레임 수이고 `dataset.source_hz`가 생성 결과의
+초당 스텝 수이며, 환경변수 `DATASET_HZ`와 `SOURCE_HZ`가 각각을 덮어쓴다. 렌더가 몇 스텝에
+하나씩 뽑을지는 둘을 나눠 계산하므로 따로 줄 값이 없다. `source_hz`를 `hz`로 나눈 값이
+정수가 아니면 실행 전에 멈춘다. 두 길이가 1 이내로 다를 수 있으므로 프레임 번호가 아니라 **시간으로**
 맞춘다. 계약 HDF5의 `timestamps`와 렌더 프레임의 시각(`frame_index / 10.0`)을 비교해 가장
 가까운 프레임을 고른다. 길이가 다르면 짧은 쪽에 맞춰 자른다. 기존
 `contract/join_rgb_contract.py`의 정수배 검사는 쓰지 않는다. 그 방식은 비가 정확히
