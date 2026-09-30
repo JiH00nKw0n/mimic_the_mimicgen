@@ -4,7 +4,7 @@ Offline (kinematic) conversion — no policy execution:
   1. states-playback each source frame into the FR3 scene (write joint +
      cube states to sim, no physics stepping) and read the fr3_hand pose in
      the robot base frame — this is the unambiguous FK pass;
-  2. resample the actual-EE track to 10 Hz (contract policy rate);
+  2. resample the actual-EE track to the contract policy rate (--policy-hz, default 10);
   3. actions[t] = target_pose_to_action(actual_t, actual_{t+1}) — reference
      is the current actual pose, per the contract;
   4. report pose/action round-trip error, action percentiles, and the
@@ -44,6 +44,9 @@ parser.add_argument("--time_stretch", type=float, default=1.0,
                          "resample (halves controller lag at 2.0; a retarget-"
                          "side reparameterization, no contract knob touched)")
 parser.add_argument("--table_usd", default="/nonexistent.usdc")
+parser.add_argument("--policy-hz", "--policy_hz", dest="policy_hz", type=float, default=10.0,
+                    help="손끝 궤적을 다시 뽑을 초당 횟수. 최종 데이터셋의 초당 프레임 수와 "
+                         "같아야 한다. 오케스트레이터가 DATASET_HZ 값을 그대로 넘긴다.")
 parser.add_argument("--retarget_version", default="offline_fk_v1")
 parser.add_argument("--objects", default="cube_1,cube_2,cube_3",
                     help="이 태스크가 추적하는 강체 이름을 쉼표로 이어 적는다. "
@@ -244,8 +247,10 @@ def main():
                                    "fk_tcp": fk[n // 2].tolist()},
                 }
 
+            # 정책 주기. 기본 0.1초는 초당 10회이고, --policy-hz로 바뀐다.
             rt, rp, rq, rg = traj_tools.resample_pose_track(
-                times.tolist(), ee_pos, ee_quat, grip)
+                times.tolist(), ee_pos, ee_quat, grip,
+                target_dt=1.0 / float(args.policy_hz))
             actions, targets, deltas = traj_tools.track_to_actions(rp, rq, rg)
             errors = traj_tools.round_trip_errors(rp, rq, actions)
             percentiles = traj_tools.action_percentiles(actions)
@@ -273,7 +278,8 @@ def main():
             )
             demo_report = {
                 "T_source": T, "T_contract": len(actions),
-                "source_hz": source_hz, "round_trip": errors,
+                "source_hz": source_hz, "policy_hz": float(args.policy_hz),
+                "round_trip": errors,
                 "action_percentiles": percentiles,
                 "fk_vs_recorded_eef_mean_m": fk_check,
                 "success_attr": success,
@@ -283,7 +289,7 @@ def main():
                     traj_tools.envelope_fraction(actions, reference[0], reference[1]))
                 demo_report["reference_envelope"] = reference[2]
             report["demos"][name] = demo_report
-            print(f"[convert] {name}: T {T}->{len(actions)} @10Hz "
+            print(f"[convert] {name}: T {T}->{len(actions)} @{args.policy_hz:g}Hz "
                   f"rt_pos={errors['max_position_error_m']:.2e} "
                   f"rt_rot={errors['max_rotation_error_rad']:.2e} "
                   f"fk_check={fk_check}", flush=True)

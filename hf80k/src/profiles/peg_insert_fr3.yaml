@@ -162,7 +162,14 @@ visual:
 dataset:
   task_string: Insert the peg into the hole
   robot_type: franka_fr3_osc
-  fps: 10
+  # 최종 데이터셋의 초당 프레임 수. 이 값 하나가 파이프라인 전체를 결정한다.
+  # 변환 단계가 손끝 궤적을 이 주기로 다시 뽑고, 렌더가 원본에서 몇 스텝에 하나씩
+  # 뽑을지를 source_hz 나누기 hz로 정하며, 기록 단계가 이 값을 데이터셋에 적는다.
+  # 환경변수 DATASET_HZ로 덮어쓸 수 있다.
+  hz: 10
+  # 생성 결과가 기록된 초당 스텝 수. 물리 주기 0.01초에 데시메이션 5이므로 20이다.
+  # 환경변수 SOURCE_HZ로 덮어쓸 수 있다. source_hz를 hz로 나눈 값이 정수여야 한다.
+  source_hz: 20
   schema_prefix: fr3_peg.hf80k
 
 assets:

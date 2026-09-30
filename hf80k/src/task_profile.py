@@ -43,7 +43,7 @@ ALLOWED = {
     "physics": {"bundle_dir", "primary_objects", "surface", "arm_actuator",
                 "gripper_actuator", "object_masses_kg", "object_size_m"},
     "visual": {"package_dir", "object_prims"},
-    "dataset": {"task_string", "robot_type", "fps", "schema_prefix"},
+    "dataset": {"task_string", "robot_type", "hz", "source_hz", "fps", "schema_prefix"},
     "assets": {"required"},
 }
 REQUIRED = {

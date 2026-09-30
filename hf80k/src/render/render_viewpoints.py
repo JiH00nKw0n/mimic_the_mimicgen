@@ -70,7 +70,11 @@ parser.add_argument("--cameras", default=CONTRACT_CAMERAS,
                     help="comma-separated camera roles to render (default: the three contract "
                          "cameras). Each extra role is a separate RTX pass — adding the unused "
                          "third_person_2 costs about 25%% of the render time")
-parser.add_argument("--every", type=int, default=1, help="temporal subsample (VIEWING ONLY — breaks BC actions)")
+parser.add_argument("--every", type=int, default=1, help="temporal subsample (VIEWING ONLY - breaks BC actions)")
+parser.add_argument("--output-hz", "--output_hz", dest="output_hz", type=float, default=0.0,
+                    help="뽑아낸 프레임의 실제 초당 장수. 미리보기 영상의 재생 속도에만 "
+                         "쓰고 기록되는 데이터에는 영향을 주지 않는다. 0이면 원본을 초당 "
+                         "20스텝으로 보고 --every로 나눠 추정한다.")
 parser.add_argument("--success-module", default="success_criteria",
                     help="재생 성공을 판정할 모듈 이름. 그 모듈의 replay_verdict(objects, "
                          "fingers)를 부른다. 큐브 쌓기는 success_criteria, 핀 삽입은 "
@@ -555,7 +559,11 @@ def main():
             if previews_left > 0:
                 previews_left -= 1
                 vid = os.path.splitext(out_path)[0] + f"_{name}_preview.mp4"
-                w = imageio.get_writer(vid, fps=max(1, 30 // args.every), codec="libx264",
+                # 미리보기의 재생 속도는 뽑아낸 프레임의 실제 초당 장수여야 실제
+                # 시간대로 보인다. 예전에는 30을 --every로 나눠서, 초당 10장으로
+                # 뽑은 영상이 초당 15장으로 재생돼 1.5배 빨라 보였다.
+                preview_hz = args.output_hz if args.output_hz > 0 else 20.0 / max(1, args.every)
+                w = imageio.get_writer(vid, fps=max(1, int(round(preview_hz))), codec="libx264",
                                        quality=7, macro_block_size=8)
                 for k in range(len(steps)):
                     w.append_data(preview_tile(imgs, roles, k))
