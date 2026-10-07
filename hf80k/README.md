@@ -393,6 +393,7 @@ Isaac Sim 안에서 MimicGen이 돈다. 시연 하나를 고르고, 장면의 �
 | `visual.package_dir` | 시각 조건 규격이 든 폴더 | `fr3_visual_randomization_v1` | 같은 것을 쓴다 |
 | `visual.object_prims` | 시각 규격이 부르는 물체 이름을 이 장면의 물체 경로에 잇는 표. 빈 값이면 이 장면에 없는 물체라는 뜻이다 | 적지 않음(이름이 같다) | `cube_1`을 핀에 잇고 `cube_2`와 `cube_3`은 없음으로 둔다 |
 | `dataset.task_string` | 데이터셋에 적을 작업 설명 문장 | 큐브 세 개를 탑으로 쌓아라 | 핀을 구멍에 꽂아라 |
+| `generate.heuristic_selection` | 소스 시연을 고르는 방식. 하위 작업마다 다시 고를지, 거리가 같은 후보를 무작위로 고를지, 어떤 (하위 작업, 소스) 짝을 뺄지를 정한다 | `enable: true`, `per_subtask: true`, `tie_break: shuffle`, `deny: {}` |
 | `dataset.robot_type`, `dataset.hz`, `dataset.source_hz`, `dataset.schema_prefix` | 데이터셋에 적을 로봇 이름과 초당 프레임 수와 생성 결과의 초당 스텝 수와 형식 이름. `hz`는 변환과 렌더와 기록 세 단계를 함께 움직인다 | `franka_fr3_osc`, 10, `fr3_cube.hf80k` | 같은 로봇과 초당 10개, `fr3_peg.hf80k` |
 | `assets.required` | 실행 전 검사가 확인할 파일과 폴더 목록 | 시연 파일과 묶음 두 개 | 시연 파일, 묶음 두 개, 3D 모델 두 개 |
 

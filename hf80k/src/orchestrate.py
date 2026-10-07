@@ -156,6 +156,23 @@ RENDER_SUCCESS_ATTR = PROFILE.get("render.success.verdict_attr", "replay_success
 # (src/tests/test_profile_keys_used.py)는 프로필의 잎 키를 점으로 이은 문자열이 소스
 # 어딘가에 따옴표째 나타나는지를 보는데, 절 이름 하나만 적어 두면 그 한 문자열이 절
 # 아래 모든 키를 대신 통과시켜서 오타 난 키가 조용히 무시된다.
+def _heuristic_selection_profile() -> dict:
+    """프로필의 generate.heuristic_selection 절을 읽어 사전 하나로 돌려준다.
+
+    소스 시연을 고르는 방식을 정한다. 켜져 있으면 하위 작업마다 소스를 다시 고르고,
+    거리가 같은 후보를 번호 순서 대신 무작위로 고르며, 반복해서 성공이 없는 (하위 작업,
+    소스) 짝을 그 하위 작업에서 뺀다. 생성 환경이 이 값을 환경변수로 받는다.
+    """
+    deny = PROFILE.get("generate.heuristic_selection.deny", {}) or {}
+    return {
+        "enable": bool(PROFILE.get("generate.heuristic_selection.enable", True)),
+        "per_subtask": bool(PROFILE.get("generate.heuristic_selection.per_subtask", True)),
+        "tie_break": str(PROFILE.get("generate.heuristic_selection.tie_break", "shuffle")),
+        "deny": json.dumps({str(k): sorted(int(v) for v in vals)
+                            for k, vals in dict(deny).items()}, sort_keys=True),
+    }
+
+
 def _sart_profile() -> dict:
     """프로필의 generate.sart 절을 읽어 사전 하나로 돌려준다."""
     return {
@@ -183,6 +200,7 @@ def _sart_profile() -> dict:
 
 
 SART_PROFILE = _sart_profile()
+HEURISTIC_PROFILE = _heuristic_selection_profile()
 # 프로필에 sart 절 아래로 적을 수 있는 키 전부. 실행 전 검사가 오타를 잡는 데 쓴다.
 SART_KEYS = tuple(sorted(SART_PROFILE))
 
@@ -620,6 +638,16 @@ def base_env(cfg: dict, extra_pythonpath: list) -> dict:
     # 프로필의 물리 절. 번들 경로와 장면 물체의 역할 이름이 여기로 간다. 밖에서 같은
     # 이름을 주면 그쪽이 이긴다.
     for key, value in PHYSICS_ENV.items():
+        env.setdefault(key, value)
+    # 프로필의 소스 선택 절. 생성 환경(src/env/source_routing.py)이 이 값을 읽는다.
+    # 생성뿐 아니라 재생과 증강 환경도 같은 장면 설정을 만들므로 모든 하위 프로세스에
+    # 넣는다. 밖에서 같은 이름을 주면 그쪽이 이긴다.
+    for key, value in (
+        ("HEURISTIC_SELECTION", "1" if HEURISTIC_PROFILE["enable"] else "0"),
+        ("SOURCE_PER_SUBTASK", "1" if HEURISTIC_PROFILE["per_subtask"] else "0"),
+        ("SOURCE_TIE_BREAK", HEURISTIC_PROFILE["tie_break"]),
+        ("SOURCE_DENY_PAIRS", HEURISTIC_PROFILE["deny"]),
+    ):
         env.setdefault(key, value)
     # 태스크 프로필이 정한 추가 환경변수. peg는 여기로 핀 구멍과 책상 USD 경로를 받는다.
     # 생성·변환·렌더가 모두 같은 장면을 만들어야 하므로 한 곳에서 넣는다. 예전에는

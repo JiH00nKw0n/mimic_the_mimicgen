@@ -36,7 +36,7 @@ ALLOWED = {
     # check_sart와 src/tests/test_profile_keys_used.py가 잡는다.
     "generate": {"task_id", "register_modules", "module_dir", "source_hdf5",
                  "source_yield_json", "arm_scale", "subtask_offsets", "action_noise",
-                 "num_interpolation_steps", "extra_env", "sart"},
+                 "num_interpolation_steps", "extra_env", "sart", "heuristic_selection"},
     "convert": {"object_states"},
     "render": {"task_id", "register_modules", "cameras", "overlay_yaml", "binding_yaml",
                "success"},
