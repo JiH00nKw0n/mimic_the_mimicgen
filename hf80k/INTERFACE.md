@@ -22,6 +22,10 @@
 | `IMAGE_WIDTH` | `320` | 렌더 가로 픽셀 |
 | `IMAGE_HEIGHT` | `180` | 렌더 세로 픽셀 |
 | `PHYSICS_PROFILE` | `robust_stochastic` | `nominal`, `posterior_stochastic`, `robust_stochastic`, `off` |
+| `HEURISTIC_SELECTION` | `1` | 소스 시연을 고르는 휴리스틱을 켤지. 0을 주면 Isaac Lab 기본 선택으로 돌아간다 |
+| `SOURCE_PER_SUBTASK` | `1` | 하위 작업마다 소스를 다시 고를지. 0이면 첫 하위 작업의 선택을 나머지가 물려받는다 |
+| `SOURCE_TIE_BREAK` | `shuffle` | 거리가 같은 후보를 고르는 방식. `shuffle`이면 무작위, `index`면 번호 순서다 |
+| `SOURCE_DENY_PAIRS` | `{}` | 뺄 (하위 작업, 소스) 짝. `{"0": [2, 3]}` 형태의 JSON이고 열쇠가 하위 작업 번호다 |
 | `DATASET_HZ` | `10` | 최종 데이터셋의 초당 프레임 수. 변환의 재추출 주기와 렌더의 건너뛰기 간격과 기록 값이 모두 이 값을 따른다 |
 | `SOURCE_HZ` | `20` | 생성 결과가 기록된 초당 스텝 수. `SOURCE_HZ`를 `DATASET_HZ`로 나눈 값이 정수여야 한다 |
 | `SOURCE_DEMO_FILTER` | `exclude_zero_yield` | `all`이면 전체, `exclude_zero_yield`면 수율 0인 소스 제외, `0,1,2`처럼 직접 지정도 된다 |
@@ -207,6 +211,30 @@ features = {
 정수가 아니면 에피소드를 통째로 버린다.
 
 ## 7. 소스 시연 필터
+
+소스를 고르는 방식이 두 겹이다. 바깥은 `SOURCE_DEMO_FILTER`로, 시연 파일에서 시연을 아예
+빼고 새 파일을 쓴다. 안쪽은 `HEURISTIC_SELECTION`으로, 파일은 그대로 두고 생성이 고를 때만
+거른다. 안쪽을 먼저 쓴다. 바깥은 시연을 전체에서 지우므로 한 하위 작업에서 실패했다는
+이유로 그 시연을 다른 하위 작업에서도 못 쓰게 만든다.
+
+안쪽이 하는 일은 세 가지다.
+
+첫째, 하위 작업마다 소스를 다시 고른다. 하위 작업이란 한 시연을 집기와 꽂기처럼 의미 있는
+구간으로 자른 단위다. 설치된 생성기는 `generation_select_src_per_subtask` 하나만 켜면 첫
+하위 작업의 선택이 나머지로 그대로 물려지므로, 짝이 되는 `generation_select_src_per_arm`까지
+함께 켠다. 실제로 재선택되는지는 설정값이 아니라 생성 기록에 남는 소스 번호가 하위 작업마다
+달라지는지로 확인한다.
+
+둘째, 거리가 같은 후보를 번호 순서 대신 무작위로 고른다. 큐브 시연 13편은 모두 같은 큐브
+배치에서 녹화돼 첫 물체 자세가 비트 단위로 같고, 거리가 12중 동점이 된다. 정렬이 동점을
+번호 순서로 놓으므로 뒤쪽 아홉 편이 뽑힐 확률이 정확히 0이었다. 301회 시도로 확인했다.
+
+셋째, 반복해서 성공이 없는 (하위 작업, 소스) 짝만 그 하위 작업에서 뺀다. 뺄 목록은 태스크
+프로필의 `generate.heuristic_selection.deny`가 정하고 기본은 비어 있다. 채울 값은
+`tools/source_routing_report.py`가 생성 기록을 읽어 알려준다. 그 번호는 지금 쓰는 시연 파일의
+순서에만 유효하므로 다른 태스크로 옮겨 쓰면 안 된다.
+
+## 7-1. 소스 시연 파일 필터
 
 `SOURCE_DEMO_FILTER`가 `exclude_zero_yield`면 `assets/source_yield.json`에 적힌 수율 0인
 소스를 제외한다.

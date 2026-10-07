@@ -50,6 +50,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab_mimic.envs.franka_stack_ik_rel_mimic_env_cfg import FrankaCubeStackIKRelMimicEnvCfg
 
 import calibrated_sysid
+import source_routing
 
 # FR3 home joint pose the teleop demos start from (states[0]); joint order is
 # fr3_joint1..7 then the two fingers. joint6 is 2.25 (the FR3 soft-limit-clamped
@@ -472,3 +473,9 @@ class LabFR3CubeStackRevMimicEnvCfg(FrankaCubeStackIKRelMimicEnvCfg):
         # success: reverse the bottom/top identities (cube_3 bottom, cube_1 top)
         self.terminations.success.params["cube_1_cfg"] = SceneEntityCfg("cube_3")
         self.terminations.success.params["cube_3_cfg"] = SceneEntityCfg("cube_1")
+        # 하위 작업마다 소스를 다시 고르고, 거리가 같은 후보는 번호 순서 대신 무작위로
+        # 고르며, 반복해서 성공이 없는 (하위 작업, 소스) 짝만 그 하위 작업에서 뺀다.
+        # 큐브 시연 13편은 첫 물체 자세가 비트 단위로 같아 거리가 12중 동점이 되는데,
+        # 정렬이 동점을 번호 순서로 놓는 탓에 뒤쪽 아홉 편이 뽑힐 확률이 정확히 0이었다.
+        # 설정은 태스크 프로필의 generate.heuristic_selection 절이 정한다.
+        source_routing.apply(self)

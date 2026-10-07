@@ -92,6 +92,7 @@ import json as _json  # noqa: E402
 from pathlib import Path as _Path  # noqa: E402
 
 import calibrated_sysid  # noqa: E402
+import source_routing  # noqa: E402
 
 PHYSICS_PROFILE = os.environ.get("PHYSICS_PROFILE", "robust_stochastic").strip().lower()
 PHYSICS_PROFILES = ("nominal", "posterior_stochastic", "robust_stochastic")
@@ -365,9 +366,6 @@ def _apply_lab_overrides(self):
     # generation_guarantee retries failures until generation_num_trials clean demos exist.
     self.datagen_config.generation_keep_failed = os.environ.get("LAB_KEEP_FAILED", "1") == "1"
     self.datagen_config.generation_guarantee = True
-    # ON-BOX TODO(datagen fields): confirm these attr names on this container's DataGenConfig.
-    if hasattr(self.datagen_config, "generation_select_src_per_subtask"):
-        self.datagen_config.generation_select_src_per_subtask = True
     if hasattr(self.datagen_config, "name"):
         self.datagen_config.name = "peg_insert_lab_fr3_d0"
 
@@ -421,6 +419,12 @@ def _apply_lab_overrides(self):
         print("[peg_mimic_cfg] 구간 3개: 집기(grasp_peg) -> 가져가기(insert) -> 넣기(끝)")
     else:
         self.subtask_configs[eef] = [grasp_st, insert_st]
+
+    # 하위 작업마다 소스를 다시 고르고, 거리가 같은 후보는 번호 순서 대신 무작위로 고르며,
+    # 반복해서 성공이 없는 (하위 작업, 소스) 짝만 그 하위 작업에서 뺀다. 설정은 태스크
+    # 프로필의 generate.heuristic_selection 절이 정하고 환경변수로 덮어쓸 수 있다.
+    # 적용하지 못하면 이유를 찍고 Isaac Lab 기본 선택으로 그대로 돈다.
+    source_routing.apply(self)
 
 
 def _apply_physics_randomization(self):
