@@ -436,6 +436,22 @@ def _apply_threshold_fixes(self):
     self.terminations.success.params["rtol"] = SUCCESS_GRIPPER_ATOL
 
 
+def _apply_source_routing(self):
+    """하위 작업마다 소스 시연을 다시 고르는 휴리스틱을 붙인다.
+
+    세 가지를 한다. 하위 작업마다 소스를 다시 고르고, 거리가 같은 후보는 번호 순서 대신
+    무작위로 고르며, 반복해서 성공이 없는 (하위 작업, 소스) 짝만 그 하위 작업에서 뺀다.
+    큐브 시연 13편은 첫 물체 자세가 비트 단위로 같아 거리가 12중 동점이 되는데, 정렬이
+    동점을 번호 순서로 놓는 탓에 뒤쪽 아홉 편이 뽑힐 확률이 정확히 0이었다. 설정은 태스크
+    프로필의 generate.heuristic_selection 절이 정한다.
+
+    정순과 역순 두 설정 클래스가 모두 이 함수를 부른다. 한쪽에만 적어 두면 실제로 쓰는
+    태스크에서 휴리스틱이 조용히 꺼진다. 실제로 그런 일이 있었다. 역순 클래스에만 적어
+    두었는데 파이프라인이 쓰는 것은 정순이라, 설정은 켜져 있는데 선택은 기본값으로 돌았다.
+    """
+    source_routing.apply(self)
+
+
 @configclass
 class LabFR3CubeStackFwdMimicEnvCfg(FrankaCubeStackIKRelMimicEnvCfg):
     """Forward order: cube_1 bottom < cube_2 middle < cube_3 top (official schema)."""
@@ -444,6 +460,7 @@ class LabFR3CubeStackFwdMimicEnvCfg(FrankaCubeStackIKRelMimicEnvCfg):
         super().__post_init__()
         _apply_lab_overrides(self)
         _apply_threshold_fixes(self)
+        _apply_source_routing(self)
 
 
 @configclass
@@ -473,9 +490,4 @@ class LabFR3CubeStackRevMimicEnvCfg(FrankaCubeStackIKRelMimicEnvCfg):
         # success: reverse the bottom/top identities (cube_3 bottom, cube_1 top)
         self.terminations.success.params["cube_1_cfg"] = SceneEntityCfg("cube_3")
         self.terminations.success.params["cube_3_cfg"] = SceneEntityCfg("cube_1")
-        # 하위 작업마다 소스를 다시 고르고, 거리가 같은 후보는 번호 순서 대신 무작위로
-        # 고르며, 반복해서 성공이 없는 (하위 작업, 소스) 짝만 그 하위 작업에서 뺀다.
-        # 큐브 시연 13편은 첫 물체 자세가 비트 단위로 같아 거리가 12중 동점이 되는데,
-        # 정렬이 동점을 번호 순서로 놓는 탓에 뒤쪽 아홉 편이 뽑힐 확률이 정확히 0이었다.
-        # 설정은 태스크 프로필의 generate.heuristic_selection 절이 정한다.
-        source_routing.apply(self)
+        _apply_source_routing(self)

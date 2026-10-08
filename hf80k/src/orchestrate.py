@@ -387,6 +387,26 @@ def load_config() -> dict:
         if not 0.0 < cfg["sart_source_frac"] <= 1.0:
             raise SystemExit("[orch] SART_SOURCE_FRAC는 0보다 크고 1 이하여야 한다 "
                              f"(받은 값 {cfg['sart_source_frac']})")
+    # 수율 0인 시연을 통째로 빼는 기본 설정은 그 수율을 적어 둔 표가 있어야 성립한다.
+    # 핀 꽂기 프로필에는 그 표가 없다(generate.source_yield_json이 빈 문자열이다).
+    # 표가 없는 태스크에서 기본값을 그대로 두면 실행 전 검사가 "없는 자산"과 "표를 읽을
+    # 수 없다" 두 가지로 막아서, 설정을 한 줄도 건드리지 않은 사람이 시작조차 못 한다.
+    # 그래서 표가 없으면 시연을 하나도 빼지 않는 설정으로 내려 두고 그 사실을 알린다.
+    # 환경변수를 직접 준 경우에는 내리지 않고 그대로 두어, 잘못 쓴 값이 조용히 바뀌는
+    # 일이 없게 한다. 하위 작업별로 성과 없는 짝을 빼는 일은 generate.heuristic_selection이
+    # 맡으므로 이 설정을 내려도 선택 휴리스틱은 그대로 돈다.
+    if (cfg["source_demo_filter"] == "exclude_zero_yield"
+            and not os.environ.get("SOURCE_DEMO_FILTER")
+            and not (SOURCE_YIELD_JSON and os.path.isfile(SOURCE_YIELD_JSON))):
+        cfg["source_demo_filter"] = "all"
+        # 생성·재생·증강 프로세스가 이 값을 환경변수로 다시 읽으므로 함께 바꿔 둔다.
+        # 여기서 바꾸지 않으면 오케스트레이터만 "all"로 알고, 자식 프로세스는 표를
+        # 찾다가 예외로 죽는다.
+        os.environ["SOURCE_DEMO_FILTER"] = "all"
+        print("[orch] 이 태스크 프로필에는 소스별 수율 표가 없다. "
+              "SOURCE_DEMO_FILTER를 'all'로 두고 시연을 하나도 빼지 않는다. "
+              "성과 없는 (하위 작업, 소스) 짝을 빼는 일은 "
+              "generate.heuristic_selection.deny가 맡는다.")
     if cfg["target_episodes"] < 1:
         raise SystemExit("[orch] TARGET_EPISODES must be >= 1")
     if cfg["dataset_hz"] < 1:

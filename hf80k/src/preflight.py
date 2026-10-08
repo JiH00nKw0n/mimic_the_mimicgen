@@ -144,7 +144,10 @@ def check_work_dir(cfg):
 
 def check_assets(cfg):
     needed = [orch.SOURCE_HDF5, orch.OVERLAY_YAML, orch.BINDING_YAML]
-    if cfg["source_demo_filter"] == "exclude_zero_yield":
+    # 빈 경로를 넣지 않는다. 태스크 프로필이 수율 표를 적지 않으면 orch.SOURCE_YIELD_JSON은
+    # 빈 문자열이고, 그것을 목록에 넣으면 "없는 자산: "처럼 이름이 비어 있는 실패가 떠서
+    # 무엇이 없다는 뜻인지 읽을 수 없다. 표가 없을 때 설정을 내리는 일은 load_config가 한다.
+    if cfg["source_demo_filter"] == "exclude_zero_yield" and orch.SOURCE_YIELD_JSON:
         needed.append(orch.SOURCE_YIELD_JSON)
     # 프로필이 적어 둔 자산 목록. 파일일 수도 폴더일 수도 있어서 따로 센다. 태스크를
     # 바꿀 때 빠뜨린 파일을 여기서 잡는 것이 이 목록의 존재 이유다.
