@@ -68,14 +68,21 @@ def fail(message: str, code: int = 2, **extra):
     sys.exit(code)
 
 
-def env_settings(require_token: bool = True):
-    """(token, repo_id, private) from the environment, failing fast and clearly."""
+def env_settings(require_token: bool = True, require_repo_id: bool = True):
+    """(token, repo_id, private) from the environment, failing fast and clearly.
+
+    require_repo_id를 거짓으로 주면 저장소 이름이 비어 있어도 멈추지 않는다. 합치기만
+    하고 올리지 않는 --no-upload가 그 경우다. 그때 저장소 이름은 lerobot이 합친 조각에
+    붙이는 이름표로만 쓰이고 허깅페이스에 닿지 않으므로, 아직 저장소를 정하지 않은
+    사람이 합쳐 보는 것을 막을 이유가 없다. 명령줄의 --repo_id가 있으면 부르는 쪽이
+    그 값을 쓴다.
+    """
     token = os.environ.get("HF_TOKEN", "").strip()
     repo_id = os.environ.get("HF_REPO_ID", "").strip()
     missing = []
     if require_token and not token:
         missing.append("HF_TOKEN")
-    if not repo_id:
+    if require_repo_id and not repo_id:
         missing.append("HF_REPO_ID")
     if missing:
         fail(f"missing required environment variable(s): {', '.join(missing)}. "
@@ -438,7 +445,10 @@ def parse_args():
 def main():
     args = parse_args()
     needs_token = not (args.mode == "aggregate" and args.no_upload)
-    token, env_repo_id, private = env_settings(require_token=needs_token)
+    # 올리지 않는 합치기는 명령줄에서 이름을 받으면 환경변수가 없어도 된다.
+    needs_repo_id = needs_token or not args.repo_id.strip()
+    token, env_repo_id, private = env_settings(require_token=needs_token,
+                                               require_repo_id=needs_repo_id)
     repo_id = args.repo_id.strip() or env_repo_id
     if args.private:
         private = args.private == "1"
