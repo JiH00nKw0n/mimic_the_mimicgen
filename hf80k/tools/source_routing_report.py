@@ -31,10 +31,42 @@ import math
 import sys
 from collections import defaultdict
 
-# 이 횟수 이상 시도하고도 성공이 하나도 없는 짝만 뺄 후보로 올린다. 시도가 적으면
-# 성공이 0인 것이 우연일 수 있다. 20회에서 한 번도 성공하지 않았다면 진짜 성공률의
-# 95% 상한이 약 16%이고, 50회면 약 7%다.
-MIN_ATTEMPTS_TO_DENY = 20
+# 뺄 후보로 올리려면 몇 번은 시도해 봤어야 한다. 시도가 적으면 성공이 0인 것이 그저
+# 우연일 수 있기 때문이다. 그 "몇 번"은 태스크마다 다르고, 전체 성공률에서 계산된다.
+#
+# 전체 성공률이 p일 때 어떤 짝이 n번 뽑혀 한 번도 성공하지 않을 확률은 (1-p)의 n제곱이다.
+# 이 값이 5% 아래로 떨어지는 n부터가 "우연이라고 보기 어렵다"고 말할 수 있는 지점이다.
+# 성공률이 높을수록 적은 횟수로 충분하다.
+#
+#   성공률 29%면  9회   (핀 꽂기)
+#   성공률 10%면 29회
+#   성공률  5%면 59회
+#   성공률  4.6%면 64회  (큐브 쌓기)
+#
+# 이 계산을 하지 않으면 성공률이 낮은 태스크에서 엉뚱한 짝을 대량으로 뺀다. 실제로
+# 큐브 쌓기에서 20회를 기준으로 14개 짝을 빼고 812회를 다시 시도했더니 5.5%가 나왔다.
+# 빼지 않은 649회의 4.6%와 비교해 두 비율 검정의 p가 0.43으로 우연과 구분되지 않았다.
+# 성공률 4.6%에서는 20회 연속 실패가 39%의 확률로 그냥 일어나고, 짝이 48개이면 그런
+# 짝이 열다섯 개쯤 보이기 때문이다.
+#
+# --min-attempts로 직접 정할 수 있다. 주지 않으면 아래 함수가 기록에서 계산한다.
+FALLBACK_MIN_ATTEMPTS = 20
+CHANCE_LEVEL = 0.05
+
+
+def min_attempts_for_rate(total_successes: int, total_attempts: int,
+                          chance: float = CHANCE_LEVEL) -> int:
+    """전체 성공률에서 "우연이라고 보기 어려운" 연속 실패 횟수를 구한다.
+
+    (1-p)의 n제곱이 chance 아래로 내려가는 가장 작은 n이다. 성공률을 알 수 없거나
+    0이면 계산할 수 없으므로 FALLBACK_MIN_ATTEMPTS를 돌려준다.
+    """
+    if total_attempts <= 0 or total_successes <= 0:
+        return FALLBACK_MIN_ATTEMPTS
+    p = total_successes / total_attempts
+    if p >= 1.0:
+        return 1
+    return max(1, math.ceil(math.log(chance) / math.log(1.0 - p)))
 
 
 def wilson_upper(successes: int, attempts: int, z: float = 1.96) -> float:
@@ -81,8 +113,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("provenance", nargs="+", help="생성 기록 JSON 파일 하나 이상")
-    ap.add_argument("--min-attempts", type=int, default=MIN_ATTEMPTS_TO_DENY,
-                    help=f"뺄 후보로 올리는 최소 시도 수 (기본 {MIN_ATTEMPTS_TO_DENY})")
+    ap.add_argument("--min-attempts", type=int, default=0,
+                    help="뺄 후보로 올리는 최소 시도 수. 주지 않으면 전체 성공률에서 "
+                         "계산한다. 성공률이 낮을수록 큰 값이 나온다")
     args = ap.parse_args(argv)
 
     attempts, successes, total_a, total_s, combos = read_counts(args.provenance)
@@ -91,8 +124,16 @@ def main(argv=None) -> int:
         return 1
 
     print(f"기록 파일 {len(args.provenance)}개")
-    print(f"전체 시도 {total_a}회, 성공 {total_s}편, 성공률 "
-          f"{total_s / max(total_a, 1) * 100:.1f}%")
+    rate = total_s / max(total_a, 1)
+    print(f"전체 시도 {total_a}회, 성공 {total_s}편, 성공률 {rate * 100:.1f}%")
+    if args.min_attempts > 0:
+        min_attempts = args.min_attempts
+        print(f"뺄 후보 기준: 직접 준 값 {min_attempts}회 이상에 성공 0편")
+    else:
+        min_attempts = min_attempts_for_rate(total_s, total_a)
+        print(f"뺄 후보 기준: {min_attempts}회 이상에 성공 0편. "
+              f"성공률 {rate * 100:.1f}%에서 그만큼 연속으로 실패할 확률이 "
+              f"5% 아래로 내려가는 지점이다")
     print()
 
     subtasks = sorted({st for st, _ in attempts})
@@ -104,7 +145,7 @@ def main(argv=None) -> int:
             s = successes.get((st, src), 0)
             upper = wilson_upper(s, a)
             mark = ""
-            if s == 0 and a >= args.min_attempts:
+            if s == 0 and a >= min_attempts:
                 deny[st].append(src)
                 mark = "   <- 뺄 후보"
             print(f"    {st:5d} | {src:4d} | {a:4d} | {s:4d} | {s / max(a, 1) * 100:5.1f}% "
@@ -117,7 +158,7 @@ def main(argv=None) -> int:
         for st in sorted(deny):
             print(f"      {st}: {deny[st]}")
         print()
-        print(f"기준은 시도 {args.min_attempts}회 이상에 성공 0편이다. 이 번호는 지금 쓰는")
+        print(f"기준은 시도 {min_attempts}회 이상에 성공 0편이다. 이 번호는 지금 쓰는")
         print("시연 파일의 순서에만 유효하다. 파일을 다시 정렬하거나 시연을 더하면 다시 재야 한다.")
     else:
         print("뺄 후보가 없다. 모든 소스가 적어도 한 번은 성공했거나 시도가 모자라다.")
