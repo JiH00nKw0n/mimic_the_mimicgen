@@ -179,8 +179,14 @@ def check_assets(cfg):
 
 def check_source_filter(cfg):
     """The filter runs before the first generation; a bad yield table must fail here."""
-    if orch.ENV_DIR not in sys.path:
-        sys.path.insert(0, orch.ENV_DIR)
+    # 태스크별 환경 폴더와 공유 폴더를 둘 다 넣는다. source_filter.py는 공유 폴더인
+    # src/env에만 있고, 태스크 폴더가 env가 아닌 태스크(env_peg, env_gear)에서는 태스크
+    # 폴더만 넣으면 찾지 못한다. 실행 때는 base_env가 두 폴더를 모두 PYTHONPATH에 넣는데,
+    # 이 검사는 그 함수를 거치지 않아 같은 일을 여기서 해야 한다.
+    shared_env = os.path.join(orch.SRC_DIR, "env")
+    for d in (orch.ENV_DIR, shared_env):
+        if d not in sys.path:
+            sys.path.insert(0, d)
     try:
         import source_filter
     except Exception as exc:                      # noqa: BLE001
@@ -199,6 +205,13 @@ def check_source_filter(cfg):
 
 
 def check_vrand_package(cfg):
+    # 렌더를 돌지 않는 태스크는 시각 랜덤화 묶음을 쓰지 않는다. 프로필의
+    # visual.package_dir가 비어 있거나 render.enable이 거짓이면 이 검사를 건너뛴다.
+    if not cfg["render_enable"]:
+        return "PASS", "렌더를 돌지 않으므로 시각 랜덤화 묶음을 보지 않는다"
+    if not str(orch.PROFILE.get("visual.package_dir", "")).strip():
+        return "FAIL", ("렌더를 켰는데 프로필의 visual.package_dir가 비어 있다. "
+                        "묶음 폴더 이름을 적거나 render.enable을 거짓으로 둔다")
     cfg_dir = cfg["vrand_config"]
     needed = [os.path.join(cfg_dir, "visual_randomization_profiles.yaml"),
               os.path.join(cfg_dir, "camera_nominal_measured_ranges.yaml")]

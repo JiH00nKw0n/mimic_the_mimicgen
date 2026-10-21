@@ -38,8 +38,11 @@ ALLOWED = {
                  "source_yield_json", "arm_scale", "subtask_offsets", "action_noise",
                  "num_interpolation_steps", "extra_env", "sart", "heuristic_selection"},
     "convert": {"object_states"},
-    "render": {"task_id", "register_modules", "cameras", "overlay_yaml", "binding_yaml",
-               "success"},
+    # render.enable을 거짓으로 두면 렌더 단계를 돌지 않는다. 카메라 보정값이 아직 없는
+    # 태스크에서 수율만 재려면 그래야 한다. 끄면 영상이 없으므로 LeRobot 데이터셋도
+    # 만들 수 없고, 그 경우 STOP_AFTER로 생성까지만 돌린다.
+    "render": {"enable", "task_id", "register_modules", "cameras", "overlay_yaml",
+               "binding_yaml", "success"},
     "physics": {"bundle_dir", "primary_objects", "surface", "arm_actuator",
                 "gripper_actuator", "object_masses_kg", "object_size_m"},
     "visual": {"package_dir", "object_prims"},
@@ -102,6 +105,16 @@ def _validate(name: str, doc) -> str:
         if unknown:
             return f"{section} 절에 모르는 키가 있다: {', '.join(sorted(unknown))}"
         missing = REQUIRED.get(section, set()) - set(block)
+        # 돌지 않는 단계의 설정을 채우라고 막지 않는다. 막으면 쓰지 않는 값을 아무렇게나
+        # 적어 넣게 되고, 그 값이 나중에 진짜로 쓰이게 되는 날 아무도 모른다.
+        #
+        # 렌더는 enable이 거짓이면 카메라 목록을 요구하지 않는다.
+        # 물리는 bundle_dir이 비어 있으면 실측 번들을 쓰지 않는다는 뜻이라 대상 물체
+        # 목록을 요구하지 않는다. 그 경우 환경변수 PHYSICS_PROFILE=off를 같이 주어야 한다.
+        if section == "render" and block.get("enable") is False:
+            missing = set()
+        if section == "physics" and not str(block.get("bundle_dir", "")).strip():
+            missing = set()
         if missing:
             return f"{section} 절에 필요한 키가 없다: {', '.join(sorted(missing))}"
     return ""

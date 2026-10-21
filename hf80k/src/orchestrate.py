@@ -86,6 +86,10 @@ RENDER_SCRIPT = os.path.join(RENDER_DIR, "render_viewpoints.py")
 CONVERT_SCRIPT = os.path.join(CONVERT_DIR, "convert_demo.py")
 LEROBOT_WRITER = os.path.join(SRC_DIR, "lerobot_writer.py")
 # SART 증강 단계. 태스크 프로필이 켜 준 태스크에서만 돈다.
+# STOP_AFTER로 지정할 수 있는 단계. 데이터셋을 만들지 않고 끝내는 용도이므로 lerobot과
+# upload는 넣지 않는다. 그 둘까지 돌았다면 어차피 끝까지 돈 것이다.
+STOPPABLE_STAGES = {"generate", "sart", "convert", "render"}
+
 SART_DIR = os.path.join(SRC_DIR, "sart")
 SART_SCRIPT = os.path.join(SART_DIR, "sart_augment.py")
 HF_UPLOAD = os.path.join(SRC_DIR, "hf_upload.py")
@@ -363,6 +367,16 @@ def load_config() -> dict:
         "log_level": env_str("LOG_LEVEL", "INFO"),
         # SART 증강. 기본값은 태스크 프로필이 정하고, 환경변수를 주면 그쪽이 이긴다.
         # SART_ENABLE=0이면 어떤 태스크에서도 꺼진다.
+        # 렌더 단계를 돌지 여부. 태스크 프로필의 render.enable이 정하고 RENDER_ENABLE로
+        # 덮을 수 있다. 끄면 영상이 없으므로 LeRobot 데이터셋을 만들 수 없다. 카메라
+        # 보정값이 아직 없는 태스크에서 수율만 잴 때 STOP_AFTER=generate와 함께 쓴다.
+        "render_enable": env_flag(
+            "RENDER_ENABLE", "0" if PROFILE.get("render.enable") is False else "1"),
+        # 여기 적은 단계까지만 돌고 청크를 끝낸다. 빈 값이면 끝까지 돈다.
+        # 수율은 생성 단계가 결정하므로 generate까지만 돌려도 잴 수 있다. 그렇게 끝낸
+        # 청크의 매니페스트는 status가 done이 아니라 measured로 적혀서, 데이터셋이
+        # 만들어진 청크와 섞이지 않는다.
+        "stop_after": env_str("STOP_AFTER", "").strip().lower(),
         "sart_enable": env_flag("SART_ENABLE", "1" if SART_PROFILE["enable"] else "0"),
         "sart_procs": env_int("SART_PROCS", 1),
         "sart_samples": env_int("SART_SAMPLES", int(SART_PROFILE["samples_per_source"])),
@@ -377,6 +391,9 @@ def load_config() -> dict:
     # 이 검사를 늘 돌리면 쓰지도 않는 값 때문에 실행이 시작조차 못 한다. GPU 네 대로 돌릴 때
     # .env 한 장을 네 컨테이너가 함께 읽는데, 거기에 SART_SAMPLES=0을 적어 두면 SART를 쓰지
     # 않는 큐브 컨테이너까지 멈춘다. 쓰지 않는 값이 실행을 막아서는 안 된다.
+    if cfg["stop_after"] and cfg["stop_after"] not in STOPPABLE_STAGES:
+        raise SystemExit(f"[orch] STOP_AFTER는 {sorted(STOPPABLE_STAGES)} 중 하나여야 한다 "
+                         f"(받은 값 {cfg['stop_after']!r})")
     if cfg["sart_enable"]:
         if cfg["sart_procs"] < 1:
             raise SystemExit(f"[orch] SART_PROCS는 1 이상이어야 한다 (받은 값 {cfg['sart_procs']})")
@@ -1409,6 +1426,10 @@ def stage_render(cfg: dict, chunk: dict, log, log_path: str) -> float:
     --every는 DATASET_HZ와 SOURCE_HZ에서 계산한다. 원본이 초당 20스텝이고 목표가
     초당 10장이면 2가 되어, 데이터셋이 쓰지 않을 프레임은 아예 만들지 않는다.
     """
+    if not cfg["render_enable"]:
+        log("render: 이 태스크는 렌더를 돌지 않는다 (프로필의 render.enable이 거짓이거나 "
+            "RENDER_ENABLE=0이다). 영상이 없으므로 LeRobot 데이터셋도 만들 수 없다")
+        return 0.0
     cdir = chunk["dir"]
     n = chunk["produced"]
     rgb_out = os.path.join(cdir, "rgb.hdf5")
@@ -1547,21 +1568,33 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
     started = utcnow()
     t0 = time.time()
     durations = {}
+    def stop_here(stage: str) -> bool:
+        """STOP_AFTER로 지정한 단계를 막 끝냈는지."""
+        return cfg["stop_after"] == stage
+
     durations["generate"] = round(stage_generate(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after generate")
+    if stop_here("generate"):
+        return write_measured_manifest(cfg, chunk, durations, started, log, t0)
     # SART 증강. 꺼져 있으면 첫 줄에서 0.0을 돌려주고 끝난다. 그래도 항상 부르는 이유는
     # durations_s에 키가 빠지면 이 파일을 읽는 쪽이 KeyError로 죽기 때문이다. upload가
     # 같은 이유로 늘 0.0을 적는다.
     durations["sart"] = round(stage_sart(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after sart")
+    if stop_here("sart"):
+        return write_measured_manifest(cfg, chunk, durations, started, log, t0)
     durations["convert"] = round(stage_convert(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after convert")
+    if stop_here("convert"):
+        return write_measured_manifest(cfg, chunk, durations, started, log, t0)
     durations["render"] = round(stage_render(cfg, chunk, log, log_path), 1)
     if STOP.is_set():
         raise StageError("interrupted after render")
+    if stop_here("render"):
+        return write_measured_manifest(cfg, chunk, durations, started, log, t0)
     frames = count_frames(os.path.join(chunk["dir"], "contract.hdf5"))
     durations["lerobot"] = round(stage_lerobot(cfg, chunk, log, log_path), 1)
     episodes = chunk["produced"]
@@ -1624,6 +1657,45 @@ def run_chunk(cfg: dict, chunk: dict, log, log_path: str) -> dict:
         # 조용히 작아진다. 그 상태를 마지막 합계에서야 알게 되면 늦다.
         log(f"chunk {chunk['chunk_index']:05d} 경고: 계획한 {chunk['episodes']}편 중 "
             f"{episodes}편만 기록했다")
+    return manifest
+
+
+def write_measured_manifest(cfg: dict, chunk: dict, durations: dict, started: str,
+                            log, t0: float) -> dict:
+    """STOP_AFTER로 중간에 끝낸 청크의 매니페스트를 쓴다.
+
+    status를 "done"이 아니라 "measured"로 적는다. 데이터셋이 만들어지지 않았으므로
+    끝까지 돈 청크와 한 묶음으로 세면 안 된다. 합치는 단계와 올리는 단계가 status를
+    보고 고르므로, 이 값이 섞이면 영상 없는 청크를 데이터셋에 넣으려다 죽는다.
+
+    수율은 그대로 적는다. 생성 단계가 결정하는 값이라 뒤 단계를 돌지 않아도 뜻이 같다.
+    """
+    attempts = int(chunk.get("attempts", 0))
+    generated = int(chunk.get("mimicgen_produced", chunk.get("produced", 0)))
+    manifest = {
+        "schema_version": CHUNK_SCHEMA,
+        "chunk_index": chunk["chunk_index"],
+        "status": "measured",
+        "stopped_after": cfg["stop_after"],
+        "profile": chunk["profile"],
+        "episodes": 0,
+        "frames": 0,
+        "attempts": attempts,
+        "mimicgen_produced": generated,
+        "yield": round(generated / attempts, 4) if attempts else 0.0,
+        "seed": chunk["seed"],
+        "physics_profile": cfg["physics_profile"],
+        "render_enabled": cfg["render_enable"],
+        "uploaded": False,
+        "started_at": started,
+        "finished_at": utcnow(),
+        "durations_s": durations,
+    }
+    chunk["written"] = 0
+    atomic_write_json(manifest_path(chunk), manifest)
+    log(f"chunk {chunk['chunk_index']:05d} {cfg['stop_after']}까지 돌고 멈췄다 "
+        f"({time.time() - t0:.0f}초): 시도 {attempts}회, 성공 {generated}편, "
+        f"수율 {manifest['yield'] * 100:.2f}%")
     return manifest
 
 
