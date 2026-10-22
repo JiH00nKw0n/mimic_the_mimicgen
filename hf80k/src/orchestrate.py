@@ -591,18 +591,66 @@ def wait_for_memory(state: dict, lock: threading.Lock, need_mb: int, name: str, 
         waited += MEM_POLL_S
 
 
+# argparse가 받지 않으면 빼고 다시 돌려 볼 인자들. 값은 그 인자를 뺄 때 대신 넣을
+# 환경변수다. 환경변수가 필요 없으면 빈 사전을 둔다.
+#
+# --headless는 Isaac Lab 판본마다 있고 없다. Isaac Sim 6.0.1의 스크립트는 받지만
+# 6.1.0은 받지 않고 "unrecognized arguments: --headless"로 argparse 단계에서 죽는다.
+# 6.1.0은 대신 --visualizer를 받는다.
+#
+# 스크립트 본문을 읽어 판별할 수는 없다. 그 인자는 두 판본 모두 AppLauncher가 붙이므로
+# 스크립트에 글자가 없다. 그래서 실제로 돌려 보고 argparse가 뭐라고 하는지 본다. 거부는
+# Isaac Sim이 뜨기 전에 나므로 몇 초만 버린다.
+#
+# 뺄 때 HEADLESS=1을 주는 이유는, Isaac Lab 스크립트들이 창을 열지 말지 판단할 때
+# args_cli.headless와 os.environ["HEADLESS"]를 둘 다 보기 때문이다.
+DROPPABLE_FLAGS = {"--headless": {"HEADLESS": "1"}}
+
+# 거부 메시지를 찾을 때 로그 끝에서 읽을 양, 바이트.
+_REJECT_TAIL_BYTES = 8192
+
+
+def _tail_text(path: str, nbytes: int = _REJECT_TAIL_BYTES) -> str:
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - nbytes))
+            return fh.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def _spawn(cmd: list, env: dict, log_path: str) -> int:
+    with open(log_path, "ab", buffering=0) as fh:
+        fh.write(("\n$ " + " ".join(cmd) + "\n").encode())
+        proc = subprocess.Popen(cmd, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                start_new_session=True)
+        return proc.wait()
+
+
 def run_cmd(cmd: list, env: dict, log_path: str):
     """Run one stage subprocess, append its output to the chunk log.
 
     start_new_session so a Ctrl-C aimed at the orchestrator does not tear down
     a stage that is halfway through writing an HDF5.
+
+    argparse가 받지 않는 인자(DROPPABLE_FLAGS) 때문에 죽었으면 그 인자를 빼고 한 번
+    더 돌린다. 판본이 다른 서버에서 같은 코드를 쓰려면 이게 있어야 한다.
     """
     t0 = time.time()
-    with open(log_path, "ab", buffering=0) as fh:
-        fh.write(("\n$ " + " ".join(cmd) + "\n").encode())
-        proc = subprocess.Popen(cmd, env=env, stdout=fh, stderr=subprocess.STDOUT,
-                                start_new_session=True)
-        rc = proc.wait()
+    rc = _spawn(cmd, env, log_path)
+    if rc != 0:
+        tail = _tail_text(log_path)
+        for flag, extra in DROPPABLE_FLAGS.items():
+            if flag in cmd and _rejects_flag(tail, flag):
+                retry = [a for a in cmd if a != flag]
+                retry_env = dict(env)
+                retry_env.update(extra)
+                with open(log_path, "ab", buffering=0) as fh:
+                    fh.write((f"\n[orch] 이 판본은 {flag}를 받지 않는다. 빼고 "
+                              f"{extra}를 주고 다시 한다\n").encode())
+                rc = _spawn(retry, retry_env, log_path)
+                break
     return rc, time.time() - t0
 
 
@@ -765,12 +813,22 @@ def prepare_generate_script(cfg: dict, log) -> str:
 
 
 def script_supports(path: str, flag: str) -> bool:
-    """Does this script's argparse know `flag`? Isaac Lab versions differ."""
+    """Does this script's argparse know `flag`? Isaac Lab versions differ.
+
+    주의. 스크립트 본문에 글자가 있는 인자만 이 방법으로 판별할 수 있다.
+    --headless처럼 AppLauncher가 붙이는 인자는 본문에 없으므로 여기서 판별하지 못한다.
+    그런 인자는 retry_without_flag로 실제로 돌려 보고 판별한다.
+    """
     try:
         with open(path) as fh:
             return f'"{flag}"' in fh.read()
     except OSError:
         return False
+
+
+# argparse가 이 꼴로 거부하면 해당 인자를 빼고 한 번 더 돌린다.
+def _rejects_flag(output: str, flag: str) -> bool:
+    return f"unrecognized arguments: {flag}" in (output or "")
 
 
 # ----------------------------------------------------------------- hdf5 merge

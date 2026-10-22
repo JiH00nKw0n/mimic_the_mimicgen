@@ -162,7 +162,7 @@ Square에서 본 패턴("IC 위치 편향은 약함, **실제 편향은 ancestry
 3. **DGR은 이 편향을 못 본다** — 같은 500 시도에서 DGR만 보면 "어떤 원본이 데이터를 지배하는지"를 놓친다. 이것이 이 실험이 보이려는 gap.
 
 ## 7. 데이터 · 재현
-- **위치 (aidas `REDACTED-SERVER-ADDRESS`)**: `~/mimicgen_jihoonkwon/experiments/motivation_ic/square_{D0,D1,D2}/.../{demo.hdf5, demo_failed.hdf5}`, 분석 산출 `analysis/{stats.json, square_*_ic.png, square_*_difficulty.png}`
+- **위치 (AWS 인스턴스)**: `~/mimicgen_jihoonkwon/experiments/motivation_ic/square_{D0,D1,D2}/.../{demo.hdf5, demo_failed.hdf5}`, 분석 산출 `analysis/{stats.json, square_*_ic.png, square_*_difficulty.png}`
 - **환경**: `robosuite_mimicgen/venv` (robosuite 1.4.1, robomimic 0.3.1, mimicgen `72bd767`, mujoco 2.3.2, numpy 1.23.5), CPU.
 - **스크립트**: `run_square_motiv2.sh`(생성) · `analyze_motivation_ic.py`(IC 분포·ancestry) · `analyze_difficulty_axes.py`(난이도 축).
 

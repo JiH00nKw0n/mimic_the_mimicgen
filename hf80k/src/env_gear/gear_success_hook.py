@@ -26,6 +26,12 @@ from isaaclab_mimic.datagen.data_generator import DataGenerator
 GRIPPER_OPEN = float(os.environ.get("LAB_SUCCESS_GRIPPER_OPEN", "0.03"))
 MAX_READ_ERRORS = 50
 
+# 판정에 쓴 네 수치를 시도마다 한 줄씩 적을 파일. 비우면 적지 않는다.
+# 수율이 0일 때 "거의 맞췄는데 기준을 못 넘긴 것"인지 "전혀 다른 자리에 있는 것"인지는
+# 통과·실패 한 글자로는 알 수 없다. 그 둘은 다음에 할 일이 완전히 다르다. 앞쪽이면
+# 마무리 동작이나 기준을 보고, 뒤쪽이면 궤적 변환을 봐야 한다.
+JUDGE_LOG = os.environ.get("LAB_GEAR_JUDGE_LOG", "").strip()
+
 _read_errors = 0
 
 
@@ -55,25 +61,37 @@ def _final_assembly_ok(env, env_id: int) -> bool:
         base_pos = (base.root_pos_w[env_id] - org).reshape(1, 3)
         base_quat = base.root_quat_w[env_id].reshape(1, 4)       # XYZW
 
+        # 네 수치를 기어 셋 모두에 대해 먼저 다 구한다. 예전에는 기준을 넘긴 자리에서
+        # 바로 돌아섰는데, 그러면 뒤쪽 기어가 얼마나 벗어났는지 영영 알 수 없다.
+        rows = {}
         for name in GEARS:
             g = env.scene[name].data
             pos = (g.root_pos_w[env_id] - org).reshape(1, 3)
             quat = g.root_quat_w[env_id].reshape(1, 4)
-            speed = float(torch.linalg.vector_norm(g.root_lin_vel_w[env_id]))
-
-            if float(axis_xy_error(pos, quat, base_pos, base_quat, name)[0]) >= AXIS_XY_TOL_M:
-                return False
-            if abs(float(pos[0, 2]) - float(base_pos[0, 2])) >= Z_TOL_M:
-                return False
-            if float(tilt_rad_from_quat(quat)[0]) >= TILT_TOL_RAD:
-                return False
-            if speed >= SPEED_TOL_M_S:
-                return False
-
+            rows[name] = {
+                "axis_m": float(axis_xy_error(pos, quat, base_pos, base_quat, name)[0]),
+                "dz_m": abs(float(pos[0, 2]) - float(base_pos[0, 2])),
+                "tilt_rad": float(tilt_rad_from_quat(quat)[0]),
+                "speed_m_s": float(torch.linalg.vector_norm(g.root_lin_vel_w[env_id])),
+                # 자리도 같이 남긴다. 네 수치만 보면 기어가 제자리에 가만히 있었는지,
+                # 집어서 엉뚱한 곳에 놓았는지 가릴 수 없다. 2026-10-22 생성에서 축오차
+                # 중앙값이 0.25 m로 나왔을 때 이 구분이 안 돼서 추가했다. 환경 기준이다.
+                "pos": [round(float(v), 5) for v in pos[0]],
+            }
         fingers = env.scene["robot"].data.joint_pos[env_id, _finger_indices(env)]
-        if float(fingers.min()) <= GRIPPER_OPEN:
-            return False           # 아직 쥐고 있으면 놓은 것이 아니다
-        return True
+        grip_min = float(fingers.min())
+
+        ok = grip_min > GRIPPER_OPEN
+        for name in GEARS:
+            r = rows[name]
+            r["ok"] = (r["axis_m"] < AXIS_XY_TOL_M and r["dz_m"] < Z_TOL_M
+                       and r["tilt_rad"] < TILT_TOL_RAD and r["speed_m_s"] < SPEED_TOL_M_S)
+            ok = ok and r["ok"]
+
+        if JUDGE_LOG:
+            _append_judge(rows, grip_min, ok,
+                          [round(float(v), 5) for v in base_pos[0]])
+        return ok
     except Exception as exc:                       # noqa: BLE001
         _read_errors += 1
         if _read_errors <= 5 or _read_errors % 100 == 0:
@@ -84,6 +102,21 @@ def _final_assembly_ok(env, env_id: int) -> bool:
                 f"성공 판정이 {_read_errors}번 실패했다. 장면 구성이 바뀐 것으로 보고 "
                 f"실행을 멈춘다. 마지막 오류: {type(exc).__name__}: {exc}") from exc
         return False
+
+
+def _append_judge(rows: dict, grip_min: float, ok: bool,
+                  base_pos: list | None = None) -> None:
+    """판정 한 번을 JSON 한 줄로 덧붙인다. 쓰기에 실패해도 판정을 막지 않는다."""
+    import json
+    try:
+        with open(JUDGE_LOG, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(
+                {"ok": ok, "grip_min": round(grip_min, 5), "base_pos": base_pos,
+                 "gears": {k: {kk: round(vv, 6) if isinstance(vv, float) else vv
+                               for kk, vv in v.items()} for k, v in rows.items()}},
+                ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def _ids(env, env_ids):
@@ -110,8 +143,14 @@ _orig_gen = DataGenerator.generate
 
 async def _gen(self, env_id, *args, **kwargs):
     res = await _orig_gen(self, env_id, *args, **kwargs)
-    if isinstance(res, dict) and res.get("success") and not _final_assembly_ok(self.env, env_id):
-        res["success"] = False
+    mimic_said_success = isinstance(res, dict) and bool(res.get("success"))
+    if mimic_said_success or JUDGE_LOG:
+        # 기록을 켜 두면 MimicGen이 실패로 본 시도까지 판정해 수치를 남긴다. 켜지 않은
+        # 평소에는 MimicGen이 성공이라고 한 시도만 다시 본다. 판정 한 번에 장면을 읽는
+        # 비용이 들어서, 수율만 재는 평소 실행에서는 그 비용을 내지 않는다.
+        seated = _final_assembly_ok(self.env, env_id)
+        if mimic_said_success and not seated:
+            res["success"] = False
     return res
 
 

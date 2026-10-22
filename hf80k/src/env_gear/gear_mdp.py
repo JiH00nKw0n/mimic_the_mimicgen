@@ -62,6 +62,57 @@ GEAR_REGION_Y = (-0.288, 0.464)
 GEAR_MIN_SEP = 0.126           # 기어끼리
 GEAR_BASE_MIN_SEP = 0.091      # 기어와 받침
 
+# 시연이 시작하는 팔 자세. 관절 일곱 개와 손가락 두 개의 각도이고 단위는 라디안이다.
+# 손가락의 0.04는 완전히 열린 값이다. multigear_annotated.hdf5의
+# initial_state/articulation/robot/joint_position을 20편 모두 읽어 보면 전부 이 값이다.
+# 이 자세에서 손끝은 환경 기준 (0.413, 0.138, 1.209)에 있다.
+#
+# 큐브 쌓기가 쓰는 FR3_HOME_JOINT_POSE와 다른 값이므로 그것을 가져다 쓰면 안 된다.
+# 큐브 쪽은 (0, -0.569, 0, -2.810, 0, 2.25, 0.741)이고 기어 시연은 아래 값이다.
+GEAR_HOME_JOINT_POSE = (0.0, -0.7854, 0.0, -2.3562, 0.0, 1.5708, 0.7854, 0.04, 0.04)
+
+# 리셋마다 팔 관절에 더하는 잡음의 표준편차, 라디안. 공식 Franka 리셋이 쓰는 0.02와 같다.
+# 시작 자세에 다양성을 주려고 넣는다. 손가락에는 더하지 않는다.
+ARM_JITTER_STD = float(os.environ.get("LAB_ARM_JITTER", "0.02"))
+
+
+def reset_arm_to_home(env, env_ids, pose=GEAR_HOME_JOINT_POSE,
+                      arm_jitter_std=ARM_JITTER_STD):
+    """리셋 때 팔을 시연이 시작하는 집 자세에 즉시 가져다 둔다.
+
+    없으면 무슨 일이 생기는가. 2026-10-22에 이 이벤트가 없는 상태로 생성을 돌려 보았다.
+    설정에 적어 둔 초기 관절값은 제대로 전해져 있었고(물체의 default_joint_pos가 집
+    자세였다) 그런데도 리셋 직후 관절은 (-0.03, -0.03, 0.05, -0.15, -0.15, 0.29, 0.20)
+    이었다. 즉 기본값이 시뮬레이터에 써지지 않는다. 기본값을 관절에 써넣는 일은 리셋
+    이벤트가 하는데, 기어 환경은 물려받은 이벤트를 전부 None으로 비우고 기어 배치
+    이벤트 하나만 달아 두었기 때문에 그 일을 하는 것이 아무것도 없었다.
+
+    그 결과 팔은 거의 수직으로 뻗은 자세에서 시작한다. 손끝이 z 1.600에 서는데 시연은
+    z 1.209에서 시작하므로 0.39 m 차이다. MimicGen은 구간의 첫 목표까지를 다섯 스텝에
+    이어 붙이므로 한 스텝에 0.08 m짜리 명령이 나가고, 뻗은 자세는 야코비안이 나빠서
+    팔이 명령의 20%만 따라간다. 팔은 작업대 반대쪽(x 1.3에서 1.6 m)을 헤매다 끝났고
+    기어 세 개는 처음 놓인 자리에 그대로 남았다. 생성 329번 모두 실패했다.
+
+    큐브 쌓기와 핀 꽂기는 같은 일을 하는 init_franka_arm_pose 이벤트를 달고 있다.
+    기어만 빠져 있었다.
+
+    PD 목표를 주는 것(set_joint_position_target)이 아니라 관절 상태를 직접 써넣는다
+    (write_joint_state_to_sim). 목표만 주면 리셋 직후 첫 스텝에서 팔이 아직 옛 자리에
+    있고, 생성은 바로 그 첫 스텝의 손끝 자리를 기준으로 명령을 만든다.
+    """
+    robot = env.scene["robot"]
+    if not isinstance(env_ids, torch.Tensor):
+        env_ids = torch.tensor(env_ids, device=env.device, dtype=torch.long)
+    n = int(env_ids.numel())
+    if n == 0:
+        return
+    p = torch.tensor(pose, device=env.device, dtype=torch.float32).repeat(n, 1)
+    if arm_jitter_std > 0.0:
+        noise = arm_jitter_std * torch.randn((n, p.shape[1]), device=env.device)
+        noise[:, -2:] = 0.0            # 손가락은 열린 값 그대로 둔다
+        p = p + noise
+    robot.write_joint_state_to_sim(p, torch.zeros_like(p), env_ids=env_ids)
+
 
 def _as_torch(value):
     """이 Isaac 판본은 물리 값을 warp 배열로 돌려줄 때가 있다. 파이토치 텐서로 바꾼다.
@@ -243,11 +294,30 @@ def randomize_gear_layout(
         gear_xy[name] = (gx, gy)
         placed.append((gx, gy))
 
-    # 받침을 써넣는다. 회전은 z축 기준이고 XYZW 순서다. 반각 공식을 쓴다.
+    # 받침을 써넣는다. 회전은 z축 기준이고 반각 공식을 쓴다.
+    #
+    # 순서는 XYZW다. 쓰는 쪽과 읽는 쪽이 둘 다 XYZW다. 2026-10-21에 실험으로 정했다.
+    # 같은 z축 20도 회전을 두 순서로 써넣고 결과를 비교했다
+    # (tools/gear_quat_order_probe.py).
+    #
+    #   (cos, 0, 0, sin)로 넣으면   기울기 2.79 rad이 되고 기어가 쓰러져 바닥을 뚫는다
+    #   (0, 0, sin, cos)로 넣으면   기울기 0.00 rad이 되고 기어가 제자리에 가만히 있다
+    #
+    # 라이브러리 설명도 같다. write_root_pose_to_sim은 write_root_pose_to_sim_index의
+    # 옛 이름이고, 그 함수의 설명에 "quaternion orientation in (x, y, z, w)"라고 적혀
+    # 있다. 읽는 쪽 .data.root_quat_w도 XYZW다.
+    #
+    # HDF5 파일 안의 root_pose만 WXYZ다. 파일을 읽는 HDF5DatasetFileHandler가 꺼낼 때
+    # XYZW로 바꿔서 reset_to에 넘긴다. 그래서 변환기는 파일에 WXYZ로 적고, 이 함수는
+    # 시뮬레이터에 XYZW로 쓴다. 두 자리의 순서가 다른 것이 맞다.
+    #
+    # 전에 이 자리를 WXYZ로 바꾼 적이 있는데 그것이 틀렸다. 그 상태에서 무작위 배치로
+    # 리셋하면 기어 세 개가 168도 뒤집혀 놓이고, 24번 리셋에서 기어 72개 중 50개(69%)가
+    # 작업면을 뚫고 받침보다 1.74 m 아래로 떨어졌다. 생성 시도가 전부 실패한 원인이다.
     half = yaw * 0.5
     base_quat = torch.zeros((n, 4), device=device)
-    base_quat[:, 2] = torch.sin(half)
-    base_quat[:, 3] = torch.cos(half)
+    base_quat[:, 2] = torch.sin(half)      # z
+    base_quat[:, 3] = torch.cos(half)      # w
     base_pos = torch.stack([bx, by, torch.full((n,), base_z, device=device)], dim=1) + origins
     base = env.scene[base_cfg_name()]
     base.write_root_pose_to_sim(torch.cat([base_pos, base_quat], dim=1), env_ids=env_ids)

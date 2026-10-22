@@ -129,7 +129,7 @@ robosuite 태스크 포팅 없음. **Isaac-Stack-Cube-Franka-IK-Rel-Mimic-v0** (
 | 단계 | 내용 | 자원 |
 |---|---|---|
 | A | 문서 + genaudit 스켈레톤 + 변형 클래스 + curation 단위 테스트 + configs | 로컬 (완료 대상) |
-| B0 | Phase-0 pool 확인(aidas REDACTED-SERVER-ADDRESS)→arpa 동기화, 신규 태스크 source 다운로드+`prepare_src_dataset.py`, Wilson-LB→태스크별 N 확정, **d_raw vs d_pos 경향 보존 체크** | 서버 CPU |
+| B0 | Phase-0 pool 확인(AWS 인스턴스)→arpa 동기화, 신규 태스크 source 다운로드+`prepare_src_dataset.py`, Wilson-LB→태스크별 N 확정, **d_raw vs d_pos 경향 보존 체크** | 서버 CPU |
 | B1 | reachability 스캔·프로브 → D2E bounds 동결 → E1 생성 (신규 변형 × 500) | 서버 CPU |
 | B2 | E2 pool 생성 (4태스크 × N≈6,250, state-only; 선택 500개만 사후 obs 렌더) | 서버 CPU |
 | C | E1 분석·그림 → arm 추출·인증 → BC-RNN 54 run + frozen eval | L40S |

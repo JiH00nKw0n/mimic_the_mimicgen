@@ -29,7 +29,7 @@ from isaaclab_mimic.envs.franka_stack_ik_rel_mimic_env import FrankaCubeStackIKR
 from gear_geom import GEARS
 
 _DEBUG = os.environ.get("LAB_GEAR_DEBUG", "") == "1"
-_DEBUG_MAX = 40
+_DEBUG_MAX = int(os.environ.get("LAB_GEAR_DEBUG_MAX", "40"))
 _DEBUG_PATH = os.environ.get("LAB_GEAR_DEBUG_PATH", "/work/gear_action_debug.log")
 
 
@@ -83,11 +83,24 @@ class LabFR3MultiGearIKRelMimicEnv(FrankaCubeStackIKRelMimicEnv):
             LabFR3MultiGearIKRelMimicEnv._dbg_n += 1
             dpw = float(torch.linalg.vector_norm(target_pos - curr_pos))
             drw = float(torch.linalg.vector_norm(delta_rotation))
+            # 손끝 목표가 어디로 가라는 것인지만 봐서는 그 자리가 맞는지 알 수 없다.
+            # 같은 순간의 받침과 기어 세 개의 자리를 함께 적어 두고, 목표가 집으려는
+            # 기어 쪽으로 모이는지 눈으로 대조한다. 2026-10-22에 생성이 전부 실패하면서
+            # 기어가 받침에서 0.25 m 떨어진 채 끝났을 때 이 대조가 필요해서 넣었다.
+            try:
+                poses = self.get_object_poses(env_ids=[env_id])
+                where = " ".join(
+                    "%s=%.3f,%.3f,%.3f" % ((k,) + tuple(
+                        round(float(v), 3) for v in PoseUtils.unmake_pose(p[0])[0]))
+                    for k, p in poses.items())
+            except Exception as exc:                       # noqa: BLE001
+                where = f"물체자세읽기실패({type(exc).__name__})"
             with open(_DEBUG_PATH, "a") as fh:
-                fh.write(f"{i:3d} curr={[round(float(v),3) for v in curr_pos]} "
+                fh.write(f"{i:4d} curr={[round(float(v),3) for v in curr_pos]} "
                          f"target={[round(float(v),3) for v in target_pos]} "
                          f"|dpos_w|={dpw:.4f} |drot_base|={drw:.4f} "
-                         f"grip={float(gripper_action.reshape(-1)[0]):+.1f}\n")
+                         f"grip={float(gripper_action.reshape(-1)[0]):+.1f} "
+                         f"{where}\n")
 
         return torch.cat([pose_action, gripper_action], dim=0)
 

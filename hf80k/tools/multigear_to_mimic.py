@@ -57,11 +57,28 @@ SOURCE_HZ = 120.0
 GEARS = ("large", "small", "medium")
 
 # 로봇 받침의 자리와 방향. legacy_multi_gear/config/scene_layout.json의 값이고
-# 우리 핀 꽂기 환경의 ROBOT_POS/ROBOT_ROT와 한 자리까지 같다. 사원수는 xyzw 순서이고
-# z축 180도 회전이다. 이 순서는 peg_annotated.hdf5의 root_pose를 열어 명령과 맞춰 보며
-# 확인했다. wxyz로 해석하면 명령이 재현되지 않는다.
+# 우리 핀 꽂기 환경의 ROBOT_POS/ROBOT_ROT와 한 자리까지 같다. 회전은 z축 180도다.
+#
+# 사원수 순서가 자리마다 다르다. 이것 때문에 재생이 전부 실패했다. 2026-10-21에
+# 컨테이너 안에서 하나씩 재서 확인한 것은 이렇다.
+#
+#   설정의 ArticulationCfg.rot      XYZW
+#   .data.root_quat_w               XYZW
+#   initial_state의 root_pose       WXYZ   <- reset_to가 이 순서로 읽는다
+#
+# 명령을 만들 때 쓰는 받침 회전은 XYZW로 (0, 0, 1, 0)이다. 이 값으로 핀 꽂기의 기록된
+# 명령이 최대 오차 1.8e-7로 재현되는 것을 확인했다.
+#
+# 반면 파일에 적는 root_pose는 WXYZ라서 같은 회전이 (0, 0, 0, 1)이 된다. 여기에 XYZW
+# 값을 적으면 reset_to가 y축 180도로 읽어 로봇이 거꾸로 선다. 실제로 그렇게 돼서
+# 손끝이 기록된 자리보다 0.974 m 아래(z=0.235, 책상 아래)에 놓였다.
+#
+# 핀 꽂기 파일도 같은 자리에 XYZW 값이 적혀 있다. 생성은 reset_to를 쓰지 않고 리셋
+# 이벤트로 돌아가므로 그 경로에서는 드러나지 않았다. 핀 꽂기로 어노테이션을 다시
+# 돌릴 일이 있으면 같은 문제가 나온다.
 ROBOT_POS = (0.72, 0.138, 0.722)
-ROBOT_QUAT_XYZW = (0.0, 0.0, 1.0, 0.0)
+ROBOT_QUAT_XYZW = (0.0, 0.0, 1.0, 0.0)          # 명령을 만들 때 쓰는 회전
+ROBOT_QUAT_WXYZ = (0.0, 0.0, 0.0, 1.0)          # 파일의 root_pose에 적는 회전
 
 # 손가락 목표가 이 값 이상이면 열라는 뜻으로 본다, 미터. 시연은 열 때 0.04를 주고
 # 닫을 때 기어마다 0.0078에서 0.0178 사이를 준다. 그 사이를 가르는 값이다.
@@ -94,6 +111,18 @@ def quat_xyzw_to_matrix(q: np.ndarray) -> np.ndarray:
     m[..., 2, 1] = 2 * (y * z + x * w)
     m[..., 2, 2] = 1 - 2 * (x * x + y * y)
     return m
+
+
+def xyzw_to_wxyz(q: np.ndarray) -> np.ndarray:
+    """사원수의 순서를 xyzw에서 wxyz로 바꾼다. 입력 (..., 4).
+
+    initial_state와 states의 root_pose가 wxyz라서 필요하다. 시연 파일은 모든 자세를
+    xyzw로 기록했다. 이걸 빼먹으면 물체가 엉뚱한 방향으로 생성되고, 큰 물체는 작업면에
+    박혀 튕겨 나간다. 실제로 큰 기어가 한 스텝에 7 cm 날아가고 마지막에 180도 뒤집힌
+    상태로 남았다.
+    """
+    q = np.asarray(q)
+    return np.concatenate([q[..., 3:4], q[..., 0:3]], axis=-1)
 
 
 def make_pose(pos: np.ndarray, rot: np.ndarray) -> np.ndarray:
@@ -329,7 +358,8 @@ def write_demo(group, conv: dict, src):
         group.create_dataset(f"obs/datagen_info/subtask_term_signals/{key}", data=sig)
 
     # 초기 상태. 생성이 장면을 이 자리로 되돌린 다음 궤적을 옮겨 붙인다.
-    root_pose = np.asarray([[*ROBOT_POS, *ROBOT_QUAT_XYZW]], dtype=np.float32)
+    # reset_to가 WXYZ로 읽으므로 WXYZ를 적는다. 위 주석 참고.
+    root_pose = np.asarray([[*ROBOT_POS, *ROBOT_QUAT_WXYZ]], dtype=np.float32)
     group.create_dataset("initial_state/articulation/robot/root_pose", data=root_pose)
     group.create_dataset("initial_state/articulation/robot/root_velocity",
                          data=np.zeros((1, 6), dtype=np.float32))
@@ -338,7 +368,9 @@ def write_demo(group, conv: dict, src):
     group.create_dataset("initial_state/articulation/robot/joint_velocity",
                          data=conv["joint_vel"][:1])
     for key in ("base",) + GEARS:
-        p = src[f"obs/{key}_pose"][:1].astype(np.float32)
+        raw = src[f"obs/{key}_pose"][:1].astype(np.float32)
+        # 위치는 그대로, 사원수는 wxyz로 바꿔 적는다. 위 xyzw_to_wxyz 주석 참고.
+        p = np.concatenate([raw[:, :3], xyzw_to_wxyz(raw[:, 3:])], axis=1).astype(np.float32)
         group.create_dataset(f"initial_state/rigid_object/{key}/root_pose", data=p)
         group.create_dataset(f"initial_state/rigid_object/{key}/root_velocity",
                              data=np.zeros((1, 6), dtype=np.float32))
@@ -351,7 +383,8 @@ def write_demo(group, conv: dict, src):
     group.create_dataset("states/articulation/robot/root_velocity",
                          data=np.zeros((n, 6), dtype=np.float32))
     for key in ("base",) + GEARS:
-        p = src[f"obs/{key}_pose"][:][conv["keep"]].astype(np.float32)
+        raw = src[f"obs/{key}_pose"][:][conv["keep"]].astype(np.float32)
+        p = np.concatenate([raw[:, :3], xyzw_to_wxyz(raw[:, 3:])], axis=1).astype(np.float32)
         group.create_dataset(f"states/rigid_object/{key}/root_pose", data=p)
         group.create_dataset(f"states/rigid_object/{key}/root_velocity",
                              data=np.zeros((n, 6), dtype=np.float32))

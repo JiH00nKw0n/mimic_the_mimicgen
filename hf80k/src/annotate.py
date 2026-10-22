@@ -108,7 +108,7 @@ def main(argv=None) -> int:
     log(f"annotate: patched script -> {patched} (끼워 넣은 것: {inject.strip().splitlines()})")
 
     cmd = [orch.ISAACLAB_SH, "-p", patched,
-           "--task", orch.TASK_ID, "--auto", "--headless",
+           "--task", orch.TASK_ID, "--auto",
            "--device", args.device,
            "--input_file", src, "--output_file", dst]
     env = orch.base_env(cfg, [orch.ENV_DIR])
@@ -120,10 +120,37 @@ def main(argv=None) -> int:
     env["LAB_DISABLE_RESET_RANDOMIZATION"] = "1"
 
     log(f"annotate: task={orch.TASK_ID} input={src} output={dst}")
-    proc = subprocess.run(cmd, env=env, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, text=True)
+
+    # --headless를 먼저 붙여 보고, 거부당하면 빼고 다시 한다.
+    #
+    # 판본마다 받는 인자가 다르다. Isaac Sim 6.0.1의 annotate_demos.py는 --headless를
+    # 받지만 6.1.0은 받지 않고 "unrecognized arguments: --headless"로 바로 죽는다.
+    # 6.1.0은 대신 --visualizer를 받는다.
+    #
+    # 어느 쪽인지 파일 본문을 읽어 판별할 수는 없다. 그 인자는 두 판본 모두
+    # AppLauncher.add_app_launcher_args가 붙이므로 스크립트에는 글자가 없다. 그래서
+    # 실제로 한 번 돌려 보고 argparse가 뭐라고 하는지 보는 쪽이 확실하다. 거부는
+    # Isaac Sim이 뜨기 전에 argparse 단계에서 나므로 몇 초밖에 버리지 않는다.
+    #
+    # 뺀 경우에는 환경변수 HEADLESS=1을 준다. annotate_demos.py가 창을 열지 말지
+    # 판단할 때 args_cli.headless와 os.environ["HEADLESS"] 둘을 모두 보기 때문이다.
+    def run_once(argv, extra_env=None):
+        e = dict(env)
+        if extra_env:
+            e.update(extra_env)
+        return subprocess.run(argv, env=e, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True)
+
+    with_headless = cmd[:3] + ["--headless"] + cmd[3:]
+    proc = run_once(with_headless)
+    out = proc.stdout or ""
+    if "unrecognized arguments: --headless" in out:
+        log("annotate: 이 판본의 annotate_demos.py는 --headless를 받지 않는다. "
+            "빼고 환경변수 HEADLESS=1로 다시 한다")
+        proc = run_once(cmd, {"HEADLESS": "1"})
+        out = proc.stdout or ""
     with open(log_path, "a") as handle:
-        handle.write(proc.stdout or "")
+        handle.write(out)
 
     # 종료 코드는 성공 편수다. 판정은 파일을 열어서 한다.
     total, marked, signals = count_annotated(dst)

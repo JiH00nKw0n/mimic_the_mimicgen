@@ -37,7 +37,7 @@ Keyboard controls (printed again when the app starts)
 
 Run it like:
     python3 scripts/05_teleop_record.py --num-demos 5
-    python3 scripts/05_teleop_record.py --public-ip REDACTED-SERVER-ADDRESS --num-demos 5
+    python3 scripts/05_teleop_record.py --public-ip <인스턴스-공개-주소> --num-demos 5
 """
 
 from __future__ import annotations

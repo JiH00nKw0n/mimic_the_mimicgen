@@ -30,3 +30,17 @@ lab_stack_mimic/videos/
 # 별개 서브프로젝트 (데이터 포함) — 이 레포에서 추적 안 함
 lab_peg_mimic/
 figures/motivation_ext/regions/
+
+# --- 실행 설정 (비밀이 들어간다) ---
+# .env에는 허깅페이스 쓰기 토큰이 들어간다. 본보기인 .env.example만 추적한다.
+# 이 저장소는 공개라서 토큰이 한 번 올라가면 되돌릴 수 없다.
+.env
+*.env
+!.env.example
+!*.env.example
+
+# --- 서버 접속 정보 ---
+# 주소와 계정 이름과 키는 저장소에 넣지 않는다. 각자의 ~/.ssh/config에 둔다.
+*.pem
+id_rsa*
+id_ed25519*

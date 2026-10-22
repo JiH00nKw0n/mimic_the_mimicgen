@@ -23,6 +23,7 @@ import copy
 import os
 
 import isaaclab.sim as sim_utils
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 import isaaclab.envs.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -34,7 +35,6 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils import configclass
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaaclab_mimic.envs.franka_stack_ik_rel_mimic_env_cfg import FrankaCubeStackIKRelMimicEnvCfg
 from isaaclab_tasks.manager_based.manipulation.stack import mdp as stack_mdp
@@ -58,6 +58,19 @@ LAB_GEAR_TABLE_USD = os.environ.get(
     "LAB_GEAR_TABLE_USD", "/opt/hf80k/assets/legacy_multi_gear/assets/lab/table_scene.usdc")
 LAB_GEAR_ASSET_ROOT = os.environ.get(
     "LAB_GEAR_ASSET_ROOT", "/opt/hf80k/assets/legacy_multi_gear/assets/gears")
+
+# 로봇 USD. 핀 꽂기와 큐브 쌓기가 쓰는 표준 Isaac 자산의 FR3와 같다.
+#
+# 시연을 녹화한 쪽은 UWLab 저장소의 fr3_facelift_visual.usda를 썼다. 시각 랜덤화 묶음
+# 안에도 같은 이름의 파일이 있는데 그것은 겉모습만 담은 판본이라 관절 뿌리 API가 없고,
+# 그대로 쓰면 "Expected exactly one ArticulationRootAPI prim ... found 0"으로 죽는다.
+#
+# 2026-10-21 기준으로 아직 확인하지 못한 것이 있다. 같은 관절값을 넣었을 때 받침에서
+# 손끝까지의 거리가 기록은 0.576 m인데 이 모델로는 0.850 m가 나온다. 모델이 다른
+# 것인지, 손끝을 읽는 자리가 다른 것인지 가리는 중이다.
+LAB_FR3_USD = os.environ.get(
+    "LAB_FR3_USD",
+    f"{ISAAC_NUCLEUS_DIR}/Robots/FrankaRobotics/FrankaFR3/fr3.usd")
 
 # IK 상대 제어에서 한 스텝에 허용하는 이동량의 배율. 기어 시연의 한 스텝 이동량은
 # 평균 2.9 mm, 최대 15.3 mm다. 핀 꽂기의 13.6 mm와 비슷해서 같은 1.0을 쓴다.
@@ -87,7 +100,7 @@ GRIPPER_THRESHOLD = 0.005
 FR3_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Robot",
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/FrankaRobotics/FrankaFR3/fr3.usd",
+        usd_path=LAB_FR3_USD,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(disable_gravity=True),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=True, solver_position_iteration_count=16,
@@ -216,34 +229,87 @@ class GearObservationsCfg:
 
 
 # ---------------------------------------------------------------------------- 바꿔 끼우기
+# 한 에피소드를 몇 초까지 돌릴지. 큐브 쌓기에서 물려받는 값은 30초인데, 기어 조립은
+# 기어 셋을 차례로 꽂아야 해서 그 안에 끝나지 않는다. 사람 시연 20편의 길이는 20 Hz
+# 기준 1,051스텝에서 1,639스텝, 곧 52.6초에서 82.0초다. 30초는 둘째 기어를 집는 도중에
+# 끊긴다.
+#
+# 2026-10-21에 이 값 때문에 생성이 전부 실패했다. 시도 140번이 모두 time_out으로 끝나고
+# 성공 신호가 한 번도 서지 않았다. 성공을 다시 판정하는 고리(gear_success_hook)는 성공
+# 신호가 선 뒤에만 불리므로, 그 고리의 기록조차 한 줄도 남지 않았다.
+#
+# 기본값은 가장 긴 시연의 약 두 배인 160초로 둔다. MimicGen은 구간을 이어 붙일 때 보간
+# 스텝을 더하므로 생성된 궤적이 원본보다 길어진다. 환경변수로 바꿀 수 있게 열어 둔다.
+EPISODE_LENGTH_S = float(os.environ.get("LAB_GEAR_EPISODE_LENGTH_S", "160.0"))
+
+# 물리 한 스텝의 길이. 시연을 녹화한 환경은 1/120초로 돌았다
+# (refcode/teleop_multigear_lab_v3.py의 SimulationCfg(dt=1/120)). 큐브 쌓기에서 물려받는
+# 값은 1/100초다. 기어를 축에 넣는 동작은 접촉 거리를 2 mm로 두고 SDF 충돌로 푸는데,
+# 그 해법은 물리 스텝 길이에 민감하다. 녹화 환경과 같은 값으로 맞춘다.
+#
+# decimation은 함께 6으로 둔다. 1/120초를 6번 모으면 제어 주기가 20 Hz가 되어, 데이터셋
+# 주기와 변환기가 뽑아 둔 명령 주기와 맞는다. dt만 바꾸면 제어 주기가 24 Hz로 어긋나서
+# 기록된 명령이 한 스텝에 더 멀리 가라고 시키는 셈이 된다.
+PHYSICS_DT = float(os.environ.get("LAB_GEAR_PHYSICS_DT", str(1.0 / 120.0)))
+DECIMATION = int(os.environ.get("LAB_GEAR_DECIMATION", "6"))
+
+
 def _apply_lab_overrides(self):
     """큐브 쌓기 장면을 기어 조립으로 바꾼다."""
 
+    # --- 시간 ----------------------------------------------------------------------------
+    self.sim.dt = PHYSICS_DT
+    self.decimation = DECIMATION
+    self.episode_length_s = EPISODE_LENGTH_S
+    # 렌더 간격은 물리 스텝 수로 센다. 물리 스텝이 짧아졌으니 같은 화면 주기를 쓰려면
+    # 간격도 같은 비율로 늘려야 한다. 렌더를 끄고 돌 때도 이 값이 쓰이므로 함께 맞춘다.
+    self.sim.render_interval = DECIMATION
+    print(f"[gear_mimic_cfg] 물리 {1.0 / PHYSICS_DT:.0f} Hz, 제어 "
+          f"{1.0 / (PHYSICS_DT * DECIMATION):.1f} Hz, 에피소드 {EPISODE_LENGTH_S:.0f}초 "
+          f"({EPISODE_LENGTH_S / (PHYSICS_DT * DECIMATION):.0f}스텝)")
+
     # --- 장면 ----------------------------------------------------------------------------
-    # 눈에 보이는 책상. 충돌 그룹을 -1로 두어 기어가 이 메시와 충돌 걸러내기를 하게 한다.
+    # 눈에 보이는 책상. 보이기만 하고 충돌은 끈다.
+    #
+    # 충돌을 반드시 꺼야 한다. 기어를 실제로 받치는 것은 아래의 보이지 않는 얇은 판이고,
+    # 이 책상 메시는 모양만 보여 준다. 충돌을 켜 두면 기어가 메시 안쪽에 박힌 상태로
+    # 생성되고 물리가 그 겹침을 풀면서 튕겨낸다. 2026-10-21에 재서 확인한 값은 이렇다.
+    # 초기 상태에서는 큰 기어가 기록된 자리와 소수점 네 자리까지 맞는데, 한 스텝
+    # (1/20초) 뒤에 6.4 cm 움직였다. 초속 1.27 m다. 그 뒤로는 자리가 돌아오지 않아
+    # 로봇이 빈 자리를 집는다.
+    #
+    # 시연을 만든 쪽의 설정도 이 두 값을 꺼 두었다. 베끼면서 빠뜨린 것이다.
     self.scene.table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/LabTableVisual",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)),
-        collision_group=-1,
-        spawn=sim_utils.UsdFileCfg(usd_path=LAB_GEAR_TABLE_USD),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path=LAB_GEAR_TABLE_USD,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=False),
+            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+        ),
     )
     # 보이지 않는 물리 판. 불러온 책상 메시는 쓸 만한 정적 충돌로 구워지지 않아서 실제로
-    # 기어를 받치는 것은 이 판이다. 시연을 만든 쪽도 같은 이유로 같은 판을 썼고 크기도
-    # (0.80, 1.80, 0.02)에 높이 0.710으로 같다.
+    # 기어를 받치는 것은 이 판이다. 시연을 만든 쪽의 설정을 그대로 가져왔다. 크기
+    # (0.80, 1.80, 0.02), 높이 0.710, 보이지 않음이다.
     #
-    # AssetBaseCfg가 아니라 kinematic인 RigidObjectCfg로 둔다. Isaac Lab은 RigidObject로
-    # 감싼 자산에만 물리 뷰를 만들어 주는데, 뒤에 실측 물리를 붙일 때 작업면 쪽 마찰에
-    # 손을 대려면 그 뷰가 있어야 한다. kinematic이라 중력도 접촉 충격량도 받지 않으므로
-    # 고정된 책상으로 그대로 동작한다. 핀 꽂기에서 같은 이유로 같은 모양으로 고쳤다.
-    self.scene.work_surface = RigidObjectCfg(
+    # 반드시 AssetBaseCfg여야 한다. 강체로 감싸면 안 된다.
+    #
+    # 처음에는 핀 꽂기를 베껴 kinematic인 RigidObjectCfg로 두었다. 핀 꽂기가 그렇게 둔
+    # 이유는 실측 물리 묶음이 작업면 쪽 마찰을 쓰는데 Isaac Lab이 RigidObject로 감싼
+    # 자산에만 물리 뷰를 만들어 주기 때문이다. 그런데 그렇게 두면 재생이 죽는다.
+    # Isaac Lab의 reset_to가 장면의 모든 강체에 대해 기록된 초기 상태를 요구하는데,
+    # 소스 파일에 작업면 상태가 없으면 KeyError: 'work_surface'로 바로 멈춘다. 실제로
+    # 2026-10-21에 재생 시험이 시연 0편의 첫 리셋에서 그렇게 죽었다.
+    #
+    # 기어에는 실측 물리 묶음이 아직 없으므로 물리 뷰가 필요하지 않다. 나중에 묶음이
+    # 생겨 강체로 바꿀 일이 있으면, 변환기가 initial_state/rigid_object/work_surface를
+    # 같이 적도록 고쳐야 한다. 한쪽만 바꾸면 재생이 다시 죽는다.
+    self.scene.work_surface = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/WorkSurface",
-        collision_group=-1,
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.710)),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.710)),
         spawn=sim_utils.CuboidCfg(
             size=(0.80, 1.80, 0.02), visible=False,
             collision_props=sim_utils.CollisionPropertiesCfg(),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
-            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
         ),
     )
     self.scene.robot = FR3_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -295,6 +361,18 @@ def _apply_lab_overrides(self):
                "randomize_cube_positions"):
         if hasattr(self.events, _e):
             setattr(self.events, _e, None)
+
+    # 리셋 때 팔을 시연이 시작하는 집 자세로 가져다 둔다. 큐브 쌓기에서 물려받은 같은
+    # 이름의 이벤트는 큐브 시연의 집 자세를 쓰므로 위에서 비우고, 기어 시연에서 읽은
+    # 자세를 쓰는 우리 것으로 바꿔 끼운다.
+    #
+    # 이 이벤트가 없으면 리셋이 팔 관절에 아무것도 쓰지 않는다. 설정의 초기 관절값은
+    # 물체의 default_joint_pos까지만 전해지고 시뮬레이터에는 안 써진다. 그 상태로
+    # 2026-10-22에 생성을 돌렸더니 팔이 거의 수직으로 뻗은 자세에서 시작해(손끝 z
+    # 1.600, 시연은 1.209) 작업대 반대쪽을 헤매다 끝났고, 329번 모두 실패했다.
+    # 자세한 측정은 gear_mdp.reset_arm_to_home의 설명에 적어 두었다.
+    self.events.init_franka_arm_pose = EventTerm(
+        func=gear_mdp.reset_arm_to_home, mode="reset", params={})
 
     # 리셋 때 받침과 기어 세 개의 자리를 새로 뽑는다. 생성에서는 이것이 있어야 새 배치가
     # 나온다. 어노테이션 재생에서는 반드시 꺼야 한다. 기록된 초기 배치를 덮으면 재생하는

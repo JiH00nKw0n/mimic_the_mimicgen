@@ -368,7 +368,16 @@ def _add_lerobot_site():
     return site
 
 
+# STOP_AFTER로 여기까지만 돌겠다고 한 단계들. 이 중 하나로 멈추면 LeRobot 기록 단계에
+# 가지 않으므로 LeRobot이 깔려 있는지 보지 않는다. 돌지 않는 단계의 준비물을 요구하면,
+# 수율만 재려는 실행이 설치 문제로 막힌다.
+STAGES_BEFORE_LEROBOT = ("generate", "sart", "convert", "render")
+
+
 def check_lerobot(cfg):
+    if cfg["stop_after"] in STAGES_BEFORE_LEROBOT:
+        return "PASS", (f"STOP_AFTER={cfg['stop_after']}이므로 기록 단계에 가지 않는다. "
+                        f"LeRobot을 보지 않는다")
     _add_lerobot_site()
     version = None
     try:
