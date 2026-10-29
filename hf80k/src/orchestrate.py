@@ -783,6 +783,46 @@ def prepare_source_dataset(cfg: dict, log) -> str:
     return path
 
 
+# Isaac Lab의 generate_dataset.py가 생성 직전에 난수를 다시 심는 줄. 들여쓰기까지 그대로다.
+SEED_MARKER = "    # Set seed for generation"
+
+# 그 줄 바로 앞에 끼워 넣을 블록.
+SEED_OVERRIDE = """\
+    # [orch] 청크마다, 생성 프로세스마다 다른 난수 흐름을 쓰게 한다.
+    #
+    # 바로 아래 세 줄이 random, numpy, torch의 난수를 datagen_config.seed로 다시 심는다.
+    # 그 값의 기본이 1로 고정이라(isaaclab/envs/mimic_env_cfg.py의 seed: int = 1), 이
+    # 덮어쓰기가 없으면 어떤 청크를 돌려도 같은 장면을 같은 순서로 뽑는다. 우리가 등록
+    # 모듈에서 심은 씨앗도 여기서 지워진다.
+    #
+    # 2026-10-28 기어 실행에서 실제로 그렇게 됐다. 청크 8개와 생성 프로세스 2개가 모두
+    # 바이트까지 같은 파일(md5 27ce2a8c4e536a882f41741ec3f02411)을 냈고, 1,024회로
+    # 기록된 시도가 서로 다른 장면 64개를 16번 되풀이한 것이었다. 판정 기록의 받침 자리가
+    # 64개뿐인 것으로 확인했다.
+    import os as _orch_os
+
+    _orch_seed = _orch_os.environ.get("LAB_GEN_SEED", "").strip()
+    if _orch_seed:
+        env.cfg.datagen_config.seed = int(_orch_seed) % (2 ** 31)
+        print(f"[orch] datagen_config.seed <- LAB_GEN_SEED="
+              f"{env.cfg.datagen_config.seed}", flush=True)
+"""
+
+
+def inject_seed_override(body: str) -> str:
+    """생성 스크립트가 난수를 고정값으로 다시 심는 자리 앞에 우리 씨앗을 넣는다.
+
+    표시 줄을 못 찾으면 멈춘다. 조용히 넘어가면 청크마다 같은 데이터를 만들고도 수율이
+    제대로 나온 것처럼 보이기 때문이다. 그 상태로 네 시간을 돌린 적이 있다.
+    """
+    if SEED_MARKER not in body:
+        raise SystemExit(
+            "[orch] 생성 스크립트에서 난수를 다시 심는 줄"
+            f"({SEED_MARKER.strip()!r})을 찾지 못했다. Isaac Lab 쪽이 바뀐 것이다. "
+            "이 줄을 그냥 두면 청크마다 같은 장면을 뽑으므로 실행을 멈춘다.")
+    return body.replace(SEED_MARKER, SEED_OVERRIDE + SEED_MARKER, 1)
+
+
 def prepare_generate_script(cfg: dict, log) -> str:
     """Copy Isaac Lab's generate_dataset.py and inject our three modules.
 
@@ -805,6 +845,7 @@ def prepare_generate_script(cfg: dict, log) -> str:
     if not done:
         raise SystemExit("[orch] could not find 'import isaaclab_mimic.envs' to inject after")
     body = "\n".join(out) + "\n"
+    body = inject_seed_override(body)
     with open(dst, "w") as fh:
         fh.write(body)
     log(f"generate: patched script -> {dst} (--seed "

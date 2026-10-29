@@ -64,16 +64,37 @@ convert:
   object_states: [base, large, small, medium]
 
 render:
-  # 렌더를 돌지 않는다. 기어 장면으로 잰 카메라 보정값이 없다. 핀 꽂기와 큐브 쌓기는
-  # 실측 카메라 세 대의 보정값(fr3_binding_v2.yaml, fr3_camera_overlay_v2/overlay.yaml)을
-  # 쓰지만 기어 장면의 값은 만들어지지 않았다.
-  #
-  # 끄면 영상이 없으므로 LeRobot 데이터셋도 만들 수 없다. 기록 단계가 영상 프레임에
-  # 행동을 맞추는 구조이기 때문이다. 그래서 이 프로필로는 환경변수 STOP_AFTER=generate를
-  # 같이 주어 생성까지만 돌리고 수율만 잰다. 그렇게 끝낸 청크의 매니페스트는 status가
-  # done이 아니라 measured로 적힌다.
+  # 렌더를 켜면 생성된 궤적을 다시 재생하면서 카메라 세 대의 그림을 그려 넣는다. 이 절의
+  # 기본값은 끈 상태다. 수율만 재는 실행에서 렌더까지 돌면 몇 배 느려지기 때문이다.
+  # 영상이 필요한 실행에서만 환경변수 RENDER_ENABLE=1을 주어 켠다.
   enable: false
-
+  # 생성과 같은 태스크를 쓴다. 렌더는 같은 장면을 카메라만 켜서 다시 재생하는 것이다.
+  task_id: Isaac-MultiGear-LabFR3-IK-Rel-Mimic-v0
+  register_modules: [gear_register]
+  cameras: [third_person_0, third_person_1, wrist]
+  # 카메라 보정값. 큐브 쌓기와 핀 꽂기가 쓰는 것과 같은 파일이다. 이 파일은 카메라 위치를
+  # 로봇 밑동(fr3_link0) 기준으로 적고 그 변환이 단위행렬이라, 로봇 밑동이 장면에서 같은
+  # 자리에 있으면 그대로 옮겨진다.
+  #
+  # 이 보정값을 기어 장면에 그대로 써도 되는지 확인했다. 두 장면의 로봇 받침 자리가
+  # (0.72, 0.138, 0.722)으로 소수점까지 같고 z축 180도 회전도 같다. 작업면 높이도 둘 다
+  # 0.720이다. 카메라 자리가 로봇 받침 기준으로 적혀 있으므로 그대로 옮겨진다.
+  # 근거는 src/env_gear/gear_mimic_cfg.py의 ROBOT_POS와 DESK_Z, 그리고
+  # src/env_peg/peg_mimic_cfg.py의 ROBOT_POS, src/render/peg_success_criteria.py의 DESK_Z다.
+  #
+  # 다만 책상 USD 파일은 서로 다르다. 기어 장면은
+  # legacy_multi_gear/assets/lab/table_scene.usdc를 쓴다. 높이와 로봇 자리는 같으므로
+  # 카메라 시점은 맞고, 책상의 겉모습만 실물과 다르게 보일 수 있다.
+  overlay_yaml: fr3_camera_overlay_v2/overlay.yaml
+  binding_yaml: fr3_binding_v2.yaml
+  success:
+    # 조립 판정. 기어 세 개가 모두 제 축에 앉아 있어야 성공이다. 축 중심이 받침 축에서
+    # 가로세로 1 mm 안, 기어 원점과 받침 원점의 높이 차이 2.5 mm 안, 기울기 0.12 rad
+    # 안이고 그리퍼가 열려 있어야 한다. 생성 중 판정과 같은 기준이며 속도 조건만 빠진다.
+    # 계약 형식에 속도가 기록되지 않기 때문이고, 속도는 생성 단계에서 이미 걸러진 뒤다.
+    module: gear_success_criteria
+    function: replay_verdict
+    verdict_attr: replay_success_any_order
 physics:
   # 기어를 재서 얻은 실측 물리 묶음이 아직 없다. 핀 꽂기는
   # fr3_peg_in_hole_physics_bundle_v1_normalized를 쓰지만 기어용은 만들어지지 않았다.
@@ -82,10 +103,17 @@ physics:
   bundle_dir: ""
 
 visual:
-  # 기어 장면의 카메라 캘리브레이션이 없다. 핀 꽂기와 큐브 쌓기는 실측 카메라 세 대의
-  # 보정값을 쓰지만 기어 장면으로 잰 값이 없다. 그래서 시각 랜덤화도 비워 둔다.
-  package_dir: ""
-
+  # 시각 랜덤화 규격은 물체를 큐브 쌓기 장면의 이름으로 부른다. 이 장면의 프림 경로로
+  # 잇는다. {ENV}는 렌더가 환경 하나의 경로로 바꿔 넣는다.
+  #
+  # 기어 받침에 해당하는 자리가 규격에 없어서 받침은 겉모습이 랜덤화되지 않는다. 받침은
+  # 매 에피소드 놓이는 자리가 달라지므로 겉모습까지 바꿀 이유가 크지 않다.
+  package_dir: fr3_visual_randomization_v1
+  object_prims:
+    cube_1: "{ENV}/LargeGear"
+    cube_2: "{ENV}/SmallGear"
+    cube_3: "{ENV}/MediumGear"
+    table: "{ENV}/LabTableVisual"
 dataset:
   task_string: Assemble the three gears onto the base shafts in order large, small, medium
   robot_type: franka_fr3_osc
